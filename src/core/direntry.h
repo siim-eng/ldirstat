@@ -7,12 +7,9 @@
 #include "namestore.h"
 
 // Arena-friendly directory entry. Fixed-size, no heap allocations.
-// Names live in a NameStore; children are contiguous in the entry arena.
+// Names live in a NameStore; entries live in a page-based DirEntryStore.
 
 namespace ldirstat {
-
-// Sentinel for "no entry".
-inline constexpr uint32_t kNoEntry = UINT32_MAX;
 
 enum class EntryType : uint8_t {
     File,
@@ -21,8 +18,18 @@ enum class EntryType : uint8_t {
     Other,
 };
 
+// Reference to a DirEntry in the page-based store.
+struct EntryRef {
+    uint16_t page_id = UINT16_MAX;
+    uint16_t index   = UINT16_MAX;
+
+    bool valid() const { return page_id != UINT16_MAX; }
+};
+
+inline constexpr EntryRef kNoEntry{};
+
 // A single node in the directory tree.
-// All indices refer to positions in the flat DirEntry arena.
+// Tree links use EntryRef (page_id + index) into the DirEntryStore.
 // Name data is stored externally in a NameStore; NameRef locates it.
 struct DirEntry {
     // Name (page_id + offset + length into NameStore).
@@ -40,11 +47,11 @@ struct DirEntry {
     // Number of entries in subtree (excluding self). 0 for files.
     uint32_t subtree_count = 0;
 
-    // Tree links (arena indices).
-    uint32_t parent      = kNoEntry;
-    uint32_t first_child = kNoEntry;  // first child index in arena
+    // Tree links (EntryRef into DirEntryStore).
+    EntryRef parent;
+    EntryRef first_child;
     uint32_t child_count = 0;         // number of direct children
-    uint32_t next_sibling = kNoEntry; // next sibling in parent's child list
+    EntryRef next_sibling;
 
     // Device and inode for hardlink detection.
     dev_t device = 0;
