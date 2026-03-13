@@ -36,7 +36,7 @@ struct DirEntry {
     NameRef name;
 
     EntryType type = EntryType::File;
-    uint8_t   depth = 0;          // tree depth (0 = root)
+    uint16_t  depth = 0;          // tree depth (0 = root)
 
     // Size in bytes. For files: st_size. For directories: sum of subtree.
     uint64_t size = 0;

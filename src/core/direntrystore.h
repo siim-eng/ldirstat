@@ -14,17 +14,22 @@ namespace ldirstat {
 // Page-based arena for DirEntry nodes. Each page holds 65536 entries.
 // Grows by adding pages — never reallocates existing pages.
 // Workers get their own page to write to; page allocation is thread-safe,
-// writing within a page is not.
+// writing within a page is not. The pages_ vector is pre-reserved so it
+// never reallocates, making operator[] safe to call without locking.
 class DirEntryStore {
 public:
     static constexpr uint32_t kEntriesPerPage = 65536;
+    static constexpr size_t kMaxPages = 65535;
+
+    DirEntryStore() { pages_.reserve(kMaxPages); }
 
     // Thread-safe. Allocates a new empty page, returns its ID.
     uint16_t allocate_page() {
+        auto page = std::make_unique<Page>();
         std::lock_guard<std::mutex> lock(mutex_);
-        assert(pages_.size() < UINT16_MAX);
+        assert(pages_.size() < kMaxPages);
         auto id = static_cast<uint16_t>(pages_.size());
-        pages_.push_back(std::make_unique<Page>());
+        pages_.push_back(std::move(page));
         return id;
     }
 

@@ -1,5 +1,6 @@
 #include "scanner.h"
 
+#include <cassert>
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
@@ -39,7 +40,12 @@ Scanner::~Scanner() {
 }
 
 EntryRef Scanner::scan(const std::string& root_path, int worker_count) {
+    assert(worker_count > 0);
     stop_.store(false, std::memory_order_relaxed);
+
+    // Reset state from any previous scan.
+    queue_.clear();
+    active_workers_ = 0;
 
     // Create root entry.
     uint16_t entry_page = entry_store_.allocate_page();

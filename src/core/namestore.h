@@ -23,25 +23,29 @@ static_assert(sizeof(NameRef) == 6);
 // Thread safety:
 //   - allocate_page(): thread-safe (mutex-protected)
 //   - add():           NOT thread-safe per page — caller must own the page exclusively
-//   - get():           thread-safe (read-only)
+//   - get():           thread-safe (read-only, pages_ vector never reallocates)
 class NameStore {
     static constexpr size_t kPageSize = 65536;
+    static constexpr size_t kMaxPages = 65535;
 
     struct Page {
         std::array<char, kPageSize> data{};
-        uint16_t used = 0;
+        uint32_t used = 0;
     };
 
     std::vector<std::unique_ptr<Page>> pages_;
     std::mutex mutex_;
 
 public:
+    NameStore() { pages_.reserve(kMaxPages); }
+
     // Thread-safe. Allocates a new empty page, returns its ID.
     uint16_t allocate_page() {
+        auto page = std::make_unique<Page>();
         std::lock_guard<std::mutex> lock(mutex_);
-        assert(pages_.size() < UINT16_MAX);
+        assert(pages_.size() < kMaxPages);
         auto id = static_cast<uint16_t>(pages_.size());
-        pages_.push_back(std::make_unique<Page>());
+        pages_.push_back(std::move(page));
         return id;
     }
 
@@ -59,15 +63,15 @@ public:
 
         auto ref = NameRef{
             current_page,
-            page->used,
+            static_cast<uint16_t>(page->used),
             static_cast<uint16_t>(name.size()),
         };
         std::memcpy(&page->data[page->used], name.data(), name.size());
-        page->used += static_cast<uint16_t>(name.size());
+        page->used += static_cast<uint32_t>(name.size());
         return ref;
     }
 
-    // Thread-safe (read-only). Returns the stored name.
+    // Thread-safe (read-only, pages_ never reallocates). Returns the stored name.
     std::string_view get(NameRef ref) const {
         return {&pages_[ref.page_id]->data[ref.offset], ref.length};
     }
