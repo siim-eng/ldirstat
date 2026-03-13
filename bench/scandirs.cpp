@@ -25,32 +25,18 @@ int main(int argc, char* argv[]) {
     ldirstat::Scanner scanner(entryStore, nameStore);
 
     auto t0 = std::chrono::steady_clock::now();
-    scanner.scan(rootPath, workerCount);
+    ldirstat::EntryRef rootRef = scanner.scan(rootPath, workerCount);
+    scanner.propagate(rootRef);
     auto t1 = std::chrono::steady_clock::now();
 
-    uint64_t dirCount = 0;
-    uint64_t fileCount = 0;
-    uint64_t diskUsed = 0;
-
-    for (uint16_t p = 0; p < entryStore.pageCount(); ++p) {
-        uint32_t used = entryStore.pageUsed(p);
-        for (uint32_t i = 0; i < used; ++i) {
-            ldirstat::EntryRef ref{p, static_cast<uint16_t>(i)};
-            const ldirstat::DirEntry& e = entryStore[ref];
-            if (e.isDir())
-                ++dirCount;
-            else if (e.isFile())
-                ++fileCount;
-            diskUsed += e.blocks * 512;
-        }
-    }
+    const ldirstat::DirEntry& root = entryStore[rootRef];
 
     auto us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
     double ms = us / 1000.0;
 
-    std::printf("dirs:      %lu\n", dirCount);
-    std::printf("files:     %lu\n", fileCount);
-    std::printf("disk_used: %lu bytes\n", diskUsed);
+    std::printf("dirs:      %u\n", root.dirCount);
+    std::printf("files:     %u\n", root.fileCount);
+    std::printf("disk_used: %lu bytes\n", root.blocks * 512);
     std::printf("time:      %.3f ms\n", ms);
 
     return 0;

@@ -44,8 +44,9 @@ struct DirEntry {
     // Allocated disk blocks (512-byte units from st_blocks).
     uint64_t blocks = 0;
 
-    // Number of entries in subtree (excluding self). 0 for files.
-    uint32_t subtreeCount = 0;
+    // Number of files/dirs in subtree (excluding self). 0 for files.
+    uint32_t fileCount = 0;
+    uint32_t dirCount = 0;
 
     // Tree links (EntryRef into DirEntryStore).
     EntryRef parent;

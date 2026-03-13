@@ -84,6 +84,36 @@ void Scanner::stop() {
     cv_.notify_all();
 }
 
+void Scanner::propagate(EntryRef root) {
+    std::vector<EntryRef> stack;
+    stack.push_back(root);
+    EntryRef child = entryStore_[root].firstChild;
+    bool dirPopped = false;
+    while (!stack.empty() && child.valid()) {
+        DirEntry& entry = entryStore_[child];
+        if (entry.isDir() && entry.dirCount > 0 && !dirPopped) {
+            stack.push_back(child);
+            child = entry.firstChild;
+            continue;
+        } 
+
+        if (entry.isDir() && entry.parent.valid()) {
+            DirEntry& parent = entryStore_[entry.parent];
+            parent.fileCount += entry.fileCount;
+            parent.dirCount += entry.dirCount;
+            parent.size += entry.size;
+            parent.blocks += entry.blocks;
+        }
+        dirPopped = false;
+        child = entry.nextSibling;
+        if (!child.valid()) {
+            child = stack.back();
+            stack.pop_back();
+            dirPopped = true;
+        }
+    }
+}
+
 std::optional<Scanner::DirWork> Scanner::takeWork() {
     std::unique_lock lock(mutex_);
     while (true) {
@@ -123,6 +153,10 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
 
     DirEntry& parent = entryStore_[work.ref];
     EntryRef prevChild;
+    uint32_t files = 0;
+    uint32_t dirs = 0;
+    uint64_t totalSize = 0;
+    uint64_t totalBlocks = 0;
 
     for (;;) {
         if (stop_.load(std::memory_order_relaxed))
@@ -180,6 +214,15 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
                 break;
             }
 
+            // Accumulate counts and totals.
+            if (entry.type == EntryType::File) {
+                ++files;
+            } else if (entry.type == EntryType::Directory) {
+                ++dirs;
+            }
+            totalSize += entry.size;
+            totalBlocks += entry.blocks;
+
             // Chain child into parent's child list.
             if (prevChild.valid())
                 entryStore_[prevChild].nextSibling = ref;
@@ -197,6 +240,11 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
             }
         }
     }
+
+    parent.fileCount = files;
+    parent.dirCount = dirs;
+    parent.size += totalSize;
+    parent.blocks += totalBlocks;
 
     close(fd);
 }

@@ -28,6 +28,10 @@ public:
     // Signals all workers to stop. Can be called from any thread.
     void stop();
 
+    // Single-threaded post-scan pass. Propagates fileCount, dirCount,
+    // size, and blocks from child directories up to their parents.
+    void propagate(EntryRef root);
+
 private:
     struct DirWork {
         std::string path;
