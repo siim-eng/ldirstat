@@ -4,8 +4,10 @@
 #include <cstdint>
 #include <sys/types.h>
 
+#include "namestore.h"
+
 // Arena-friendly directory entry. Fixed-size, no heap allocations.
-// Names live in a separate string pool; children are contiguous in the entry arena.
+// Names live in a NameStore; children are contiguous in the entry arena.
 
 namespace ldirstat {
 
@@ -21,11 +23,10 @@ enum class EntryType : uint8_t {
 
 // A single node in the directory tree.
 // All indices refer to positions in the flat DirEntry arena.
-// Name data is stored externally in a StringPool; name_offset/name_len locate it.
+// Name data is stored externally in a NameStore; NameRef locates it.
 struct DirEntry {
-    // Name (index into string pool).
-    uint32_t name_offset = 0;
-    uint16_t name_len    = 0;
+    // Name (page_id + offset + length into NameStore).
+    NameRef name;
 
     EntryType type = EntryType::File;
     uint8_t   depth = 0;          // tree depth (0 = root)

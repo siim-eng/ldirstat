@@ -12,6 +12,10 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
 
 The project targets C/C++, g++, ninja, cmake. Use .clang-format, .clang-tidy
 
+## Code Style
+
+- All class member variables must have a trailing underscore (e.g. `pages_`, `mutex_`).
+
 ## Folder Structure
 
 ```
