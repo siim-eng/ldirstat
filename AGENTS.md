@@ -12,39 +12,18 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
 
 The project targets C/C++, g++, ninja, cmake. Use .clang-format, .clang-tidy
 
+## Code Style
+
+- All class member variables must have a trailing underscore (e.g. `pages_`, `mutex_`).
+
 ## Folder Structure
 
-```
-ldirstat/
-├── CMakeLists.txt              # top-level: project options, subdirs
-├── cmake/                      # CMake modules/helpers
-│   └── CompilerWarnings.cmake
-├── .clang-format
-├── .clang-tidy
-│
-├── src/
-│   ├── core/                   # C++ stdlib only — no Qt
-│   │   ├── CMakeLists.txt
-│   │   ├── scanner.h/.cpp      # filesystem walker (readdir/getdents64)
-│   │   ├── direntry.h          # node/tree types (arena-friendly)
-│   │   ├── dirtree.h/.cpp      # tree construction & size aggregation
-│   │   ├── workqueue.h         # lock-free or mutex-based task queue
-│   │   └── worker.h/.cpp       # thread-pool / agent logic
-│   │
-│   └── ui/                     # Qt only — depends on core
-│       ├── CMakeLists.txt
-│       ├── main.cpp
-│       ├── mainwindow.h/.cpp
-│       ├── treemapwidget.h/.cpp   # treemap visualization
-│       └── dirmodel.h/.cpp        # QAbstractItemModel adapter
-│
-└── tests/
-    ├── CMakeLists.txt
-    ├── test_scanner.cpp
-    └── test_dirtree.cpp
-```
-
-- `src/core/` — pure C++ stdlib. Compiles as a static library. No Qt headers.
-- `src/ui/` — Qt-only. Thin adapter layer consuming core types.
-- `cmake/` — shared compiler flags, sanitizer toggles.
-- `tests/` — links against core library directly; no Qt needed for core tests.
+- `src/core/` — pure C++ stdlib, no Qt. Core types and scanner.
+  - `direntry.h` — `DirEntry` struct, `EntryRef` (page_id + index), `EntryType` enum.
+  - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
+  - `direntrystore.h` — `DirEntryStore`: page-based arena (65536 entries/page) for DirEntry nodes.
+  - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages.
+- `src/ui/` — Qt-only (not yet implemented).
+- `bench/` — benchmarks.
+  - `scandirs.cpp` — CLI: `scandirs <rootdir> <worker_count>`, prints dirs/files/disk_used/time.
+- Build (no CMake yet): `g++ -std=c++20 -O2 -I src/core src/core/scanner.cpp bench/scandirs.cpp -o bench/scandirs -lpthread`

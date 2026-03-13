@@ -40,7 +40,7 @@ public:
             page = pages_[current_page].get();
         }
 
-        EntryRef ref{current_page, page->used};
+        EntryRef ref{current_page, static_cast<uint16_t>(page->used)};
         ++page->used;
         return ref;
     }
@@ -53,10 +53,13 @@ public:
         return pages_[ref.page_id]->entries[ref.index];
     }
 
+    uint16_t page_count() const { return static_cast<uint16_t>(pages_.size()); }
+    uint32_t page_used(uint16_t page_id) const { return pages_[page_id]->used; }
+
 private:
     struct Page {
         std::array<DirEntry, kEntriesPerPage> entries{};
-        uint16_t used = 0;
+        uint32_t used = 0;
     };
 
     std::vector<std::unique_ptr<Page>> pages_;
