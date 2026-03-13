@@ -14,12 +14,14 @@ The project targets C/C++, g++, ninja, cmake. Use .clang-format, .clang-tidy
 
 ## Code Style
 
-- All class member variables must have a trailing underscore (e.g. `pages_`, `mutex_`).
+- camelCase for all identifiers (variables, functions, parameters).
+- Class member variables have trailing underscore (e.g., `entryStore_`, `mutex_`).
+- Struct fields have no underscore (e.g., `pageId`, `firstChild`).
 
 ## Folder Structure
 
 - `src/core/` — pure C++ stdlib, no Qt. Core types and scanner.
-  - `direntry.h` — `DirEntry` struct, `EntryRef` (page_id + index), `EntryType` enum.
+  - `direntry.h` — `DirEntry` struct, `EntryRef` (pageId + index), `EntryType` enum.
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
   - `direntrystore.h` — `DirEntryStore`: page-based arena (65536 entries/page) for DirEntry nodes.
   - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages.
