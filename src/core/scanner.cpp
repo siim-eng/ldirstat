@@ -22,16 +22,16 @@ struct linux_dirent64 {
 
 constexpr size_t kGetdentsBufSize = 32768;
 
-bool is_dot_or_dotdot(const char* name) {
+bool isDotOrDotdot(const char* name) {
     return name[0] == '.' &&
            (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
 }
 
 } // namespace
 
-Scanner::Scanner(DirEntryStore& entry_store, NameStore& name_store)
-    : entry_store_(entry_store)
-    , name_store_(name_store) {}
+Scanner::Scanner(DirEntryStore& entryStore, NameStore& nameStore)
+    : entryStore_(entryStore)
+    , nameStore_(nameStore) {}
 
 Scanner::~Scanner() {
     stop();
@@ -39,36 +39,36 @@ Scanner::~Scanner() {
         if (t.joinable()) t.join();
 }
 
-EntryRef Scanner::scan(const std::string& root_path, int worker_count) {
-    assert(worker_count > 0);
+EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
+    assert(workerCount > 0);
     stop_.store(false, std::memory_order_relaxed);
 
     // Reset state from any previous scan.
     queue_.clear();
-    active_workers_ = 0;
+    activeWorkers_ = 0;
 
     // Create root entry.
-    uint16_t entry_page = entry_store_.allocate_page();
-    uint16_t name_page = name_store_.allocate_page();
-    EntryRef root_ref = entry_store_.add(entry_page);
-    DirEntry& root = entry_store_[root_ref];
+    uint16_t entryPage = entryStore_.allocatePage();
+    uint16_t namePage = nameStore_.allocatePage();
+    EntryRef rootRef = entryStore_.add(entryPage);
+    DirEntry& root = entryStore_[rootRef];
     root.type = EntryType::Directory;
-    root.name = name_store_.add(name_page, root_path);
+    root.name = nameStore_.add(namePage, rootPath);
     root.depth = 0;
 
     {
         std::lock_guard lock(mutex_);
-        queue_.push_back({root_path, root_ref});
+        queue_.push_back({rootPath, rootRef});
     }
 
-    threads_.reserve(worker_count);
-    for (int i = 0; i < worker_count; ++i) {
+    threads_.reserve(workerCount);
+    for (int i = 0; i < workerCount; ++i) {
         threads_.emplace_back([this] {
             WorkerCtx ctx;
-            ctx.getdents_buf.resize(kGetdentsBufSize);
-            ctx.entry_page = entry_store_.allocate_page();
-            ctx.name_page = name_store_.allocate_page();
-            worker_loop(ctx);
+            ctx.getdentsBuf.resize(kGetdentsBufSize);
+            ctx.entryPage = entryStore_.allocatePage();
+            ctx.namePage = nameStore_.allocatePage();
+            workerLoop(ctx);
         });
     }
 
@@ -76,7 +76,7 @@ EntryRef Scanner::scan(const std::string& root_path, int worker_count) {
         t.join();
     threads_.clear();
 
-    return root_ref;
+    return rootRef;
 }
 
 void Scanner::stop() {
@@ -84,7 +84,7 @@ void Scanner::stop() {
     cv_.notify_all();
 }
 
-std::optional<Scanner::DirWork> Scanner::take_work() {
+std::optional<Scanner::DirWork> Scanner::takeWork() {
     std::unique_lock lock(mutex_);
     while (true) {
         if (stop_.load(std::memory_order_relaxed))
@@ -92,68 +92,68 @@ std::optional<Scanner::DirWork> Scanner::take_work() {
         if (!queue_.empty()) {
             auto work = std::move(queue_.back());
             queue_.pop_back();
-            ++active_workers_;
+            ++activeWorkers_;
             return work;
         }
-        if (active_workers_ == 0)
+        if (activeWorkers_ == 0)
             return std::nullopt; // all done
         cv_.wait(lock);
     }
 }
 
-void Scanner::return_work(std::vector<DirWork>& subdirs) {
+void Scanner::returnWork(std::vector<DirWork>& subdirs) {
     std::lock_guard lock(mutex_);
     for (auto& d : subdirs)
         queue_.push_back(std::move(d));
-    --active_workers_;
+    --activeWorkers_;
     cv_.notify_all();
 }
 
-void Scanner::worker_loop(WorkerCtx& ctx) {
-    while (auto work = take_work()) {
-        scan_dir(*work, ctx);
-        return_work(ctx.subdir_batch);
-        ctx.subdir_batch.clear();
+void Scanner::workerLoop(WorkerCtx& ctx) {
+    while (auto work = takeWork()) {
+        scanDir(*work, ctx);
+        returnWork(ctx.subdirBatch);
+        ctx.subdirBatch.clear();
     }
 }
 
-void Scanner::scan_dir(const DirWork& work, WorkerCtx& ctx) {
+void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
     int fd = open(work.path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (fd < 0) return;
 
-    DirEntry& parent = entry_store_[work.ref];
-    EntryRef prev_child;
+    DirEntry& parent = entryStore_[work.ref];
+    EntryRef prevChild;
 
     for (;;) {
         if (stop_.load(std::memory_order_relaxed))
             break;
 
         long nread = syscall(SYS_getdents64, fd,
-                             ctx.getdents_buf.data(),
-                             ctx.getdents_buf.size());
+                             ctx.getdentsBuf.data(),
+                             ctx.getdentsBuf.size());
         if (nread <= 0) break;
 
         for (long pos = 0; pos < nread;) {
             auto* d = reinterpret_cast<linux_dirent64*>(
-                ctx.getdents_buf.data() + pos);
+                ctx.getdentsBuf.data() + pos);
             pos += d->d_reclen;
 
-            if (is_dot_or_dotdot(d->d_name))
+            if (isDotOrDotdot(d->d_name))
                 continue;
 
             // Create entry.
-            EntryRef ref = entry_store_.add(ctx.entry_page);
-            DirEntry& entry = entry_store_[ref];
-            entry.name = name_store_.add(ctx.name_page, d->d_name);
+            EntryRef ref = entryStore_.add(ctx.entryPage);
+            DirEntry& entry = entryStore_[ref];
+            entry.name = nameStore_.add(ctx.namePage, d->d_name);
             entry.parent = work.ref;
             entry.depth = parent.depth + 1;
 
             // Stat for size, blocks, device, inode.
             struct stat st{};
-            bool have_stat =
+            bool haveStat =
                 fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
 
-            if (have_stat) {
+            if (haveStat) {
                 entry.size = static_cast<uint64_t>(st.st_size);
                 entry.blocks = static_cast<uint64_t>(st.st_blocks);
                 entry.device = st.st_dev;
@@ -166,7 +166,7 @@ void Scanner::scan_dir(const DirWork& work, WorkerCtx& ctx) {
             case DT_REG: entry.type = EntryType::File;      break;
             case DT_LNK: entry.type = EntryType::Symlink;   break;
             default:
-                if (!have_stat) {
+                if (!haveStat) {
                     entry.type = EntryType::Other;
                 } else if (S_ISDIR(st.st_mode)) {
                     entry.type = EntryType::Directory;
@@ -181,16 +181,16 @@ void Scanner::scan_dir(const DirWork& work, WorkerCtx& ctx) {
             }
 
             // Chain child into parent's child list.
-            if (prev_child.valid())
-                entry_store_[prev_child].next_sibling = ref;
+            if (prevChild.valid())
+                entryStore_[prevChild].nextSibling = ref;
             else
-                parent.first_child = ref;
-            prev_child = ref;
-            ++parent.child_count;
+                parent.firstChild = ref;
+            prevChild = ref;
+            ++parent.childCount;
 
             // Queue subdirectories.
             if (entry.type == EntryType::Directory) {
-                ctx.subdir_batch.push_back({
+                ctx.subdirBatch.push_back({
                     work.path + '/' + d->d_name,
                     ref,
                 });

@@ -12,7 +12,7 @@
 namespace ldirstat {
 
 struct NameRef {
-    uint16_t page_id = 0;
+    uint16_t pageId = 0;
     uint16_t offset  = 0;
     uint16_t length  = 0;
 };
@@ -21,7 +21,7 @@ static_assert(sizeof(NameRef) == 6);
 
 // Page-based string storage. 64KB pages, no resizes — only new pages are added.
 // Thread safety:
-//   - allocate_page(): thread-safe (mutex-protected)
+//   - allocatePage(): thread-safe (mutex-protected)
 //   - add():           NOT thread-safe per page — caller must own the page exclusively
 //   - get():           thread-safe (read-only, pages_ vector never reallocates)
 class NameStore {
@@ -40,7 +40,7 @@ public:
     NameStore() { pages_.reserve(kMaxPages); }
 
     // Thread-safe. Allocates a new empty page, returns its ID.
-    uint16_t allocate_page() {
+    uint16_t allocatePage() {
         auto page = std::make_unique<Page>();
         std::lock_guard<std::mutex> lock(mutex_);
         assert(pages_.size() < kMaxPages);
@@ -49,20 +49,20 @@ public:
         return id;
     }
 
-    // NOT thread-safe per page. Caller must have exclusive access to current_page.
-    // If the name doesn't fit, a new page is allocated and current_page is updated.
-    NameRef add(uint16_t& current_page, std::string_view name) {
+    // NOT thread-safe per page. Caller must have exclusive access to currentPage.
+    // If the name doesn't fit, a new page is allocated and currentPage is updated.
+    NameRef add(uint16_t& currentPage, std::string_view name) {
         assert(name.size() <= kPageSize);
-        assert(current_page < pages_.size());
+        assert(currentPage < pages_.size());
 
-        auto* page = pages_[current_page].get();
+        auto* page = pages_[currentPage].get();
         if (page->used + name.size() > kPageSize) {
-            current_page = allocate_page();
-            page = pages_[current_page].get();
+            currentPage = allocatePage();
+            page = pages_[currentPage].get();
         }
 
         auto ref = NameRef{
-            current_page,
+            currentPage,
             static_cast<uint16_t>(page->used),
             static_cast<uint16_t>(name.size()),
         };
@@ -73,7 +73,7 @@ public:
 
     // Thread-safe (read-only, pages_ never reallocates). Returns the stored name.
     std::string_view get(NameRef ref) const {
-        return {&pages_[ref.page_id]->data[ref.offset], ref.length};
+        return {&pages_[ref.pageId]->data[ref.offset], ref.length};
     }
 };
 

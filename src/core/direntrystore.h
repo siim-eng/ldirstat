@@ -24,7 +24,7 @@ public:
     DirEntryStore() { pages_.reserve(kMaxPages); }
 
     // Thread-safe. Allocates a new empty page, returns its ID.
-    uint16_t allocate_page() {
+    uint16_t allocatePage() {
         auto page = std::make_unique<Page>();
         std::lock_guard<std::mutex> lock(mutex_);
         assert(pages_.size() < kMaxPages);
@@ -33,33 +33,33 @@ public:
         return id;
     }
 
-    // NOT thread-safe per page. Caller must have exclusive access to current_page.
+    // NOT thread-safe per page. Caller must have exclusive access to currentPage.
     // Returns an EntryRef to the claimed entry. If the page is full, allocates
-    // a new page and updates current_page.
-    EntryRef add(uint16_t& current_page) {
-        assert(current_page < pages_.size());
-        auto* page = pages_[current_page].get();
+    // a new page and updates currentPage.
+    EntryRef add(uint16_t& currentPage) {
+        assert(currentPage < pages_.size());
+        auto* page = pages_[currentPage].get();
 
         if (page->used >= kEntriesPerPage) {
-            current_page = allocate_page();
-            page = pages_[current_page].get();
+            currentPage = allocatePage();
+            page = pages_[currentPage].get();
         }
 
-        EntryRef ref{current_page, static_cast<uint16_t>(page->used)};
+        EntryRef ref{currentPage, static_cast<uint16_t>(page->used)};
         ++page->used;
         return ref;
     }
 
     DirEntry& operator[](EntryRef ref) {
-        return pages_[ref.page_id]->entries[ref.index];
+        return pages_[ref.pageId]->entries[ref.index];
     }
 
     const DirEntry& operator[](EntryRef ref) const {
-        return pages_[ref.page_id]->entries[ref.index];
+        return pages_[ref.pageId]->entries[ref.index];
     }
 
-    uint16_t page_count() const { return static_cast<uint16_t>(pages_.size()); }
-    uint32_t page_used(uint16_t page_id) const { return pages_[page_id]->used; }
+    uint16_t pageCount() const { return static_cast<uint16_t>(pages_.size()); }
+    uint32_t pageUsed(uint16_t pageId) const { return pages_[pageId]->used; }
 
 private:
     struct Page {

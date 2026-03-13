@@ -18,12 +18,12 @@ namespace ldirstat {
 // and push discovered subdirs back as a batch.
 class Scanner {
 public:
-    Scanner(DirEntryStore& entry_store, NameStore& name_store);
+    Scanner(DirEntryStore& entryStore, NameStore& nameStore);
     ~Scanner();
 
     // Blocks until scan completes or stop() is called.
     // Returns the EntryRef of the root directory.
-    EntryRef scan(const std::string& root_path, int worker_count);
+    EntryRef scan(const std::string& rootPath, int workerCount);
 
     // Signals all workers to stop. Can be called from any thread.
     void stop();
@@ -35,24 +35,24 @@ private:
     };
 
     struct WorkerCtx {
-        std::vector<char> getdents_buf;
-        std::vector<DirWork> subdir_batch;
-        uint16_t entry_page;
-        uint16_t name_page;
+        std::vector<char> getdentsBuf;
+        std::vector<DirWork> subdirBatch;
+        uint16_t entryPage;
+        uint16_t namePage;
     };
 
-    std::optional<DirWork> take_work();
-    void return_work(std::vector<DirWork>& subdirs);
-    void worker_loop(WorkerCtx& ctx);
-    void scan_dir(const DirWork& work, WorkerCtx& ctx);
+    std::optional<DirWork> takeWork();
+    void returnWork(std::vector<DirWork>& subdirs);
+    void workerLoop(WorkerCtx& ctx);
+    void scanDir(const DirWork& work, WorkerCtx& ctx);
 
-    DirEntryStore& entry_store_;
-    NameStore& name_store_;
+    DirEntryStore& entryStore_;
+    NameStore& nameStore_;
 
     std::mutex mutex_;
     std::condition_variable cv_;
     std::vector<DirWork> queue_;
-    int active_workers_ = 0;
+    int activeWorkers_ = 0;
     std::atomic<bool> stop_{false};
 
     std::vector<std::thread> threads_;

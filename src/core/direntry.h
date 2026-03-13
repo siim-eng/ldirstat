@@ -20,10 +20,10 @@ enum class EntryType : uint8_t {
 
 // Reference to a DirEntry in the page-based store.
 struct EntryRef {
-    uint16_t page_id = UINT16_MAX;
-    uint16_t index   = UINT16_MAX;
+    uint16_t pageId = UINT16_MAX;
+    uint16_t index  = UINT16_MAX;
 
-    bool valid() const { return page_id != UINT16_MAX; }
+    bool valid() const { return pageId != UINT16_MAX; }
 };
 
 inline constexpr EntryRef kNoEntry{};
@@ -45,20 +45,20 @@ struct DirEntry {
     uint64_t blocks = 0;
 
     // Number of entries in subtree (excluding self). 0 for files.
-    uint32_t subtree_count = 0;
+    uint32_t subtreeCount = 0;
 
     // Tree links (EntryRef into DirEntryStore).
     EntryRef parent;
-    EntryRef first_child;
-    uint32_t child_count = 0;         // number of direct children
-    EntryRef next_sibling;
+    EntryRef firstChild;
+    uint32_t childCount = 0;         // number of direct children
+    EntryRef nextSibling;
 
     // Device and inode for hardlink detection.
     dev_t device = 0;
     ino_t inode  = 0;
 
-    bool is_dir()  const { return type == EntryType::Directory; }
-    bool is_file() const { return type == EntryType::File; }
+    bool isDir()  const { return type == EntryType::Directory; }
+    bool isFile() const { return type == EntryType::File; }
 };
 
 } // namespace ldirstat
