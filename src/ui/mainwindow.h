@@ -9,6 +9,7 @@
 #include "namestore.h"
 #include "scanner.h"
 
+class QStackedWidget;
 class QSplitter;
 
 namespace ldirstat {
@@ -18,6 +19,7 @@ class FileListView;
 class FlameGraphWidget;
 class MainWindowBuilder;
 class MountListWidget;
+class WelcomeWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -53,6 +55,8 @@ private:
     EntryRef selectedDir_;
 
     // UI widgets (created by builder, parented to this).
+    QStackedWidget* viewStack_ = nullptr;
+    WelcomeWidget* welcomeWidget_ = nullptr;
     MountListWidget* mountList_ = nullptr;
     DirTreeView* dirTree_ = nullptr;
     FileListView* fileList_ = nullptr;

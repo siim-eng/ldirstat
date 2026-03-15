@@ -5,10 +5,12 @@
 #include "filelistview.h"
 #include "flamegraphwidget.h"
 #include "mountlistwidget.h"
+#include "welcomewidget.h"
 
 #include <QAction>
 #include <QMenuBar>
 #include <QSplitter>
+#include <QStackedWidget>
 
 namespace ldirstat {
 
@@ -63,7 +65,12 @@ void MainWindowBuilder::build(MainWindow* w) {
     syncSplitters(topSplitter, bottomSplitter);
     syncSplitters(bottomSplitter, topSplitter);
 
-    w->setCentralWidget(mainSplitter);
+    // Welcome widget + stacked view.
+    w->welcomeWidget_ = new WelcomeWidget(w);
+    w->viewStack_ = new QStackedWidget(w);
+    w->viewStack_->addWidget(w->welcomeWidget_);  // index 0
+    w->viewStack_->addWidget(mainSplitter);         // index 1
+    w->setCentralWidget(w->viewStack_);
 
     // Signals.
     QObject::connect(w->mountList_, &MountListWidget::scanRequested,
@@ -72,6 +79,10 @@ void MainWindowBuilder::build(MainWindow* w) {
                      w, &MainWindow::onDirSelected);
     QObject::connect(w->flameGraphWidget_, &FlameGraphWidget::rectClicked,
                      w, &MainWindow::onFlameRectClicked);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested,
+                     w, &MainWindow::startScan);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,
+                     w, &MainWindow::onOpenDirectory);
 }
 
 } // namespace ldirstat

@@ -25,6 +25,7 @@ add_library(ldirstat_ui STATIC
     src/ui/filelistview.cpp
     src/ui/flamegraphwidget.cpp
     src/ui/mountlistwidget.cpp
+    src/ui/welcomewidget.cpp
 )
 target_include_directories(ldirstat_ui PUBLIC src/ui)
 target_link_libraries(ldirstat_ui PUBLIC ldirstat_core Qt6::Widgets)

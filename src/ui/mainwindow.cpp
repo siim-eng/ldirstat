@@ -5,8 +5,10 @@
 #include "filelistview.h"
 #include "flamegraphwidget.h"
 #include "mountlistwidget.h"
+#include "welcomewidget.h"
 
 #include <QFileDialog>
+#include <QStackedWidget>
 #include <QThread>
 
 namespace ldirstat {
@@ -17,6 +19,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     fileSystems_.readMounts();
     mountList_->populate(fileSystems_);
+    welcomeWidget_->populate(fileSystems_);
 
     connect(this, &MainWindow::scanComplete,
             this, &MainWindow::onScanFinished, Qt::QueuedConnection);
@@ -39,6 +42,8 @@ void MainWindow::onOpenDirectory() {
 void MainWindow::startScan(const QString& path) {
     if (scanThread_ && scanThread_->isRunning())
         return;
+
+    viewStack_->setCurrentIndex(1);
 
     delete scanThread_;
     scanThread_ = nullptr;
