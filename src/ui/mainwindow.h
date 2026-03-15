@@ -18,7 +18,6 @@ class DirTreeView;
 class FileListView;
 class FlameGraphWidget;
 class MainWindowBuilder;
-class MountListWidget;
 class WelcomeWidget;
 
 class MainWindow : public QMainWindow {
@@ -57,7 +56,6 @@ private:
     // UI widgets (created by builder, parented to this).
     QStackedWidget* viewStack_ = nullptr;
     WelcomeWidget* welcomeWidget_ = nullptr;
-    MountListWidget* mountList_ = nullptr;
     DirTreeView* dirTree_ = nullptr;
     FileListView* fileList_ = nullptr;
     FlameGraphWidget* flameGraphWidget_ = nullptr;

@@ -4,7 +4,6 @@
 #include "dirtreeview.h"
 #include "filelistview.h"
 #include "flamegraphwidget.h"
-#include "mountlistwidget.h"
 #include "welcomewidget.h"
 
 #include <QFileDialog>
@@ -18,7 +17,6 @@ MainWindow::MainWindow(QWidget* parent)
     MainWindowBuilder::build(this);
 
     fileSystems_.readMounts();
-    mountList_->populate(fileSystems_);
     welcomeWidget_->populate(fileSystems_);
 
     connect(this, &MainWindow::scanComplete,

@@ -4,7 +4,6 @@
 #include "dirtreeview.h"
 #include "filelistview.h"
 #include "flamegraphwidget.h"
-#include "mountlistwidget.h"
 #include "welcomewidget.h"
 
 #include <QAction>
@@ -29,7 +28,6 @@ void MainWindowBuilder::build(MainWindow* w) {
     QObject::connect(quitAction, &QAction::triggered, w, &QWidget::close);
 
     // Widgets.
-    w->mountList_ = new MountListWidget(w);
     w->dirTree_ = new DirTreeView(w);
     w->fileList_ = new FileListView(w);
     w->flameGraphWidget_ = new FlameGraphWidget(w);
@@ -43,27 +41,12 @@ void MainWindowBuilder::build(MainWindow* w) {
     topSplitter->addWidget(w->fileList_);
     topSplitter->setSizes(hSizes);
 
-    // Bottom splitter: mount list (left 30%) / flamegraph (right 70%).
-    auto* bottomSplitter = new QSplitter(Qt::Horizontal, w);
-    bottomSplitter->addWidget(w->mountList_);
-    bottomSplitter->addWidget(w->flameGraphWidget_);
-    bottomSplitter->setSizes(hSizes);
-
-    // Main splitter: top panel (50%) / bottom panel (50%).
+    // Main splitter: top panel (50%) / flamegraph full width (50%).
     auto* mainSplitter = new QSplitter(Qt::Vertical, w);
     mainSplitter->addWidget(topSplitter);
-    mainSplitter->addWidget(bottomSplitter);
+    mainSplitter->addWidget(w->flameGraphWidget_);
     mainSplitter->setStretchFactor(0, 5);
     mainSplitter->setStretchFactor(1, 5);
-
-    // Sync top/bottom splitter positions.
-    auto syncSplitters = [](QSplitter* src, QSplitter* dst) {
-        QObject::connect(src, &QSplitter::splitterMoved, dst, [src, dst]() {
-            dst->setSizes(src->sizes());
-        });
-    };
-    syncSplitters(topSplitter, bottomSplitter);
-    syncSplitters(bottomSplitter, topSplitter);
 
     // Welcome widget + stacked view.
     w->welcomeWidget_ = new WelcomeWidget(w);
@@ -73,8 +56,6 @@ void MainWindowBuilder::build(MainWindow* w) {
     w->setCentralWidget(w->viewStack_);
 
     // Signals.
-    QObject::connect(w->mountList_, &MountListWidget::scanRequested,
-                     w, &MainWindow::startScan);
     QObject::connect(w->dirTree_, &DirTreeView::directorySelected,
                      w, &MainWindow::onDirSelected);
     QObject::connect(w->flameGraphWidget_, &FlameGraphWidget::rectClicked,
