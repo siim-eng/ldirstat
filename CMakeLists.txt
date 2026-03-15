@@ -12,6 +12,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 add_library(ldirstat_core STATIC
     src/core/scanner.cpp
     src/core/flamegraph.cpp
+    src/core/filesystem.cpp
 )
 target_include_directories(ldirstat_core PUBLIC src/core)
 target_link_libraries(ldirstat_core PRIVATE pthread)
@@ -31,6 +32,9 @@ target_link_libraries(ldirstat_ui PUBLIC ldirstat_core Qt6::Widgets)
 add_executable(ldirstat src/app/main.cpp)
 target_link_libraries(ldirstat PRIVATE ldirstat_ui)
 
-# Benchmark (no Qt).
+# Benchmarks (no Qt).
 add_executable(scandirs bench/scandirs.cpp)
 target_link_libraries(scandirs PRIVATE ldirstat_core)
+
+add_executable(scanmounts bench/scanmounts.cpp)
+target_link_libraries(scanmounts PRIVATE ldirstat_core)
