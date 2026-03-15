@@ -25,7 +25,15 @@ The project targets C/C++, g++, ninja, cmake. Use .clang-format, .clang-tidy
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
   - `direntrystore.h` — `DirEntryStore`: page-based arena (65536 entries/page) for DirEntry nodes.
   - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages.
-- `src/ui/` — Qt-only (not yet implemented).
+  - `flamegraph.h/.cpp` — `FlameGraph`: builds per-row rect layout from DirEntry tree for flame-graph visualization.
+- `src/ui/` — Qt6 Widgets UI layer.
+  - `mainwindow.h/.cpp` — `MainWindow`: owns core state, slots for directory selection/scan/flamegraph clicks.
+  - `mainwindowbuilder.h/.cpp` — `MainWindowBuilder`: friend class, creates widgets/layout/menus/signal wiring.
+  - `dirtreeview.h/.cpp` — `DirTreeView`: QTreeView with lazy-expand directory tree.
+  - `filelistview.h/.cpp` — `FileListView`: QTableView showing top 100 files by size in selected subtree.
+  - `flamegraphwidget.h/.cpp` — `FlameGraphWidget`: custom QWidget rendering FlameGraph rects with hit testing.
+- `src/app/` — application entry point.
+  - `main.cpp` — QApplication setup, creates MainWindow.
 - `bench/` — benchmarks.
   - `scandirs.cpp` — CLI: `scandirs <rootdir> <worker_count>`, prints dirs/files/disk_used/time.
-- Build (no CMake yet): `g++ -std=c++20 -O2 -I src/core src/core/scanner.cpp bench/scandirs.cpp -o bench/scandirs -lpthread`
+- Build: `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build`

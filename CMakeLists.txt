@@ -1,0 +1,36 @@
+cmake_minimum_required(VERSION 3.20)
+project(ldirstat LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_AUTOMOC ON)
+
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
+# Core library (no Qt).
+add_library(ldirstat_core STATIC
+    src/core/scanner.cpp
+    src/core/flamegraph.cpp
+)
+target_include_directories(ldirstat_core PUBLIC src/core)
+target_link_libraries(ldirstat_core PRIVATE pthread)
+
+# UI library (Qt).
+add_library(ldirstat_ui STATIC
+    src/ui/mainwindow.cpp
+    src/ui/mainwindowbuilder.cpp
+    src/ui/dirtreeview.cpp
+    src/ui/filelistview.cpp
+    src/ui/flamegraphwidget.cpp
+)
+target_include_directories(ldirstat_ui PUBLIC src/ui)
+target_link_libraries(ldirstat_ui PUBLIC ldirstat_core Qt6::Widgets)
+
+# Main application.
+add_executable(ldirstat src/app/main.cpp)
+target_link_libraries(ldirstat PRIVATE ldirstat_ui)
+
+# Benchmark (no Qt).
+add_executable(scandirs bench/scandirs.cpp)
+target_link_libraries(scandirs PRIVATE ldirstat_core)

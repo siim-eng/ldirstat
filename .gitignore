@@ -42,3 +42,6 @@
 
 # Benchmarks
 bench/scandirs
+
+# CMake build directory
+build/
