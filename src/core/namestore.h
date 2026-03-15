@@ -39,6 +39,11 @@ class NameStore {
 public:
     NameStore() { pages_.reserve(kMaxPages); }
 
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pages_.clear();
+    }
+
     // Thread-safe. Allocates a new empty page, returns its ID.
     uint16_t allocatePage() {
         auto page = std::make_unique<Page>();

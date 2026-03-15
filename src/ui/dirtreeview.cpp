@@ -45,8 +45,8 @@ DirTreeView::DirTreeView(QWidget* parent)
     header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
 
     connect(this, &QTreeView::expanded, this, &DirTreeView::onItemExpanded);
-    connect(selectionModel(), &QItemSelectionModel::selectionChanged,
-            this, &DirTreeView::onSelectionChanged);
+    selectionConn_ = connect(selectionModel(), &QItemSelectionModel::selectionChanged,
+                             this, &DirTreeView::onSelectionChanged);
 }
 
 void DirTreeView::setRoot(const DirEntryStore& store, const NameStore& names,
@@ -57,9 +57,10 @@ void DirTreeView::setRoot(const DirEntryStore& store, const NameStore& names,
     model_->clear();
     model_->setHorizontalHeaderLabels({"Name", "Size"});
 
-    // Re-connect after model reset clears selectionModel.
-    connect(selectionModel(), &QItemSelectionModel::selectionChanged,
-            this, &DirTreeView::onSelectionChanged);
+    // model_->clear() resets the selectionModel, so reconnect (old one is gone).
+    disconnect(selectionConn_);
+    selectionConn_ = connect(selectionModel(), &QItemSelectionModel::selectionChanged,
+                             this, &DirTreeView::onSelectionChanged);
 
     const DirEntry& entry = store[root];
     auto nameStr = QString::fromUtf8(names.get(entry.name).data(),

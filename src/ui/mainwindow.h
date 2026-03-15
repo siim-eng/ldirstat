@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QThread>
 
 #include "direntrystore.h"
 #include "flamegraph.h"
@@ -22,6 +23,10 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override;
+
+signals:
+    void scanComplete(EntryRef root);
 
 private slots:
     void onOpenDirectory();
@@ -31,6 +36,8 @@ private slots:
 
 private:
     void startScan(const QString& path);
+
+    QThread* scanThread_ = nullptr;
 
     // Core state.
     DirEntryStore entryStore_;

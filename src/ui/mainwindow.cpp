@@ -13,6 +13,16 @@ namespace ldirstat {
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
     MainWindowBuilder::build(this);
+
+    connect(this, &MainWindow::scanComplete,
+            this, &MainWindow::onScanFinished, Qt::QueuedConnection);
+}
+
+MainWindow::~MainWindow() {
+    if (scanThread_) {
+        scanThread_->wait();
+        delete scanThread_;
+    }
 }
 
 void MainWindow::onOpenDirectory() {
@@ -23,15 +33,34 @@ void MainWindow::onOpenDirectory() {
 }
 
 void MainWindow::startScan(const QString& path) {
-    // TODO: reset stores for repeated scans (stores have mutex, not assignable).
-    Scanner scanner(entryStore_, nameStore_);
-    EntryRef root = scanner.scan(path.toStdString(), QThread::idealThreadCount());
-    scanner.propagate(root);
+    if (scanThread_ && scanThread_->isRunning())
+        return;
 
-    onScanFinished(root);
+    delete scanThread_;
+    scanThread_ = nullptr;
+
+    entryStore_.clear();
+    nameStore_.clear();
+
+    auto scanPath = path.toStdString();
+    int workers = QThread::idealThreadCount();
+
+    scanThread_ = QThread::create([this, scanPath, workers]() {
+        Scanner scanner(entryStore_, nameStore_);
+        EntryRef root = scanner.scan(scanPath, workers);
+        scanner.propagate(root);
+        emit scanComplete(root);
+    });
+    scanThread_->start();
 }
 
 void MainWindow::onScanFinished(EntryRef root) {
+    if (scanThread_) {
+        scanThread_->wait();
+        delete scanThread_;
+        scanThread_ = nullptr;
+    }
+
     currentRoot_ = root;
     selectedDir_ = root;
 

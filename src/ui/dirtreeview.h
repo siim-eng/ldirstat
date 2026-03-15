@@ -35,6 +35,7 @@ private:
     QStandardItemModel* model_ = nullptr;
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
+    QMetaObject::Connection selectionConn_;
 };
 
 } // namespace ldirstat
