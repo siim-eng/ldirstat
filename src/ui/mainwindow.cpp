@@ -4,16 +4,19 @@
 #include "dirtreeview.h"
 #include "filelistview.h"
 #include "flamegraphwidget.h"
+#include "scanprogresswidget.h"
 #include "welcomewidget.h"
 
 #include <QFileDialog>
 #include <QStackedWidget>
 #include <QThread>
+#include <QTimer>
 
 namespace ldirstat {
 
 MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent) {
+    : QMainWindow(parent)
+    , scanner_(entryStore_, nameStore_) {
     MainWindowBuilder::build(this);
 
     fileSystems_.readMounts();
@@ -42,6 +45,9 @@ void MainWindow::startScan(const QString& path) {
         return;
 
     viewStack_->setCurrentIndex(1);
+    flameStack_->setCurrentIndex(0);
+    scanProgress_->reset();
+    scanPollTimer_->start();
 
     delete scanThread_;
     scanThread_ = nullptr;
@@ -53,20 +59,39 @@ void MainWindow::startScan(const QString& path) {
     int workers = QThread::idealThreadCount();
 
     scanThread_ = QThread::create([this, scanPath, workers]() {
-        Scanner scanner(entryStore_, nameStore_);
-        EntryRef root = scanner.scan(scanPath, workers);
-        scanner.propagate(root);
+        EntryRef root = scanner_.scan(scanPath, workers);
+        scanner_.propagate(root);
         emit scanComplete(root);
     });
     scanThread_->start();
 }
 
+void MainWindow::onScanPollTick() {
+    scanProgress_->updateCounts(scanner_.filesScanned(), scanner_.dirsScanned());
+}
+
+void MainWindow::onStopScan() {
+    scanner_.stop();
+}
+
 void MainWindow::onScanFinished(EntryRef root) {
+    scanPollTimer_->stop();
+
     if (scanThread_) {
         scanThread_->wait();
         delete scanThread_;
         scanThread_ = nullptr;
     }
+
+    if (scanner_.stopped()) {
+        entryStore_.clear();
+        nameStore_.clear();
+        viewStack_->setCurrentIndex(0);
+        return;
+    }
+
+    onScanPollTick();
+    flameStack_->setCurrentIndex(1);
 
     currentRoot_ = root;
     selectedDir_ = root;

@@ -28,6 +28,10 @@ public:
     // Signals all workers to stop. Can be called from any thread.
     void stop();
 
+    bool stopped() const { return stop_.load(std::memory_order_relaxed); }
+    uint64_t filesScanned() const { return filesScanned_.load(std::memory_order_relaxed); }
+    uint64_t dirsScanned() const { return dirsScanned_.load(std::memory_order_relaxed); }
+
     // Single-threaded post-scan pass. Propagates fileCount, dirCount,
     // size, and blocks from child directories up to their parents.
     void propagate(EntryRef root);
@@ -60,6 +64,8 @@ private:
     std::vector<DirWork> queue_;
     int activeWorkers_ = 0;
     std::atomic<bool> stop_{false};
+    std::atomic<uint64_t> filesScanned_{0};
+    std::atomic<uint64_t> dirsScanned_{0};
 
     std::vector<std::thread> threads_;
 };

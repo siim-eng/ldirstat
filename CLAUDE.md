@@ -27,15 +27,16 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
   - `direntry.h` — `DirEntry` struct, `EntryRef` (pageId + index), `EntryType` enum.
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
   - `direntrystore.h` — `DirEntryStore`: page-based arena (65536 entries/page) for DirEntry nodes.
-  - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Scans single device only (`rootDev_`). Stoppable via `stop()`.
+  - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Scans single device only (`rootDev_`). Stoppable via `stop()`. Exposes atomic `filesScanned()`/`dirsScanned()` counters for live progress.
   - `flamegraph.h/.cpp` — `FlameGraph`: builds per-row rect layout from DirEntry tree for flame-graph visualization. Binary search hit testing.
   - `filesystem.h/.cpp` — `FileSystems`: reads `/proc/mounts`, classifies filesystem types (Real, Network, Virtual, etc.), provides mount lookup by device. `MountInfo` struct with device, mountPoint, fsType, capacity.
 - `src/ui/` — Qt6 Widgets UI layer.
-  - `mainwindow.h/.cpp` — `MainWindow`: owns core state (FileSystems, DirEntryStore, NameStore, FlameGraph). Background scanning via QThread. QStackedWidget switches between welcome screen and analysis view.
-  - `mainwindowbuilder.h/.cpp` — `MainWindowBuilder`: friend class, creates widgets/layout/menus/signal wiring. Layout: top splitter (dir tree 30% | file list 70%), flamegraph full width below.
+  - `mainwindow.h/.cpp` — `MainWindow`: owns core state (FileSystems, DirEntryStore, NameStore, Scanner, FlameGraph). Background scanning via QThread. QStackedWidget switches between welcome screen and analysis view. QTimer polls scanner counters during scan to show progress.
+  - `mainwindowbuilder.h/.cpp` — `MainWindowBuilder`: friend class, creates widgets/layout/menus/signal wiring. Layout: top splitter (dir tree 30% | file list 70%), flame stack below (progress widget during scan / flamegraph after).
   - `dirtreeview.h/.cpp` — `DirTreeView`: QTreeView with lazy-expand directory tree.
   - `filelistview.h/.cpp` — `FileListView`: QTableView showing top 100 files by size in selected subtree.
   - `flamegraphwidget.h/.cpp` — `FlameGraphWidget`: custom QWidget rendering FlameGraph rects with hit testing and tooltips.
+  - `scanprogresswidget.h/.cpp` — `ScanProgressWidget`: indeterminate progress bar with live file/dir counts and Stop button. Shown in flame stack during scanning.
   - `welcomewidget.h/.cpp` — `WelcomeWidget`: initial landing screen with quick-access buttons (Home, Root, Open Directory) and a filesystem selection grid.
 - `src/app/` — application entry point.
   - `main.cpp` — QApplication setup, creates MainWindow.

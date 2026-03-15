@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128" fill="none" stroke="#7EC8E3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Drive -->
+    <rect x="8" y="36" width="48" height="14" rx="4"/>
+    <circle cx="16" cy="43" r="1.5" fill="#7EC8E3" stroke="none"/>
+    <circle cx="22" cy="43" r="1.5" fill="#7EC8E3" stroke="none"/>
+
+    <!-- Usage ring -->
+    <circle cx="32" cy="22" r="10" opacity="0.25"/>
+    <path d="M32 12
+          A10 10 0 1 1 22 22"/>
+
+    <!-- Center dot -->
+    <circle cx="32" cy="22" r="2" fill="#7EC8E3" stroke="none"/>
+</svg>

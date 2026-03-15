@@ -5,10 +5,8 @@
 class QGridLayout;
 
 namespace ldirstat {
-class FileSystems;
-}
 
-namespace ldirstat {
+class FileSystems;
 
 class WelcomeWidget : public QWidget {
     Q_OBJECT

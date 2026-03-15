@@ -46,6 +46,8 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     // Reset state from any previous scan.
     queue_.clear();
     activeWorkers_ = 0;
+    filesScanned_.store(0, std::memory_order_relaxed);
+    dirsScanned_.store(0, std::memory_order_relaxed);
 
     // Stat root to get its device.
     struct stat rootSt{};
@@ -253,6 +255,9 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
     parent.dirCount = dirs;
     parent.size += totalSize;
     parent.blocks += totalBlocks;
+
+    filesScanned_.fetch_add(files, std::memory_order_relaxed);
+    dirsScanned_.fetch_add(1, std::memory_order_relaxed);
 
     close(fd);
 }

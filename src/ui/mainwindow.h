@@ -11,6 +11,7 @@
 
 class QStackedWidget;
 class QSplitter;
+class QTimer;
 
 namespace ldirstat {
 
@@ -18,6 +19,7 @@ class DirTreeView;
 class FileListView;
 class FlameGraphWidget;
 class MainWindowBuilder;
+class ScanProgressWidget;
 class WelcomeWidget;
 
 class MainWindow : public QMainWindow {
@@ -36,6 +38,8 @@ private slots:
     void onScanFinished(EntryRef root);
     void onDirSelected(EntryRef ref);
     void onFlameRectClicked(EntryRef ref);
+    void onScanPollTick();
+    void onStopScan();
 
 private slots:
     void startScan(const QString& path);
@@ -48,6 +52,7 @@ private:
     FileSystems fileSystems_;
     DirEntryStore entryStore_;
     NameStore nameStore_;
+    Scanner scanner_;
     FlameGraph flameGraph_;
 
     EntryRef currentRoot_;
@@ -58,7 +63,10 @@ private:
     WelcomeWidget* welcomeWidget_ = nullptr;
     DirTreeView* dirTree_ = nullptr;
     FileListView* fileList_ = nullptr;
+    QStackedWidget* flameStack_ = nullptr;
     FlameGraphWidget* flameGraphWidget_ = nullptr;
+    ScanProgressWidget* scanProgress_ = nullptr;
+    QTimer* scanPollTimer_ = nullptr;
 };
 
 } // namespace ldirstat

@@ -112,9 +112,9 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
 void WelcomeWidget::populate(const FileSystems& fileSystems) {
     // Clear existing buttons.
-    while (fsLayout_->count() > 0) {
-        auto* item = fsLayout_->takeAt(0);
-        delete item->widget();
+    while (auto* item = fsLayout_->takeAt(0)) {
+        if (auto* widget = item->widget())
+            delete widget;
         delete item;
     }
 

@@ -4,12 +4,14 @@
 #include "dirtreeview.h"
 #include "filelistview.h"
 #include "flamegraphwidget.h"
+#include "scanprogresswidget.h"
 #include "welcomewidget.h"
 
 #include <QAction>
 #include <QMenuBar>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QTimer>
 
 namespace ldirstat {
 
@@ -41,12 +43,27 @@ void MainWindowBuilder::build(MainWindow* w) {
     topSplitter->addWidget(w->fileList_);
     topSplitter->setSizes(hSizes);
 
-    // Main splitter: top panel (50%) / flamegraph full width (50%).
+    // Scan progress widget (shown during scanning).
+    w->scanProgress_ = new ScanProgressWidget(w);
+
+    // Flame stack: progress (index 0) / flamegraph (index 1).
+    w->flameStack_ = new QStackedWidget(w);
+    w->flameStack_->addWidget(w->scanProgress_);
+    w->flameStack_->addWidget(w->flameGraphWidget_);
+    w->flameStack_->setCurrentIndex(1);
+
+    // Main splitter: top panel (50%) / flame stack full width (50%).
     auto* mainSplitter = new QSplitter(Qt::Vertical, w);
     mainSplitter->addWidget(topSplitter);
-    mainSplitter->addWidget(w->flameGraphWidget_);
+    mainSplitter->addWidget(w->flameStack_);
     mainSplitter->setStretchFactor(0, 5);
     mainSplitter->setStretchFactor(1, 5);
+
+    // Poll timer for scan progress.
+    w->scanPollTimer_ = new QTimer(w);
+    w->scanPollTimer_->setInterval(100);
+    QObject::connect(w->scanPollTimer_, &QTimer::timeout,
+                     w, &MainWindow::onScanPollTick);
 
     // Welcome widget + stacked view.
     w->welcomeWidget_ = new WelcomeWidget(w);
@@ -64,6 +81,8 @@ void MainWindowBuilder::build(MainWindow* w) {
                      w, &MainWindow::startScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,
                      w, &MainWindow::onOpenDirectory);
+    QObject::connect(w->scanProgress_, &ScanProgressWidget::stopRequested,
+                     w, &MainWindow::onStopScan);
 }
 
 } // namespace ldirstat
