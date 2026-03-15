@@ -53,6 +53,8 @@ private:
     DirEntryStore& entryStore_;
     NameStore& nameStore_;
 
+    dev_t rootDev_ = 0;
+
     std::mutex mutex_;
     std::condition_variable cv_;
     std::vector<DirWork> queue_;

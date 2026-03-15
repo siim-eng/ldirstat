@@ -47,6 +47,12 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     queue_.clear();
     activeWorkers_ = 0;
 
+    // Stat root to get its device.
+    struct stat rootSt{};
+    if (stat(rootPath.c_str(), &rootSt) != 0)
+        return kNoEntry;
+    rootDev_ = rootSt.st_dev;
+
     // Create root entry.
     uint16_t entryPage = entryStore_.allocatePage();
     uint16_t namePage = nameStore_.allocatePage();
@@ -55,6 +61,7 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     root.type = EntryType::Directory;
     root.name = nameStore_.add(namePage, rootPath);
     root.depth = 0;
+    root.device = rootSt.st_dev;
 
     {
         std::lock_guard lock(mutex_);
@@ -231,8 +238,9 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
             prevChild = ref;
             ++parent.childCount;
 
-            // Queue subdirectories.
-            if (entry.type == EntryType::Directory) {
+            // Queue subdirectories (same filesystem only).
+            if (entry.type == EntryType::Directory &&
+                entry.device == rootDev_) {
                 ctx.subdirBatch.push_back({
                     work.path + '/' + d->d_name,
                     ref,
