@@ -18,6 +18,7 @@ enum class FileSystemType : uint8_t {
 };
 
 struct MountInfo {
+    std::string device;
     std::string mountPoint;
     std::string fsType;
     dev_t dev;

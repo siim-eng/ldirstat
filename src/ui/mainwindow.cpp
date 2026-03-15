@@ -4,6 +4,7 @@
 #include "dirtreeview.h"
 #include "filelistview.h"
 #include "flamegraphwidget.h"
+#include "mountlistwidget.h"
 
 #include <QFileDialog>
 #include <QThread>
@@ -13,6 +14,9 @@ namespace ldirstat {
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent) {
     MainWindowBuilder::build(this);
+
+    fileSystems_.readMounts();
+    mountList_->populate(fileSystems_);
 
     connect(this, &MainWindow::scanComplete,
             this, &MainWindow::onScanFinished, Qt::QueuedConnection);

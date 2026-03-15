@@ -4,6 +4,7 @@
 #include <QThread>
 
 #include "direntrystore.h"
+#include "filesystem.h"
 #include "flamegraph.h"
 #include "namestore.h"
 #include "scanner.h"
@@ -16,6 +17,7 @@ class DirTreeView;
 class FileListView;
 class FlameGraphWidget;
 class MainWindowBuilder;
+class MountListWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -34,12 +36,15 @@ private slots:
     void onDirSelected(EntryRef ref);
     void onFlameRectClicked(EntryRef ref);
 
-private:
+private slots:
     void startScan(const QString& path);
+
+private:
 
     QThread* scanThread_ = nullptr;
 
     // Core state.
+    FileSystems fileSystems_;
     DirEntryStore entryStore_;
     NameStore nameStore_;
     FlameGraph flameGraph_;
@@ -48,6 +53,7 @@ private:
     EntryRef selectedDir_;
 
     // UI widgets (created by builder, parented to this).
+    MountListWidget* mountList_ = nullptr;
     DirTreeView* dirTree_ = nullptr;
     FileListView* fileList_ = nullptr;
     FlameGraphWidget* flameGraphWidget_ = nullptr;

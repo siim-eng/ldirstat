@@ -54,6 +54,7 @@ void FileSystems::readMounts() {
             continue;
 
         MountInfo info;
+        info.device = std::move(device);
         info.mountPoint = std::move(mountPoint);
         info.fsType = std::move(fsType);
         info.dev = st.st_dev;
