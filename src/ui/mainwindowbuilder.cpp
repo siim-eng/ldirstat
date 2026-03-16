@@ -1,8 +1,7 @@
 #include "mainwindowbuilder.h"
 #include "mainwindow.h"
 
-#include "dirtreeview.h"
-#include "filelistview.h"
+#include "dirlistview.h"
 #include "flamegraphwidget.h"
 #include "scanprogresswidget.h"
 #include "welcomewidget.h"
@@ -30,18 +29,8 @@ void MainWindowBuilder::build(MainWindow* w) {
     QObject::connect(quitAction, &QAction::triggered, w, &QWidget::close);
 
     // Widgets.
-    w->dirTree_ = new DirTreeView(w);
-    w->fileList_ = new FileListView(w);
+    w->dirListView_ = new DirListView(w);
     w->flameGraphWidget_ = new FlameGraphWidget(w);
-
-    int totalWidth = w->width();
-    QList<int> hSizes = {totalWidth * 30 / 100, totalWidth * 70 / 100};
-
-    // Top splitter: dir tree (left 30%) / file list (right 70%).
-    auto* topSplitter = new QSplitter(Qt::Horizontal, w);
-    topSplitter->addWidget(w->dirTree_);
-    topSplitter->addWidget(w->fileList_);
-    topSplitter->setSizes(hSizes);
 
     // Scan progress widget (shown during scanning).
     w->scanProgress_ = new ScanProgressWidget(w);
@@ -52,9 +41,9 @@ void MainWindowBuilder::build(MainWindow* w) {
     w->flameStack_->addWidget(w->flameGraphWidget_);
     w->flameStack_->setCurrentIndex(1);
 
-    // Main splitter: top panel (50%) / flame stack full width (50%).
+    // Main splitter: dir list (50%) / flame stack (50%).
     auto* mainSplitter = new QSplitter(Qt::Vertical, w);
-    mainSplitter->addWidget(topSplitter);
+    mainSplitter->addWidget(w->dirListView_);
     mainSplitter->addWidget(w->flameStack_);
     mainSplitter->setStretchFactor(0, 5);
     mainSplitter->setStretchFactor(1, 5);
@@ -73,7 +62,7 @@ void MainWindowBuilder::build(MainWindow* w) {
     w->setCentralWidget(w->viewStack_);
 
     // Signals.
-    QObject::connect(w->dirTree_, &DirTreeView::directorySelected,
+    QObject::connect(w->dirListView_, &DirListView::directorySelected,
                      w, &MainWindow::onDirSelected);
     QObject::connect(w->flameGraphWidget_, &FlameGraphWidget::rectClicked,
                      w, &MainWindow::onFlameRectClicked);

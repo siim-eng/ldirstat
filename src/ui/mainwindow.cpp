@@ -1,8 +1,7 @@
 #include "mainwindow.h"
 #include "mainwindowbuilder.h"
 
-#include "dirtreeview.h"
-#include "filelistview.h"
+#include "dirlistview.h"
 #include "flamegraphwidget.h"
 #include "scanprogresswidget.h"
 #include "welcomewidget.h"
@@ -97,14 +96,12 @@ void MainWindow::onScanFinished(EntryRef root) {
     currentRoot_ = root;
     selectedDir_ = root;
 
-    dirTree_->setRoot(entryStore_, nameStore_, root);
+    dirListView_->setRoot(entryStore_, nameStore_, root);
     onDirSelected(root);
 }
 
 void MainWindow::onDirSelected(EntryRef ref) {
     selectedDir_ = ref;
-
-    fileList_->showTopFiles(entryStore_, nameStore_, ref);
 
     flameGraph_.build(entryStore_, ref);
     flameGraphWidget_->setGraph(&flameGraph_, &entryStore_, &nameStore_);
@@ -114,7 +111,7 @@ void MainWindow::onFlameRectClicked(EntryRef ref) {
     if (!entryStore_[ref].isDir())
         return;
 
-    dirTree_->selectEntry(ref);
+    dirListView_->selectEntry(ref);
     onDirSelected(ref);
 }
 

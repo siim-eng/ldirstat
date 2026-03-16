@@ -23,8 +23,8 @@ target_link_libraries(ldirstat_core PRIVATE pthread)
 add_library(ldirstat_ui STATIC
     src/ui/mainwindow.cpp
     src/ui/mainwindowbuilder.cpp
-    src/ui/dirtreeview.cpp
-    src/ui/filelistview.cpp
+    src/ui/dirlistview.cpp
+    src/ui/dirlistcolumn.cpp
     src/ui/flamegraphwidget.cpp
     src/ui/scanprogresswidget.cpp
     src/ui/welcomewidget.cpp

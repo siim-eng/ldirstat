@@ -15,8 +15,7 @@ class QTimer;
 
 namespace ldirstat {
 
-class DirTreeView;
-class FileListView;
+class DirListView;
 class FlameGraphWidget;
 class MainWindowBuilder;
 class ScanProgressWidget;
@@ -59,8 +58,7 @@ private:
     // UI widgets (created by builder, parented to this).
     QStackedWidget* viewStack_ = nullptr;
     WelcomeWidget* welcomeWidget_ = nullptr;
-    DirTreeView* dirTree_ = nullptr;
-    FileListView* fileList_ = nullptr;
+    DirListView* dirListView_ = nullptr;
     QStackedWidget* flameStack_ = nullptr;
     FlameGraphWidget* flameGraphWidget_ = nullptr;
     ScanProgressWidget* scanProgress_ = nullptr;
