@@ -44,7 +44,8 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     stop_.store(false, std::memory_order_relaxed);
 
     // Reset state from any previous scan.
-    queue_.clear();
+    dirQueue_.clear();
+    dirQueueNext_ = 0;
     activeWorkers_ = 0;
     filesScanned_.store(0, std::memory_order_relaxed);
     dirsScanned_.store(0, std::memory_order_relaxed);
@@ -67,7 +68,7 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
 
     {
         std::lock_guard lock(mutex_);
-        queue_.push_back({rootPath, rootRef});
+        dirQueue_.push_back(rootRef);
     }
 
     threads_.reserve(workerCount);
@@ -75,6 +76,7 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
         threads_.emplace_back([this] {
             WorkerCtx ctx;
             ctx.getdentsBuf.resize(kGetdentsBufSize);
+            ctx.pathBuf.resize(4096);
             ctx.entryPage = entryStore_.allocatePage();
             ctx.namePage = nameStore_.allocatePage();
             workerLoop(ctx);
@@ -104,7 +106,7 @@ void Scanner::propagate(EntryRef root) {
             stack.push_back(child);
             child = entry.firstChild;
             continue;
-        } 
+        }
 
         if (entry.isDir() && entry.parent.valid()) {
             DirEntry& parent = entryStore_[entry.parent];
@@ -123,16 +125,15 @@ void Scanner::propagate(EntryRef root) {
     }
 }
 
-std::optional<Scanner::DirWork> Scanner::takeWork() {
+std::optional<EntryRef> Scanner::takeWork() {
     std::unique_lock lock(mutex_);
     while (true) {
         if (stop_.load(std::memory_order_relaxed))
             return std::nullopt;
-        if (!queue_.empty()) {
-            auto work = std::move(queue_.back());
-            queue_.pop_back();
+        if (dirQueueNext_ < dirQueue_.size()) {
+            EntryRef ref = dirQueue_[dirQueueNext_++];
             ++activeWorkers_;
-            return work;
+            return ref;
         }
         if (activeWorkers_ == 0)
             return std::nullopt; // all done
@@ -140,27 +141,60 @@ std::optional<Scanner::DirWork> Scanner::takeWork() {
     }
 }
 
-void Scanner::returnWork(std::vector<DirWork>& subdirs) {
+void Scanner::returnWork(std::vector<EntryRef>& subdirs) {
     std::lock_guard lock(mutex_);
-    for (auto& d : subdirs)
-        queue_.push_back(std::move(d));
+    for (auto ref : subdirs)
+        dirQueue_.push_back(ref);
     --activeWorkers_;
     cv_.notify_all();
 }
 
+void Scanner::buildPath(EntryRef ref, WorkerCtx& ctx) {
+    // Walk parent chain, collecting refs.
+    EntryRef chain[256];
+    int depth = 0;
+
+    EntryRef cur = ref;
+    while (cur.valid() && depth < 256) {
+        chain[depth++] = cur;
+        cur = entryStore_[cur].parent;
+    }
+
+    // Build path from root (chain[depth-1]) to target (chain[0]).
+    // Root's name is the full root path; children are just filenames.
+    size_t pos = 0;
+
+    for (int i = depth - 1; i >= 0; --i) {
+        std::string_view name = nameStore_.get(entryStore_[chain[i]].name);
+
+        size_t needed = pos + 1 + name.size() + 1;
+        if (needed > ctx.pathBuf.size())
+            ctx.pathBuf.resize(needed * 2);
+
+        if (i < depth - 1)
+            ctx.pathBuf[pos++] = '/';
+
+        std::memcpy(ctx.pathBuf.data() + pos, name.data(), name.size());
+        pos += name.size();
+    }
+
+    ctx.pathBuf[pos] = '\0';
+}
+
 void Scanner::workerLoop(WorkerCtx& ctx) {
-    while (auto work = takeWork()) {
-        scanDir(*work, ctx);
+    while (auto ref = takeWork()) {
+        scanDir(*ref, ctx);
         returnWork(ctx.subdirBatch);
         ctx.subdirBatch.clear();
     }
 }
 
-void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
-    int fd = open(work.path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
+    buildPath(dirRef, ctx);
+    int fd = open(ctx.pathBuf.data(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (fd < 0) return;
 
-    DirEntry& parent = entryStore_[work.ref];
+    DirEntry& parent = entryStore_[dirRef];
     EntryRef prevChild;
     uint32_t files = 0;
     uint32_t dirs = 0;
@@ -188,7 +222,7 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
             EntryRef ref = entryStore_.add(ctx.entryPage);
             DirEntry& entry = entryStore_[ref];
             entry.name = nameStore_.add(ctx.namePage, d->d_name);
-            entry.parent = work.ref;
+            entry.parent = dirRef;
             entry.depth = parent.depth + 1;
 
             // Stat for size, blocks, device, inode.
@@ -243,10 +277,7 @@ void Scanner::scanDir(const DirWork& work, WorkerCtx& ctx) {
             // Queue subdirectories (same filesystem only).
             if (entry.type == EntryType::Directory &&
                 entry.device == rootDev_) {
-                ctx.subdirBatch.push_back({
-                    work.path + '/' + d->d_name,
-                    ref,
-                });
+                ctx.subdirBatch.push_back(ref);
             }
         }
     }

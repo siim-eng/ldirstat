@@ -37,22 +37,19 @@ public:
     void propagate(EntryRef root);
 
 private:
-    struct DirWork {
-        std::string path;
-        EntryRef ref;
-    };
-
     struct WorkerCtx {
         std::vector<char> getdentsBuf;
-        std::vector<DirWork> subdirBatch;
+        std::vector<EntryRef> subdirBatch;
+        std::vector<char> pathBuf;
         uint16_t entryPage;
         uint16_t namePage;
     };
 
-    std::optional<DirWork> takeWork();
-    void returnWork(std::vector<DirWork>& subdirs);
+    std::optional<EntryRef> takeWork();
+    void returnWork(std::vector<EntryRef>& subdirs);
     void workerLoop(WorkerCtx& ctx);
-    void scanDir(const DirWork& work, WorkerCtx& ctx);
+    void scanDir(EntryRef dirRef, WorkerCtx& ctx);
+    void buildPath(EntryRef ref, WorkerCtx& ctx);
 
     DirEntryStore& entryStore_;
     NameStore& nameStore_;
@@ -61,7 +58,8 @@ private:
 
     std::mutex mutex_;
     std::condition_variable cv_;
-    std::vector<DirWork> queue_;
+    std::vector<EntryRef> dirQueue_;
+    size_t dirQueueNext_ = 0;
     int activeWorkers_ = 0;
     std::atomic<bool> stop_{false};
     std::atomic<uint64_t> filesScanned_{0};
