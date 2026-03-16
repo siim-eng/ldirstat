@@ -16,7 +16,8 @@ class DirListColumn : public QWidget {
 
 public:
     explicit DirListColumn(const DirEntryStore& store, const NameStore& names,
-                           EntryRef dirRef, int columnWidth, QWidget* parent = nullptr);
+                           EntryRef dirRef, uint64_t rootSize, int columnWidth,
+                           QWidget* parent = nullptr);
 
     EntryRef dirRef() const { return dirRef_; }
     EntryRef selectedRef() const;
@@ -29,8 +30,12 @@ signals:
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+
+public:
+    enum class SizeTier : uint8_t { Bytes, KB, MB, GB };
 
 private:
     struct ChildEntry {
@@ -39,6 +44,7 @@ private:
         QString pctStr;
         QString name;
         bool isDir;
+        SizeTier sizeTier;
     };
 
     void buildChildList();
@@ -55,6 +61,7 @@ private:
     const DirEntryStore& store_;
     const NameStore& names_;
     EntryRef dirRef_;
+    uint64_t rootSize_;
     std::vector<ChildEntry> children_;
     int selectedIndex_ = -1;
     QScrollBar* scrollBar_;

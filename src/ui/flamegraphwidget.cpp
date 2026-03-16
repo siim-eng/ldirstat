@@ -1,4 +1,5 @@
 #include "flamegraphwidget.h"
+#include "entrytooltip.h"
 
 #include <QMouseEvent>
 #include <QPainter>
@@ -20,16 +21,6 @@ QColor textColorForBackground(const QColor& background, const QPalette& palette)
     if (backgroundLightness < windowLightness)
         return palette.color(QPalette::BrightText);
     return palette.color(QPalette::Text);
-}
-
-QString formatSize(uint64_t bytes) {
-    if (bytes < 1024) return QString::number(bytes) + " B";
-    double kb = bytes / 1024.0;
-    if (kb < 1024) return QString::number(kb, 'f', 1) + " KB";
-    double mb = kb / 1024.0;
-    if (mb < 1024) return QString::number(mb, 'f', 1) + " MB";
-    double gb = mb / 1024.0;
-    return QString::number(gb, 'f', 2) + " GB";
 }
 
 } // namespace
@@ -103,11 +94,8 @@ void FlameGraphWidget::mousePressEvent(QMouseEvent* event) {
 void FlameGraphWidget::mouseMoveEvent(QMouseEvent* event) {
     EntryRef ref = hitTest(event->pos());
     if (ref.valid()) {
-        const DirEntry& entry = (*store_)[ref];
-        auto sv = names_->get(entry.name);
-        auto name = QString::fromUtf8(sv.data(), static_cast<int>(sv.size()));
-        QToolTip::showText(event->globalPosition().toPoint(),
-                           name + " (" + formatSize(entry.size) + ")");
+        QString tip = entryTooltip(*store_, *names_, ref);
+        QToolTip::showText(event->globalPosition().toPoint(), tip);
         emit rectHovered(ref);
     } else {
         QToolTip::hideText();

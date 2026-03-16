@@ -41,6 +41,7 @@ private:
 
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
+    uint64_t rootSize_ = 0;
 
     QScrollArea* scrollArea_;
     QWidget* scrollContent_;

@@ -44,6 +44,7 @@ void DirListView::setRoot(const DirEntryStore& store, const NameStore& names,
                           EntryRef root) {
     store_ = &store;
     names_ = &names;
+    rootSize_ = store[root].size;
 
     truncateColumnsAfter(-1);
     addColumn(root);
@@ -107,8 +108,8 @@ void DirListView::resizeEvent(QResizeEvent* event) {
 }
 
 void DirListView::addColumn(EntryRef dirRef) {
-    auto* col = new DirListColumn(*store_, *names_, dirRef, columnWidth_,
-                                  scrollContent_);
+    auto* col = new DirListColumn(*store_, *names_, dirRef, rootSize_,
+                                  columnWidth_, scrollContent_);
 
     // Insert before the stretch.
     int insertIndex = columnsLayout_->count() - 1;
