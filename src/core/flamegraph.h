@@ -14,17 +14,19 @@ struct FlameRect {
     EntryRef ref;
 };
 
-// Builds a flame-graph layout from a DirEntry tree.
-// Row 0 is the root (bottom of the graph). Each row contains rects
-// for entries at that depth. X coordinates are relative: 0.0 = left
-// edge, 1.0 = right edge of the root's total size.
+// Builds a flame-graph layout from a focused DirEntry subtree.
+// Row 0 is the scan root (bottom of the graph). Ancestors of the
+// focused entry are emitted as full-width rows so navigation context
+// stays visible. Rows above the focused entry contain proportional
+// child rects for the focused subtree. X coordinates are relative:
+// 0.0 = left edge, 1.0 = right edge of the focused entry's total size.
 class FlameGraph {
 public:
     static constexpr int kMaxDepth = 64;
     static constexpr float kMinWidth = 1e-4f;
 
-    // Builds the layout from the given root entry.
-    void build(const DirEntryStore& store, EntryRef root);
+    // Builds the layout from the given focused entry.
+    void build(const DirEntryStore& store, EntryRef focus);
 
     // Returns the EntryRef at the given relative coordinates,
     // or kNoEntry if nothing is there.

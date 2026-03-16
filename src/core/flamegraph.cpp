@@ -1,15 +1,27 @@
 #include "flamegraph.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace ldirstat {
 
-void FlameGraph::build(const DirEntryStore& store, EntryRef root) {
+void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
     rows_.clear();
-
-    const DirEntry& rootEntry = store[root];
-    if (rootEntry.size == 0)
+    if (!focus.valid())
         return;
+
+    const DirEntry& focusEntry = store[focus];
+    if (focusEntry.size == 0)
+        return;
+
+    std::vector<EntryRef> ancestry;
+    for (EntryRef current = focus; current.valid(); current = store[current].parent)
+        ancestry.push_back(current);
+    std::reverse(ancestry.begin(), ancestry.end());
+
+    rows_.resize(ancestry.size());
+    for (size_t row = 0; row < ancestry.size(); ++row)
+        rows_[row].push_back({0.0f, 1.0f, ancestry[row]});
 
     struct Frame {
         EntryRef child;  // next child to process
@@ -18,19 +30,16 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef root) {
         uint64_t parentSize;
     };
 
-    // Push root rect.
-    rows_.resize(1);
-    rows_[0].push_back({0.0f, 1.0f, root});
-
     Frame stack[kMaxDepth];
     int depth = 0;
 
-    // Seed with root's children.
-    EntryRef firstChild = rootEntry.firstChild;
+    // Seed with the focused entry's children above the ancestry rows.
+    EntryRef firstChild = focusEntry.firstChild;
     if (!firstChild.valid())
         return;
 
-    stack[0] = {firstChild, 0.0f, 1.0f, rootEntry.size};
+    stack[0] = {firstChild, 0.0f, 1.0f, focusEntry.size};
+    const int rowOffset = static_cast<int>(ancestry.size());
 
     while (depth >= 0) {
         Frame& f = stack[depth];
@@ -40,7 +49,7 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef root) {
             continue;
         }
 
-        int row = depth + 1;
+        int row = rowOffset + depth;
         const DirEntry& entry = store[f.child];
 
         // Compute rect x range.

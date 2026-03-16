@@ -14,6 +14,14 @@ QColor colorForEntry(const DirEntry& entry) {
     return QColor(220, 120, 60);        // warm orange
 }
 
+QColor textColorForBackground(const QColor& background, const QPalette& palette) {
+    const int backgroundLightness = background.lightness();
+    const int windowLightness = palette.color(QPalette::Window).lightness();
+    if (backgroundLightness < windowLightness)
+        return palette.color(QPalette::BrightText);
+    return palette.color(QPalette::Text);
+}
+
 QString formatSize(uint64_t bytes) {
     if (bytes < 1024) return QString::number(bytes) + " B";
     double kb = bytes / 1024.0;
@@ -41,7 +49,10 @@ void FlameGraphWidget::setGraph(const FlameGraph* graph, const DirEntryStore* st
 
 void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     QPainter painter(this);
-    painter.fillRect(rect(), Qt::white);
+    const QPalette widgetPalette = palette();
+    const QColor backgroundColor = widgetPalette.color(QPalette::Window);
+    const QColor borderColor = widgetPalette.color(QPalette::Text);
+    painter.fillRect(rect(), backgroundColor);
 
     if (!graph_ || !store_ || !names_ || graph_->rowCount() == 0)
         return;
@@ -65,15 +76,16 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
             const DirEntry& entry = (*store_)[fr.ref];
             QRect rect(x1, y, x2 - x1, kRowHeight);
 
-            painter.fillRect(rect, colorForEntry(entry));
-            painter.setPen(Qt::black);
+            const QColor fillColor = colorForEntry(entry);
+            painter.fillRect(rect, fillColor);
+            painter.setPen(borderColor);
             painter.drawRect(rect);
 
             // Draw label if rect is wide enough.
             if (x2 - x1 > 40) {
                 auto sv = names_->get(entry.name);
                 auto name = QString::fromUtf8(sv.data(), static_cast<int>(sv.size()));
-                painter.setPen(Qt::white);
+                painter.setPen(textColorForBackground(fillColor, widgetPalette));
                 painter.drawText(rect.adjusted(2, 0, -2, 0),
                                  Qt::AlignVCenter | Qt::AlignLeft, name);
             }
