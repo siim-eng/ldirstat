@@ -70,7 +70,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
         for (const auto& fr : rects) {
             int x1 = static_cast<int>(fr.x1 * w);
             int x2 = static_cast<int>(fr.x2 * w);
-            if (x2 - x1 < 1)
+            if (x2 - x1 < 4)
                 continue;
 
             const DirEntry& entry = (*store_)[fr.ref];

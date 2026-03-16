@@ -33,8 +33,8 @@ target_include_directories(ldirstat_ui PUBLIC src/ui)
 target_link_libraries(ldirstat_ui PUBLIC ldirstat_core Qt6::Widgets)
 
 # Main application.
-add_executable(ldirstat src/app/main.cpp src/app/resources.qrc)
-target_link_libraries(ldirstat PRIVATE ldirstat_ui)
+add_executable(LDirStat src/app/main.cpp src/app/resources.qrc)
+target_link_libraries(LDirStat PRIVATE ldirstat_ui)
 
 # Benchmarks (no Qt).
 add_executable(scandirs bench/scandirs.cpp)

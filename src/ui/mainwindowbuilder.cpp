@@ -16,7 +16,7 @@
 namespace ldirstat {
 
 void MainWindowBuilder::build(MainWindow* w) {
-    w->setWindowTitle("ldirstat");
+    w->setWindowTitle("LDirStat");
     w->resize(1200, 800);
 
     // Menu bar.
