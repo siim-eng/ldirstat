@@ -36,6 +36,10 @@ public:
     // size, and blocks from child directories up to their parents.
     void propagate(EntryRef root);
 
+    // Sort each directory's children by size (descending).
+    // Workers take batches from dirQueue_.
+    void sortBySize(int workerCount);
+
 private:
     struct WorkerCtx {
         std::vector<char> getdentsBuf;
@@ -50,6 +54,9 @@ private:
     void workerLoop(WorkerCtx& ctx);
     void scanDir(EntryRef dirRef, WorkerCtx& ctx);
     void buildPath(EntryRef ref, WorkerCtx& ctx);
+
+    static constexpr size_t kSortBatchSize = 10;
+    size_t takeSortBatch();
 
     DirEntryStore& entryStore_;
     NameStore& nameStore_;

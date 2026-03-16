@@ -29,18 +29,21 @@ int main(int argc, char* argv[]) {
     auto t1 = std::chrono::steady_clock::now();
     scanner.propagate(rootRef);
     auto t2 = std::chrono::steady_clock::now();
+    scanner.sortBySize(workerCount);
+    auto t3 = std::chrono::steady_clock::now();
 
     const ldirstat::DirEntry& root = entryStore[rootRef];
 
     double scanMs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
     double propagateMs = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
+    double sortMs = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() / 1000.0;
 
     std::printf("dirs:      %u\n", root.dirCount);
     std::printf("files:     %u\n", root.fileCount);
     std::printf("disk_used: %lu bytes\n", root.blocks * 512);
     std::printf("scan:      %.3f ms\n", scanMs);
     std::printf("propagate: %.3f ms\n", propagateMs);
-    std::printf("total:     %.3f ms\n", scanMs + propagateMs);
+    std::printf("sort:      %.3f ms\n", sortMs);
 
     return 0;
 }

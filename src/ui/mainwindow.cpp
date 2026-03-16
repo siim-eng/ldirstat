@@ -61,6 +61,7 @@ void MainWindow::startScan(const QString& path) {
     scanThread_ = QThread::create([this, scanPath, workers]() {
         EntryRef root = scanner_.scan(scanPath, workers);
         scanner_.propagate(root);
+        scanner_.sortBySize(workers);
         emit scanComplete(root);
     });
     scanThread_->start();

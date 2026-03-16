@@ -40,8 +40,6 @@ private slots:
     void onFlameRectClicked(EntryRef ref);
     void onScanPollTick();
     void onStopScan();
-
-private slots:
     void startScan(const QString& path);
 
 private:

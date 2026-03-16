@@ -1,5 +1,6 @@
 #include "scanner.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <dirent.h>
@@ -291,6 +292,68 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
     dirsScanned_.fetch_add(1, std::memory_order_relaxed);
 
     close(fd);
+}
+
+size_t Scanner::takeSortBatch() {
+    std::lock_guard lock(mutex_);
+    size_t start = dirQueueNext_;
+    dirQueueNext_ = std::min(dirQueueNext_ + kSortBatchSize, dirQueue_.size());
+    return start;
+}
+
+void Scanner::sortBySize(int workerCount) {
+    dirQueueNext_ = 0;
+
+    // keep the size numbers close, better CPU cache lookup speed, makes 2x diff, it would be possible to find size from EntryRef
+    struct SortEntry {
+        uint64_t size;
+        EntryRef ref;
+    };
+
+    auto sortWorker = [this]() {
+        std::vector<SortEntry> scratch;
+        while (true) {
+            size_t start = takeSortBatch();
+            size_t end = std::min(start + kSortBatchSize, dirQueue_.size());
+            if (start >= dirQueue_.size())
+                break;
+
+            for (size_t i = start; i < end; ++i) {
+                if (stop_.load(std::memory_order_relaxed))
+                    return;
+                DirEntry& dir = entryStore_[dirQueue_[i]];
+                if (dir.childCount < 2)
+                    continue;
+
+                
+                scratch.clear();
+                EntryRef child = dir.firstChild;
+                while (child.valid()) {
+                    scratch.push_back({entryStore_[child].size, child});
+                    child = entryStore_[child].nextSibling;
+                }
+
+                std::sort(scratch.begin(), scratch.end(),
+                    [](const SortEntry& a, const SortEntry& b) {
+                        return a.size > b.size;
+                    });
+
+                // re-order the links between direntries
+                dir.firstChild = scratch[0].ref;
+                for (size_t j = 0; j + 1 < scratch.size(); ++j)
+                    entryStore_[scratch[j].ref].nextSibling = scratch[j + 1].ref;
+                entryStore_[scratch.back().ref].nextSibling = kNoEntry;
+            }
+        }
+    };
+
+    threads_.reserve(workerCount);
+    for (int i = 0; i < workerCount; ++i)
+        threads_.emplace_back(sortWorker);
+
+    for (auto& t : threads_)
+        t.join();
+    threads_.clear();
 }
 
 } // namespace ldirstat
