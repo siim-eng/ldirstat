@@ -8,10 +8,13 @@
 #include "flamegraph.h"
 #include "namestore.h"
 #include "scanner.h"
+#include "themecolors.h"
 
+class QAction;
 class QStackedWidget;
 class QSplitter;
 class QTimer;
+class QToolBar;
 
 namespace ldirstat {
 
@@ -29,11 +32,15 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 signals:
     void scanComplete(EntryRef root);
 
 private slots:
-    void onOpenDirectory();
+    void onOverview();
+    void onRescan();
     void onScanFinished(EntryRef root);
     void onDirSelected(EntryRef ref);
     void onFlameRectClicked(EntryRef ref);
@@ -44,6 +51,7 @@ private slots:
 private:
 
     QThread* scanThread_ = nullptr;
+    QString lastScanPath_;
 
     // Core state.
     FileSystems fileSystems_;
@@ -54,8 +62,12 @@ private:
 
     EntryRef currentRoot_;
     EntryRef selectedDir_;
+    ThemeColors themeColors_;
 
     // UI widgets (created by builder, parented to this).
+    QToolBar* toolbar_ = nullptr;
+    QAction* overviewAction_ = nullptr;
+    QAction* rescanAction_ = nullptr;
     QStackedWidget* viewStack_ = nullptr;
     WelcomeWidget* welcomeWidget_ = nullptr;
     DirListView* dirListView_ = nullptr;

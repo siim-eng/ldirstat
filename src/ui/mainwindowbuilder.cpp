@@ -7,10 +7,11 @@
 #include "welcomewidget.h"
 
 #include <QAction>
-#include <QMenuBar>
+#include <QFileDialog>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTimer>
+#include <QToolBar>
 
 namespace ldirstat {
 
@@ -18,15 +19,20 @@ void MainWindowBuilder::build(MainWindow* w) {
     w->setWindowTitle("LDirStat");
     w->resize(1200, 800);
 
-    // Menu bar.
-    auto* fileMenu = w->menuBar()->addMenu(MainWindow::tr("&File"));
-    auto* openAction = fileMenu->addAction(MainWindow::tr("&Open Directory..."));
-    openAction->setShortcut(QKeySequence::Open);
-    QObject::connect(openAction, &QAction::triggered, w, &MainWindow::onOpenDirectory);
+    // Toolbar (hidden until first scan).
+    w->toolbar_ = w->addToolBar(MainWindow::tr("Main"));
+    w->toolbar_->setMovable(false);
+    w->toolbar_->setFloatable(false);
+    w->toolbar_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    w->toolbar_->setVisible(false);
 
-    auto* quitAction = fileMenu->addAction(MainWindow::tr("&Quit"));
-    quitAction->setShortcut(QKeySequence::Quit);
-    QObject::connect(quitAction, &QAction::triggered, w, &QWidget::close);
+    w->overviewAction_ = w->toolbar_->addAction(
+        QIcon::fromTheme("go-home-symbolic"), MainWindow::tr("Overview"));
+    QObject::connect(w->overviewAction_, &QAction::triggered, w, &MainWindow::onOverview);
+
+    w->rescanAction_ = w->toolbar_->addAction(
+        QIcon::fromTheme("view-refresh-symbolic"), MainWindow::tr("Rescan"));
+    QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
 
     // Widgets.
     w->dirListView_ = new DirListView(w);
@@ -41,12 +47,12 @@ void MainWindowBuilder::build(MainWindow* w) {
     w->flameStack_->addWidget(w->flameGraphWidget_);
     w->flameStack_->setCurrentIndex(1);
 
-    // Main splitter: dir list (50%) / flame stack (50%).
+    // Main splitter: dir list (60%) / flame stack (40%).
     auto* mainSplitter = new QSplitter(Qt::Vertical, w);
     mainSplitter->addWidget(w->dirListView_);
     mainSplitter->addWidget(w->flameStack_);
-    mainSplitter->setStretchFactor(0, 5);
-    mainSplitter->setStretchFactor(1, 5);
+    int totalHeight = w->height();
+    mainSplitter->setSizes({totalHeight * 60 / 100, totalHeight * 40 / 100});
 
     // Poll timer for scan progress.
     w->scanPollTimer_ = new QTimer(w);
@@ -69,7 +75,12 @@ void MainWindowBuilder::build(MainWindow* w) {
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested,
                      w, &MainWindow::startScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,
-                     w, &MainWindow::onOpenDirectory);
+                     w, [w]() {
+        QString dir = QFileDialog::getExistingDirectory(
+            w, MainWindow::tr("Select Directory"), QDir::homePath());
+        if (!dir.isEmpty())
+            w->startScan(dir);
+    });
     QObject::connect(w->scanProgress_, &ScanProgressWidget::stopRequested,
                      w, &MainWindow::onStopScan);
 }

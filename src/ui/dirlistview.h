@@ -6,6 +6,7 @@
 #include "direntry.h"
 #include "direntrystore.h"
 #include "namestore.h"
+#include "themecolors.h"
 
 class QScrollArea;
 class QHBoxLayout;
@@ -20,6 +21,7 @@ class DirListView : public QWidget {
 public:
     explicit DirListView(QWidget* parent = nullptr);
 
+    void setThemeColors(const ThemeColors& colors);
     void setRoot(const DirEntryStore& store, const NameStore& names, EntryRef root);
     void selectEntry(EntryRef ref);
 
@@ -42,6 +44,7 @@ private:
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
     uint64_t rootSize_ = 0;
+    ThemeColors themeColors_;
 
     QScrollArea* scrollArea_;
     QWidget* scrollContent_;

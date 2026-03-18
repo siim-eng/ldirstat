@@ -6,10 +6,13 @@
 #include "scanprogresswidget.h"
 #include "welcomewidget.h"
 
+#include <QAction>
+#include <QEvent>
 #include <QFileDialog>
 #include <QStackedWidget>
 #include <QThread>
 #include <QTimer>
+#include <QToolBar>
 
 namespace ldirstat {
 
@@ -17,6 +20,10 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , scanner_(entryStore_, nameStore_) {
     MainWindowBuilder::build(this);
+
+    themeColors_ = ThemeColors::fromPalette(palette());
+    dirListView_->setThemeColors(themeColors_);
+    flameGraphWidget_->setThemeColors(themeColors_);
 
     fileSystems_.readMounts();
     welcomeWidget_->populate(fileSystems_);
@@ -32,16 +39,41 @@ MainWindow::~MainWindow() {
     }
 }
 
-void MainWindow::onOpenDirectory() {
-    QString dir = QFileDialog::getExistingDirectory(
-        this, tr("Select Directory"), QDir::homePath());
-    if (!dir.isEmpty())
-        startScan(dir);
+void MainWindow::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::PaletteChange) {
+        themeColors_ = ThemeColors::fromPalette(palette());
+        dirListView_->setThemeColors(themeColors_);
+        flameGraphWidget_->setThemeColors(themeColors_);
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void MainWindow::onOverview() {
+    if (viewStack_->currentIndex() == 1) {
+        viewStack_->setCurrentIndex(0);
+        overviewAction_->setText(tr("Back"));
+        rescanAction_->setVisible(false);
+    } else if (currentRoot_.valid()) {
+        viewStack_->setCurrentIndex(1);
+        overviewAction_->setText(tr("Overview"));
+        rescanAction_->setVisible(true);
+    }
+}
+
+void MainWindow::onRescan() {
+    if (!lastScanPath_.isEmpty())
+        startScan(lastScanPath_);
 }
 
 void MainWindow::startScan(const QString& path) {
     if (scanThread_ && scanThread_->isRunning())
         return;
+
+    lastScanPath_ = path;
+
+    toolbar_->setVisible(true);
+    overviewAction_->setText(tr("Overview"));
+    rescanAction_->setVisible(true);
 
     viewStack_->setCurrentIndex(1);
     flameStack_->setCurrentIndex(0);
@@ -87,6 +119,12 @@ void MainWindow::onScanFinished(EntryRef root) {
         entryStore_.clear();
         nameStore_.clear();
         viewStack_->setCurrentIndex(0);
+        if (!currentRoot_.valid()) {
+            toolbar_->setVisible(false);
+        } else {
+            overviewAction_->setText(tr("Back"));
+            rescanAction_->setVisible(false);
+        }
         return;
     }
 
@@ -111,8 +149,11 @@ void MainWindow::onFlameRectClicked(EntryRef ref) {
     if (!entryStore_[ref].isDir())
         return;
 
+    // selectEntry rebuilds columns but does not emit directorySelected,
+    // so we call onDirSelected once to rebuild the flamegraph.
     dirListView_->selectEntry(ref);
     onDirSelected(ref);
 }
+
 
 } // namespace ldirstat

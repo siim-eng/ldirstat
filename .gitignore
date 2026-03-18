@@ -45,3 +45,6 @@ bench/scandirs
 
 # CMake build directory
 build/
+compile_commands.json
+.clangd
+.vscode

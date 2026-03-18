@@ -9,10 +9,10 @@ namespace ldirstat {
 
 namespace {
 
-QColor colorForEntry(const DirEntry& entry) {
+QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     if (entry.isDir())
-        return QColor(70, 130, 180);   // steel blue
-    return QColor(220, 120, 60);        // warm orange
+        return colors.primaryBackground;
+    return colors.secondaryBackground;
 }
 
 QColor textColorForBackground(const QColor& background, const QPalette& palette) {
@@ -28,6 +28,10 @@ QColor textColorForBackground(const QColor& background, const QPalette& palette)
 FlameGraphWidget::FlameGraphWidget(QWidget* parent)
     : QWidget(parent) {
     setMouseTracking(true);
+}
+
+QRect FlameGraphWidget::graphRect() const {
+    return rect().adjusted(kGraphInset, kGraphInset, -kGraphInset, -kGraphInset);
 }
 
 void FlameGraphWidget::setGraph(const FlameGraph* graph, const DirEntryStore* store,
@@ -48,26 +52,33 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     if (!graph_ || !store_ || !names_ || graph_->rowCount() == 0)
         return;
 
-    int w = width();
-    int totalHeight = graph_->rowCount() * kRowHeight;
-    int yBase = height(); // bottom of widget = row 0
+    const QRect graphArea = graphRect();
+    if (graphArea.width() <= 0 || graphArea.height() <= 0)
+        return;
+
+    painter.save();
+    painter.setClipRect(graphArea);
+
+    const int w = graphArea.width();
+    const int xOffset = graphArea.left();
+    const int yBase = graphArea.y() + graphArea.height();
 
     for (int r = 0; r < graph_->rowCount(); ++r) {
         int y = yBase - (r + 1) * kRowHeight;
-        if (y + kRowHeight < 0)
+        if (y + kRowHeight <= graphArea.top())
             break; // above visible area
 
         const auto& rects = graph_->row(r);
         for (const auto& fr : rects) {
-            int x1 = static_cast<int>(fr.x1 * w);
-            int x2 = static_cast<int>(fr.x2 * w);
+            int x1 = xOffset + static_cast<int>(fr.x1 * w);
+            int x2 = xOffset + static_cast<int>(fr.x2 * w);
             if (x2 - x1 < 4)
                 continue;
 
             const DirEntry& entry = (*store_)[fr.ref];
             QRect rect(x1, y, x2 - x1, kRowHeight);
 
-            const QColor fillColor = colorForEntry(entry);
+            const QColor fillColor = colorForEntry(entry, themeColors_);
             painter.fillRect(rect, fillColor);
             painter.setPen(borderColor);
             painter.drawRect(rect);
@@ -82,7 +93,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
             }
         }
     }
-    Q_UNUSED(totalHeight);
+    painter.restore();
 }
 
 void FlameGraphWidget::mousePressEvent(QMouseEvent* event) {
@@ -106,12 +117,16 @@ EntryRef FlameGraphWidget::hitTest(const QPoint& pos) const {
     if (!graph_ || graph_->rowCount() == 0)
         return kNoEntry;
 
-    int yBase = height();
-    int row = (yBase - pos.y()) / kRowHeight;
+    const QRect graphArea = graphRect();
+    if (!graphArea.contains(pos) || graphArea.width() <= 0)
+        return kNoEntry;
+
+    int yBase = graphArea.y() + graphArea.height();
+    int row = (yBase - 1 - pos.y()) / kRowHeight;
     if (row < 0)
         return kNoEntry;
 
-    float relX = static_cast<float>(pos.x()) / width();
+    float relX = static_cast<float>(pos.x() - graphArea.left()) / graphArea.width();
     return graph_->lookup(relX, row);
 }
 

@@ -4,7 +4,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QScrollBar>
-#include <QStyle>
+#include <QTimer>
 #include <QToolTip>
 #include <QWheelEvent>
 
@@ -13,15 +13,6 @@
 namespace ldirstat {
 
 namespace {
-
-using SizeTier = DirListColumn::SizeTier;
-
-SizeTier sizeTierFor(uint64_t bytes) {
-    if (bytes < 1024) return SizeTier::Bytes;
-    if (bytes < 1024 * 1024) return SizeTier::KB;
-    if (bytes < 1024ULL * 1024 * 1024) return SizeTier::MB;
-    return SizeTier::GB;
-}
 
 QString formatSize(uint64_t bytes) {
     if (bytes < 1024)
@@ -47,41 +38,44 @@ QString formatPercent(uint64_t entrySize, uint64_t rootSize) {
     return QString::number(static_cast<int>(std::round(pct))) + "%";
 }
 
-bool isDarkTheme(const QPalette& pal) {
-    return pal.color(QPalette::Window).lightness() < 128;
-}
-
-QColor sizeColor(SizeTier tier, const QPalette& pal, bool selected) {
-    if (selected)
-        return pal.color(QPalette::HighlightedText);
-    bool dark = isDarkTheme(pal);
-    switch (tier) {
-    case SizeTier::MB: return dark ? QColor(0x8F, 0xB3, 0xFF) : QColor(0x3E, 0x6F, 0xD1);
-    case SizeTier::GB: return dark ? QColor(0xF0, 0xC6, 0x74) : QColor(0xA0, 0x6A, 0x00);
-    default:           return pal.color(QPalette::Text);
-    }
-}
-
 } // namespace
 
+DirListColumn::SizeTier DirListColumn::sizeTierFor(uint64_t bytes) {
+    if (bytes < 1024) return SizeTier::Bytes;
+    if (bytes < 1024 * 1024) return SizeTier::KB;
+    if (bytes < 1024ULL * 1024 * 1024) return SizeTier::MB;
+    return SizeTier::GB;
+}
+
 DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
-                             EntryRef dirRef, uint64_t rootSize, int columnWidth,
+                             EntryRef dirRef, uint64_t rootSize,
+                             const ThemeColors& themeColors, int columnWidth,
                              QWidget* parent)
     : QWidget(parent)
     , store_(store)
     , names_(names)
     , dirRef_(dirRef)
-    , rootSize_(rootSize) {
+    , rootSize_(rootSize)
+    , themeColors_(themeColors) {
     setFixedWidth(columnWidth);
     setMouseTracking(true);
 
     scrollBar_ = new QScrollBar(Qt::Vertical, this);
     connect(scrollBar_, &QScrollBar::valueChanged, this, [this]() { update(); });
 
+    tooltipTimer_ = new QTimer(this);
+    tooltipTimer_->setSingleShot(true);
+    tooltipTimer_->setInterval(500);
+    connect(tooltipTimer_, &QTimer::timeout, this, [this]() {
+        if (hoverRow_ >= 0 && hoverRow_ < static_cast<int>(children_.size())) {
+            QString tip = entryTooltip(store_, names_, children_[hoverRow_].ref);
+            QToolTip::showText(hoverGlobalPos_, tip, this);
+        }
+    });
+
     QFontMetrics fm(font());
     sizeFieldWidth_ = fm.horizontalAdvance("9999 MB");
     pctFieldWidth_ = fm.horizontalAdvance("100%");
-    dirMarkerWidth_ = fm.horizontalAdvance(" >");
 
     buildChildList();
     updateScrollBar();
@@ -93,6 +87,8 @@ void DirListColumn::buildChildList() {
     footerDirs_ = dir.dirCount;
     footerFiles_ = dir.fileCount;
     footerBytes_ = dir.size;
+
+    children_.reserve(dir.childCount);
 
     EntryRef childRef = dir.firstChild;
     while (childRef.valid()) {
@@ -141,6 +137,11 @@ void DirListColumn::setSelectedRef(EntryRef ref) {
     }
 }
 
+void DirListColumn::setThemeColors(const ThemeColors& colors) {
+    themeColors_ = colors;
+    update();
+}
+
 void DirListColumn::clearSelection() {
     selectedIndex_ = -1;
     update();
@@ -164,67 +165,71 @@ void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
     // Background.
     p.fillRect(rect(), pal.base());
 
-    // Clip list area so rows don't bleed into footer.
-    p.save();
-    p.setClipRect(0, 0, contentWidth, listHeight);
+    if (!children_.empty()) {
+        // Clip list area so rows don't bleed into footer.
+        p.save();
+        p.setClipRect(0, 0, contentWidth, listHeight);
 
-    // Draw list rows.
-    int firstRow = scrollOffset / kRowHeight;
-    int lastRow = std::min(static_cast<int>(children_.size()) - 1,
-                           (scrollOffset + listHeight) / kRowHeight);
+        int firstRow = scrollOffset / kRowHeight;
+        int lastRow = std::min(static_cast<int>(children_.size()) - 1,
+                               (scrollOffset + listHeight) / kRowHeight);
 
-    int arrowSpace = kArrowSize * 2 + kPadding;
+        int arrowSpace = kArrowSize * 2 + kPadding;
 
-    for (int i = firstRow; i <= lastRow; ++i) {
-        const ChildEntry& ce = children_[i];
-        int rowY = i * kRowHeight - scrollOffset;
+        for (int i = firstRow; i <= lastRow; ++i) {
+            const ChildEntry& ce = children_[i];
+            int rowY = i * kRowHeight - scrollOffset;
 
-        bool selected = (i == selectedIndex_);
-        QColor textColor = selected ? pal.color(QPalette::HighlightedText)
-                                    : pal.color(QPalette::Text);
-        QColor sizeClr = sizeColor(ce.sizeTier, pal, selected);
+            bool selected = (i == selectedIndex_);
+            QColor textColor = selected ? pal.color(QPalette::HighlightedText)
+                                        : pal.color(QPalette::Text);
+            QColor sizeClr = textColor;
+            if (!selected) {
+                if (ce.sizeTier == SizeTier::MB) sizeClr = themeColors_.primaryForeground;
+                else if (ce.sizeTier == SizeTier::GB) sizeClr = themeColors_.secondaryForeground;
+            }
 
-        // Selection highlight.
-        if (selected)
-            p.fillRect(0, rowY, contentWidth, kRowHeight, pal.highlight());
+            // Selection highlight.
+            if (selected)
+                p.fillRect(0, rowY, contentWidth, kRowHeight, pal.highlight());
 
-        int x = kLeftPadding;
+            int x = kLeftPadding;
 
-        // Size (right-aligned, colored).
-        p.setPen(sizeClr);
-        p.drawText(x, rowY, sizeFieldWidth_, kRowHeight,
-                   Qt::AlignRight | Qt::AlignVCenter, ce.sizeStr);
-        x += sizeFieldWidth_ + kPadding;
+            // Size (right-aligned, colored).
+            p.setPen(sizeClr);
+            p.drawText(x, rowY, sizeFieldWidth_, kRowHeight,
+                       Qt::AlignRight | Qt::AlignVCenter, ce.sizeStr);
+            x += sizeFieldWidth_ + kPadding;
 
-        // Percentage (right-aligned, same color as size).
-        p.drawText(x, rowY, pctFieldWidth_, kRowHeight,
-                   Qt::AlignRight | Qt::AlignVCenter, ce.pctStr);
-        x += pctFieldWidth_ + kPadding;
+            // Percentage (right-aligned, same color as size).
+            p.drawText(x, rowY, pctFieldWidth_, kRowHeight,
+                       Qt::AlignRight | Qt::AlignVCenter, ce.pctStr);
+            x += pctFieldWidth_ + kPadding;
 
-        // Name (default text color).
-        p.setPen(textColor);
-        int nameAvail = contentWidth - x - (ce.isDir ? arrowSpace : 0) - kPadding;
-        QString elidedName = fm.elidedText(ce.name, Qt::ElideRight, nameAvail);
-        p.drawText(x, rowY, nameAvail, kRowHeight,
-                   Qt::AlignLeft | Qt::AlignVCenter, elidedName);
+            // Name (default text color).
+            p.setPen(textColor);
+            int nameAvail = std::max(0, contentWidth - x - (ce.isDir ? arrowSpace : 0) - kPadding);
+            QString elidedName = fm.elidedText(ce.name, Qt::ElideRight, nameAvail);
+            p.drawText(x, rowY, nameAvail, kRowHeight,
+                       Qt::AlignLeft | Qt::AlignVCenter, elidedName);
 
-        // Directory indicator: filled triangle (default text color).
-        if (ce.isDir) {
-            int arrowX = contentWidth - kArrowSize - kPadding;
-            int arrowY = rowY + (kRowHeight - kArrowSize * 2) / 2;
-            QPolygon triangle;
-            triangle << QPoint(arrowX, arrowY)
-                     << QPoint(arrowX + kArrowSize, arrowY + kArrowSize)
-                     << QPoint(arrowX, arrowY + kArrowSize * 2);
-            p.setBrush(textColor);
-            p.setPen(Qt::NoPen);
-            p.drawPolygon(triangle);
-            p.setBrush(Qt::NoBrush);
+            // Directory indicator: filled triangle (default text color).
+            if (ce.isDir) {
+                int arrowX = contentWidth - kArrowSize - kPadding;
+                int arrowY = rowY + (kRowHeight - kArrowSize * 2) / 2;
+                QPolygon triangle;
+                triangle << QPoint(arrowX, arrowY)
+                         << QPoint(arrowX + kArrowSize, arrowY + kArrowSize)
+                         << QPoint(arrowX, arrowY + kArrowSize * 2);
+                p.setBrush(textColor);
+                p.setPen(Qt::NoPen);
+                p.drawPolygon(triangle);
+                p.setBrush(Qt::NoBrush);
+            }
         }
+
+        p.restore();
     }
-
-    p.restore();
-
     // Footer separator.
     int footerY = height() - kFooterHeight;
     p.setPen(pal.mid().color());
@@ -253,11 +258,17 @@ void DirListColumn::mousePressEvent(QMouseEvent* event) {
 
 void DirListColumn::mouseMoveEvent(QMouseEvent* event) {
     int row = hitTestRow(event->pos());
-    if (row >= 0 && row < static_cast<int>(children_.size())) {
-        QString tip = entryTooltip(store_, names_, children_[row].ref);
-        QToolTip::showText(event->globalPosition().toPoint(), tip, this);
-    } else {
+    if (row != hoverRow_) {
         QToolTip::hideText();
+        hoverRow_ = row;
+        if (row >= 0 && row < static_cast<int>(children_.size())) {
+            hoverGlobalPos_ = event->globalPosition().toPoint();
+            tooltipTimer_->start();
+        } else {
+            tooltipTimer_->stop();
+        }
+    } else {
+        hoverGlobalPos_ = event->globalPosition().toPoint();
     }
 }
 

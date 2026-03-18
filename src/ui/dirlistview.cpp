@@ -2,13 +2,12 @@
 #include "dirlistcolumn.h"
 
 #include <QHBoxLayout>
+#include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
-
-#include <QResizeEvent>
 
 #include <algorithm>
 
@@ -38,6 +37,12 @@ DirListView::DirListView(QWidget* parent)
     // When horizontal scrollbar appears/disappears, viewport height changes.
     connect(scrollArea_->horizontalScrollBar(), &QScrollBar::rangeChanged,
             this, [this]() { syncColumnHeights(); });
+}
+
+void DirListView::setThemeColors(const ThemeColors& colors) {
+    themeColors_ = colors;
+    for (auto* col : columns_)
+        col->setThemeColors(colors);
 }
 
 void DirListView::setRoot(const DirEntryStore& store, const NameStore& names,
@@ -77,10 +82,6 @@ void DirListView::selectEntry(EntryRef ref) {
     }
 
     scrollToLastColumn();
-
-    // Emit for the deepest directory.
-    if ((*store_)[ref].isDir())
-        emit directorySelected(ref);
 }
 
 void DirListView::onColumnEntryClicked(EntryRef ref, bool isDir) {
@@ -109,7 +110,7 @@ void DirListView::resizeEvent(QResizeEvent* event) {
 
 void DirListView::addColumn(EntryRef dirRef) {
     auto* col = new DirListColumn(*store_, *names_, dirRef, rootSize_,
-                                  columnWidth_, scrollContent_);
+                                  themeColors_, columnWidth_, scrollContent_);
 
     // Insert before the stretch.
     int insertIndex = columnsLayout_->count() - 1;
@@ -159,10 +160,11 @@ int DirListView::computeColumnWidth() const {
     int sizeField = fm.horizontalAdvance("9999 MB");
     int pctField = fm.horizontalAdvance("100%");
     int nameField = fm.horizontalAdvance("directoryname123");
-    int arrowSpace = 5 * 2 + 4; // kArrowSize * 2 + kPadding
+    int arrowSpace = DirListColumn::kArrowSize * 2 + DirListColumn::kPadding;
     int scrollBarW = style()->pixelMetric(QStyle::PM_ScrollBarExtent);
-    // 8 (left) + sizeField + 4 + pctField + 4 + nameField + arrowSpace + 4 (right) + scrollbar
-    return 8 + sizeField + 4 + pctField + 4 + nameField + arrowSpace + 4 + scrollBarW;
+    return DirListColumn::kLeftPadding + sizeField + DirListColumn::kPadding
+         + pctField + DirListColumn::kPadding + nameField + arrowSpace
+         + DirListColumn::kPadding + scrollBarW;
 }
 
 } // namespace ldirstat
