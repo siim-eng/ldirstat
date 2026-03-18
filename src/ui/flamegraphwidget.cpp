@@ -26,20 +26,24 @@ QColor textColorForBackground(const QColor& background, const QPalette& palette)
 } // namespace
 
 FlameGraphWidget::FlameGraphWidget(QWidget* parent)
-    : QWidget(parent) {
+    : GraphWidget(parent) {
     setMouseTracking(true);
+}
+
+void FlameGraphWidget::setStores(const DirEntryStore* store, const NameStore* names) {
+    store_ = store;
+    names_ = names;
+}
+
+void FlameGraphWidget::setDirectory(EntryRef dir) {
+    if (!store_)
+        return;
+    flameGraph_.build(*store_, dir);
+    update();
 }
 
 QRect FlameGraphWidget::graphRect() const {
     return rect().adjusted(kGraphInset, kGraphInset, -kGraphInset, -kGraphInset);
-}
-
-void FlameGraphWidget::setGraph(const FlameGraph* graph, const DirEntryStore* store,
-                                const NameStore* names) {
-    graph_ = graph;
-    store_ = store;
-    names_ = names;
-    update();
 }
 
 void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
@@ -49,7 +53,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     const QColor borderColor = widgetPalette.color(QPalette::Text);
     painter.fillRect(rect(), backgroundColor);
 
-    if (!graph_ || !store_ || !names_ || graph_->rowCount() == 0)
+    if (!store_ || !names_ || flameGraph_.rowCount() == 0)
         return;
 
     const QRect graphArea = graphRect();
@@ -63,12 +67,12 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     const int xOffset = graphArea.left();
     const int yBase = graphArea.y() + graphArea.height();
 
-    for (int r = 0; r < graph_->rowCount(); ++r) {
+    for (int r = 0; r < flameGraph_.rowCount(); ++r) {
         int y = yBase - (r + 1) * kRowHeight;
         if (y + kRowHeight <= graphArea.top())
             break; // above visible area
 
-        const auto& rects = graph_->row(r);
+        const auto& rects = flameGraph_.row(r);
         for (const auto& fr : rects) {
             int x1 = xOffset + static_cast<int>(fr.x1 * w);
             int x2 = xOffset + static_cast<int>(fr.x2 * w);
@@ -99,7 +103,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
 void FlameGraphWidget::mousePressEvent(QMouseEvent* event) {
     EntryRef ref = hitTest(event->pos());
     if (ref.valid())
-        emit rectClicked(ref);
+        emit entrySelected(ref);
 }
 
 void FlameGraphWidget::mouseMoveEvent(QMouseEvent* event) {
@@ -107,14 +111,13 @@ void FlameGraphWidget::mouseMoveEvent(QMouseEvent* event) {
     if (ref.valid()) {
         QString tip = entryTooltip(*store_, *names_, ref);
         QToolTip::showText(event->globalPosition().toPoint(), tip);
-        emit rectHovered(ref);
     } else {
         QToolTip::hideText();
     }
 }
 
 EntryRef FlameGraphWidget::hitTest(const QPoint& pos) const {
-    if (!graph_ || graph_->rowCount() == 0)
+    if (flameGraph_.rowCount() == 0)
         return kNoEntry;
 
     const QRect graphArea = graphRect();
@@ -127,7 +130,7 @@ EntryRef FlameGraphWidget::hitTest(const QPoint& pos) const {
         return kNoEntry;
 
     float relX = static_cast<float>(pos.x() - graphArea.left()) / graphArea.width();
-    return graph_->lookup(relX, row);
+    return flameGraph_.lookup(relX, row);
 }
 
 } // namespace ldirstat

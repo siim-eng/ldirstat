@@ -36,7 +36,7 @@ void MainWindowBuilder::build(MainWindow* w) {
 
     // Widgets.
     w->dirListView_ = new DirListView(w);
-    w->flameGraphWidget_ = new FlameGraphWidget(w);
+    w->graphWidget_ = new FlameGraphWidget(w);
 
     // Scan progress widget (shown during scanning).
     w->scanProgress_ = new ScanProgressWidget(w);
@@ -44,7 +44,7 @@ void MainWindowBuilder::build(MainWindow* w) {
     // Flame stack: progress (index 0) / flamegraph (index 1).
     w->flameStack_ = new QStackedWidget(w);
     w->flameStack_->addWidget(w->scanProgress_);
-    w->flameStack_->addWidget(w->flameGraphWidget_);
+    w->flameStack_->addWidget(w->graphWidget_);
     w->flameStack_->setCurrentIndex(1);
 
     // Main splitter: dir list (60%) / flame stack (40%).
@@ -70,8 +70,8 @@ void MainWindowBuilder::build(MainWindow* w) {
     // Signals.
     QObject::connect(w->dirListView_, &DirListView::directorySelected,
                      w, &MainWindow::onDirSelected);
-    QObject::connect(w->flameGraphWidget_, &FlameGraphWidget::rectClicked,
-                     w, &MainWindow::onFlameRectClicked);
+    QObject::connect(w->graphWidget_, &GraphWidget::entrySelected,
+                     w, &MainWindow::onGraphEntrySelected);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested,
                      w, &MainWindow::startScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,

@@ -5,7 +5,6 @@
 
 #include "direntrystore.h"
 #include "filesystem.h"
-#include "flamegraph.h"
 #include "namestore.h"
 #include "scanner.h"
 #include "themecolors.h"
@@ -19,7 +18,7 @@ class QToolBar;
 namespace ldirstat {
 
 class DirListView;
-class FlameGraphWidget;
+class GraphWidget;
 class MainWindowBuilder;
 class ScanProgressWidget;
 class WelcomeWidget;
@@ -43,7 +42,7 @@ private slots:
     void onRescan();
     void onScanFinished(EntryRef root);
     void onDirSelected(EntryRef ref);
-    void onFlameRectClicked(EntryRef ref);
+    void onGraphEntrySelected(EntryRef ref);
     void onScanPollTick();
     void onStopScan();
     void startScan(const QString& path);
@@ -58,7 +57,6 @@ private:
     DirEntryStore entryStore_;
     NameStore nameStore_;
     Scanner scanner_;
-    FlameGraph flameGraph_;
 
     EntryRef currentRoot_;
     EntryRef selectedDir_;
@@ -72,7 +70,7 @@ private:
     WelcomeWidget* welcomeWidget_ = nullptr;
     DirListView* dirListView_ = nullptr;
     QStackedWidget* flameStack_ = nullptr;
-    FlameGraphWidget* flameGraphWidget_ = nullptr;
+    GraphWidget* graphWidget_ = nullptr;
     ScanProgressWidget* scanProgress_ = nullptr;
     QTimer* scanPollTimer_ = nullptr;
 };

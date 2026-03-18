@@ -1,28 +1,19 @@
 #pragma once
 
-#include <QWidget>
-
-#include "direntry.h"
-#include "direntrystore.h"
 #include "flamegraph.h"
-#include "namestore.h"
-#include "themecolors.h"
+#include "graphwidget.h"
 
 namespace ldirstat {
 
-class FlameGraphWidget : public QWidget {
+class FlameGraphWidget : public GraphWidget {
     Q_OBJECT
 
 public:
     explicit FlameGraphWidget(QWidget* parent = nullptr);
 
-    void setThemeColors(const ThemeColors& colors) { themeColors_ = colors; update(); }
-    void setGraph(const FlameGraph* graph, const DirEntryStore* store,
-                  const NameStore* names);
-
-signals:
-    void rectClicked(ldirstat::EntryRef ref);
-    void rectHovered(ldirstat::EntryRef ref);
+    void setStores(const DirEntryStore* store, const NameStore* names) override;
+    void setDirectory(EntryRef dir) override;
+    void setThemeColors(const ThemeColors& colors) override { themeColors_ = colors; update(); }
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -36,7 +27,7 @@ private:
     QRect graphRect() const;
     EntryRef hitTest(const QPoint& pos) const;
 
-    const FlameGraph* graph_ = nullptr;
+    FlameGraph flameGraph_;
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
     ThemeColors themeColors_;

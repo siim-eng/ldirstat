@@ -2,7 +2,7 @@
 #include "mainwindowbuilder.h"
 
 #include "dirlistview.h"
-#include "flamegraphwidget.h"
+#include "graphwidget.h"
 #include "scanprogresswidget.h"
 #include "welcomewidget.h"
 
@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     themeColors_ = ThemeColors::fromPalette(palette());
     dirListView_->setThemeColors(themeColors_);
-    flameGraphWidget_->setThemeColors(themeColors_);
+    graphWidget_->setThemeColors(themeColors_);
 
     fileSystems_.readMounts();
     welcomeWidget_->populate(fileSystems_);
@@ -43,7 +43,7 @@ void MainWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::PaletteChange) {
         themeColors_ = ThemeColors::fromPalette(palette());
         dirListView_->setThemeColors(themeColors_);
-        flameGraphWidget_->setThemeColors(themeColors_);
+        graphWidget_->setThemeColors(themeColors_);
     }
     QMainWindow::changeEvent(event);
 }
@@ -135,24 +135,24 @@ void MainWindow::onScanFinished(EntryRef root) {
     selectedDir_ = root;
 
     dirListView_->setRoot(entryStore_, nameStore_, root);
+    graphWidget_->setStores(&entryStore_, &nameStore_);
     onDirSelected(root);
 }
 
 void MainWindow::onDirSelected(EntryRef ref) {
     selectedDir_ = ref;
-
-    flameGraph_.build(entryStore_, ref);
-    flameGraphWidget_->setGraph(&flameGraph_, &entryStore_, &nameStore_);
+    graphWidget_->setDirectory(ref);
 }
 
-void MainWindow::onFlameRectClicked(EntryRef ref) {
-    if (!entryStore_[ref].isDir())
-        return;
+void MainWindow::onGraphEntrySelected(EntryRef ref) {
+    const DirEntry& entry = entryStore_[ref];
 
-    // selectEntry rebuilds columns but does not emit directorySelected,
-    // so we call onDirSelected once to rebuild the flamegraph.
+    // Navigate the dir list to show this entry selected.
     dirListView_->selectEntry(ref);
-    onDirSelected(ref);
+
+    // Rebuild the graph for the relevant directory.
+    EntryRef dirRef = entry.isDir() ? ref : entry.parent;
+    onDirSelected(dirRef);
 }
 
 
