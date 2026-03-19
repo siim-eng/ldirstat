@@ -29,7 +29,7 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
     layout->addStretch();
 
     // Title.
-    auto* title = new QLabel(tr("LDirStat"));
+    auto* title = new QLabel(tr("Devices and Locations"));
     QFont titleFont = title->font();
     titleFont.setPointSize(24);
     titleFont.setBold(true);

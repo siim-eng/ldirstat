@@ -23,7 +23,13 @@ MainWindow::MainWindow(QWidget* parent)
 
     themeColors_ = ThemeColors::fromPalette(palette());
     dirListView_->setThemeColors(themeColors_);
-    graphWidget_->setThemeColors(themeColors_);
+    if (graphTypeStack_) {
+        for (int i = 0; i < graphTypeStack_->count(); ++i) {
+            auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
+            if (widget)
+                widget->setThemeColors(themeColors_);
+        }
+    }
 
     fileSystems_.readMounts();
     welcomeWidget_->populate(fileSystems_);
@@ -43,7 +49,13 @@ void MainWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::PaletteChange) {
         themeColors_ = ThemeColors::fromPalette(palette());
         dirListView_->setThemeColors(themeColors_);
-        graphWidget_->setThemeColors(themeColors_);
+        if (graphTypeStack_) {
+            for (int i = 0; i < graphTypeStack_->count(); ++i) {
+                auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
+                if (widget)
+                    widget->setThemeColors(themeColors_);
+            }
+        }
     }
     QMainWindow::changeEvent(event);
 }
@@ -79,12 +91,25 @@ void MainWindow::startScan(const QString& path) {
     flameStack_->setCurrentIndex(0);
     scanProgress_->reset();
     scanPollTimer_->start();
+    dirListView_->setEnabled(false);
 
     delete scanThread_;
     scanThread_ = nullptr;
 
+    currentRoot_ = kNoEntry;
+    selectedDir_ = kNoEntry;
+
     entryStore_.clear();
     nameStore_.clear();
+    if (graphTypeStack_) {
+        for (int i = 0; i < graphTypeStack_->count(); ++i) {
+            auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
+            if (!widget)
+                continue;
+            widget->setStores(nullptr, nullptr);
+            widget->setDirectory(kNoEntry);
+        }
+    }
 
     auto scanPath = path.toStdString();
     int workers = QThread::idealThreadCount();
@@ -118,6 +143,7 @@ void MainWindow::onScanFinished(EntryRef root) {
     if (scanner_.stopped()) {
         entryStore_.clear();
         nameStore_.clear();
+        dirListView_->setEnabled(true);
         viewStack_->setCurrentIndex(0);
         if (!currentRoot_.valid()) {
             toolbar_->setVisible(false);
@@ -130,6 +156,7 @@ void MainWindow::onScanFinished(EntryRef root) {
 
     onScanPollTick();
     flameStack_->setCurrentIndex(1);
+    dirListView_->setEnabled(true);
 
     currentRoot_ = root;
     selectedDir_ = root;

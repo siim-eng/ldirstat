@@ -15,6 +15,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 add_library(ldirstat_core STATIC
     src/core/scanner.cpp
     src/core/flamegraph.cpp
+    src/core/treemap.cpp
     src/core/filesystem.cpp
 )
 target_include_directories(ldirstat_core PUBLIC src/core)
@@ -28,6 +29,7 @@ add_library(ldirstat_ui STATIC
     src/ui/dirlistcolumn.cpp
     src/ui/graphwidget.cpp
     src/ui/flamegraphwidget.cpp
+    src/ui/treemapwidget.cpp
     src/ui/scanprogresswidget.cpp
     src/ui/welcomewidget.cpp
 )

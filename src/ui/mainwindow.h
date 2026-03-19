@@ -14,13 +14,16 @@ class QStackedWidget;
 class QSplitter;
 class QTimer;
 class QToolBar;
+class QToolButton;
 
 namespace ldirstat {
 
 class DirListView;
+class FlameGraphWidget;
 class GraphWidget;
 class MainWindowBuilder;
 class ScanProgressWidget;
+class TreeMapWidget;
 class WelcomeWidget;
 
 class MainWindow : public QMainWindow {
@@ -66,10 +69,14 @@ private:
     QToolBar* toolbar_ = nullptr;
     QAction* overviewAction_ = nullptr;
     QAction* rescanAction_ = nullptr;
+    QToolButton* graphTypeButton_ = nullptr;
     QStackedWidget* viewStack_ = nullptr;
     WelcomeWidget* welcomeWidget_ = nullptr;
     DirListView* dirListView_ = nullptr;
     QStackedWidget* flameStack_ = nullptr;
+    QStackedWidget* graphTypeStack_ = nullptr;
+    FlameGraphWidget* flameGraphWidget_ = nullptr;
+    TreeMapWidget* treeMapWidget_ = nullptr;
     GraphWidget* graphWidget_ = nullptr;
     ScanProgressWidget* scanProgress_ = nullptr;
     QTimer* scanPollTimer_ = nullptr;
