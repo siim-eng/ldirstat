@@ -97,18 +97,23 @@ bool DirListView::handleArrowKey(int key) {
         const EntryRef parentDir = (*store_)[focusedDir].parent;
         const int parentColumnIndex = focusedColumnIndex - 1;
         const int lastColumnIndex = static_cast<int>(columns_.size()) - 1;
+        const int selectedRow = column->selectedIndex();
+        const bool hasFileSelection =
+            selectedRow >= 0 && !column->rowIsDir(selectedRow);
         const int keepThroughColumn =
-            focusedColumnIndex == lastColumnIndex ? parentColumnIndex : focusedColumnIndex;
+            (focusedColumnIndex == lastColumnIndex && !hasFileSelection)
+                ? parentColumnIndex
+                : focusedColumnIndex;
 
         columns_[parentColumnIndex]->setSelectedRef(focusedDir);
         truncateColumnsAfter(keepThroughColumn);
 
-        if (keepThroughColumn == focusedColumnIndex && focusedColumnIndex < static_cast<int>(columns_.size())) {
+        if (keepThroughColumn == focusedColumnIndex &&
+            focusedColumnIndex < static_cast<int>(columns_.size())) {
             columns_[focusedColumnIndex]->clearSelection();
-            setActiveColumnIndex(focusedColumnIndex);
-        } else {
-            setActiveColumnIndex(parentColumnIndex);
         }
+
+        setActiveColumnIndex(parentColumnIndex);
 
         rootFocused_ = false;
         emit entrySelected(focusedDir);
