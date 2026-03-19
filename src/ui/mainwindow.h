@@ -10,6 +10,7 @@
 #include "themecolors.h"
 
 class QAction;
+class QProcess;
 class QStackedWidget;
 class QSplitter;
 class QTimer;
@@ -49,10 +50,15 @@ private slots:
     void onScanPollTick();
     void onStopScan();
     void startScan(const QString& path);
+    void mountAndScan(const QString& devicePath);
+    void showEntryContextMenu(EntryRef ref, QPoint globalPos);
 
 private:
+    void refreshWelcomeVolumes();
+    void setMountInProgress(bool inProgress, const QString& status = {});
 
     QThread* scanThread_ = nullptr;
+    QProcess* mountProcess_ = nullptr;
     QString lastScanPath_;
 
     // Core state.

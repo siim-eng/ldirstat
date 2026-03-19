@@ -22,6 +22,7 @@ public:
 
 signals:
     void entrySelected(ldirstat::EntryRef ref);
+    void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 };
 
 } // namespace ldirstat

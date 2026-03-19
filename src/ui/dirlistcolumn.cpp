@@ -249,11 +249,16 @@ void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
 
 void DirListColumn::mousePressEvent(QMouseEvent* event) {
     int row = hitTestRow(event->pos());
-    if (row >= 0 && row < static_cast<int>(children_.size())) {
-        selectedIndex_ = row;
-        update();
+    if (row < 0 || row >= static_cast<int>(children_.size()))
+        return;
+
+    selectedIndex_ = row;
+    update();
+
+    if (event->button() == Qt::RightButton)
+        emit contextMenuRequested(children_[row].ref, event->globalPosition().toPoint());
+    else
         emit entryClicked(children_[row].ref, children_[row].isDir);
-    }
 }
 
 void DirListColumn::mouseMoveEvent(QMouseEvent* event) {

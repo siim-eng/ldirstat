@@ -30,6 +30,7 @@ protected:
 
 signals:
     void directorySelected(ldirstat::EntryRef ref);
+    void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 private slots:
     void onColumnEntryClicked(ldirstat::EntryRef ref, bool isDir);

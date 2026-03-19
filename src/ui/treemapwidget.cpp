@@ -144,7 +144,12 @@ void TreeMapWidget::resizeEvent(QResizeEvent* event) {
 
 void TreeMapWidget::mousePressEvent(QMouseEvent* event) {
     EntryRef ref = hitTest(event->pos());
-    if (ref.valid())
+    if (!ref.valid())
+        return;
+
+    if (event->button() == Qt::RightButton)
+        emit contextMenuRequested(ref, event->globalPosition().toPoint());
+    else
         emit entrySelected(ref);
 }
 

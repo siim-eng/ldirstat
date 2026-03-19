@@ -119,6 +119,8 @@ void DirListView::addColumn(EntryRef dirRef) {
 
     connect(col, &DirListColumn::entryClicked,
             this, &DirListView::onColumnEntryClicked);
+    connect(col, &DirListColumn::contextMenuRequested,
+            this, &DirListView::contextMenuRequested);
 
     syncColumnHeights();
     QTimer::singleShot(0, this, [this]() { syncColumnHeights(); });

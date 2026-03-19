@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
@@ -12,6 +13,58 @@
 #include <QVBoxLayout>
 
 namespace ldirstat {
+
+namespace {
+
+QString formatSize(uint64_t bytes) {
+    if (bytes < 1024)
+        return QString::number(bytes) + " B";
+
+    double kb = bytes / 1024.0;
+    if (kb < 1024.0)
+        return QString::number(kb, 'f', 1) + " KB";
+
+    double mb = kb / 1024.0;
+    if (mb < 1024.0)
+        return QString::number(mb, 'f', 1) + " MB";
+
+    double gb = mb / 1024.0;
+    if (gb < 1024.0)
+        return QString::number(gb, 'f', 1) + " GB";
+
+    const double tb = gb / 1024.0;
+    return QString::number(tb, 'f', 1) + " TB";
+}
+
+QString volumeTitle(const VolumeInfo& volume) {
+    const QString label = QString::fromStdString(volume.label);
+    const QString fsType = QString::fromStdString(volume.fsType);
+    if (!label.isEmpty())
+        return QString("%1 (%2)").arg(label, fsType);
+    return fsType;
+}
+
+QIcon themedIcon(const QWidget* widget,
+                 const QString& themeName,
+                 QStyle::StandardPixmap fallback) {
+    return QIcon::fromTheme(themeName, widget->style()->standardIcon(fallback));
+}
+
+QIcon volumeIcon(const QWidget* widget, const VolumeInfo& volume) {
+    if (volume.kind == FileSystemType::Network)
+        return themedIcon(widget,
+                          QStringLiteral("network-server-symbolic"),
+                          QStyle::SP_DriveNetIcon);
+    if (volume.removable || volume.hotplug)
+        return themedIcon(widget,
+                          QStringLiteral("drive-removable-media-symbolic"),
+                          QStyle::SP_DriveFDIcon);
+    return themedIcon(widget,
+                      QStringLiteral("drive-harddisk-symbolic"),
+                      QStyle::SP_DriveHDIcon);
+}
+
+} // namespace
 
 WelcomeWidget::WelcomeWidget(QWidget* parent)
     : QWidget(parent) {
@@ -28,7 +81,6 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
     layout->addStretch();
 
-    // Title.
     auto* title = new QLabel(tr("Devices and Locations"));
     QFont titleFont = title->font();
     titleFont.setPointSize(24);
@@ -37,8 +89,8 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
-    // Subtitle.
-    auto* subtitle = new QLabel(tr("LDirStat analyzes disk usage statistics so you can see what is using lots of space."));
+    auto* subtitle = new QLabel(
+        tr("LDirStat analyzes disk usage statistics so you can see what is using lots of space."));
     QFont subtitleFont = subtitle->font();
     subtitleFont.setPointSize(14);
     subtitle->setFont(subtitleFont);
@@ -47,38 +99,42 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
     layout->addSpacing(24);
 
-    // Action buttons row.
     auto* actionRow = new QHBoxLayout();
     actionRow->setAlignment(Qt::AlignCenter);
 
     QFont actionFont = font();
     actionFont.setPointSize(12);
-    QSize iconSize(32, 32);
+    const QSize iconSize(32, 32);
 
     auto makeButton = [&](const QString& text,
-                          QStyle::StandardPixmap pixmap) {
+                          const QString& themeName,
+                          QStyle::StandardPixmap fallback) {
         auto* btn = new QPushButton(text);
         btn->setFont(actionFont);
-        btn->setIcon(style()->standardIcon(pixmap));
+        btn->setIcon(themedIcon(this, themeName, fallback));
         btn->setIconSize(iconSize);
         btn->setMinimumHeight(60);
         btn->setMinimumWidth(180);
         return btn;
     };
 
-    auto* homeBtn = makeButton(tr("Open Home"), QStyle::SP_DirHomeIcon);
+    auto* homeBtn = makeButton(
+        tr("Open Home"), QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon);
     connect(homeBtn, &QPushButton::clicked, this, [this]() {
         emit scanRequested(QDir::homePath());
     });
     actionRow->addWidget(homeBtn);
 
-    auto* rootBtn = makeButton(tr("Open Root"), QStyle::SP_DirOpenIcon);
+    auto* rootBtn = makeButton(
+        tr("Open Root"), QStringLiteral("drive-harddisk-system-symbolic"), QStyle::SP_DirOpenIcon);
     connect(rootBtn, &QPushButton::clicked, this, [this]() {
         emit scanRequested(QStringLiteral("/"));
     });
     actionRow->addWidget(rootBtn);
 
-    auto* otherBtn = makeButton(tr("Open Other Directory..."), QStyle::SP_DirIcon);
+    auto* otherBtn = makeButton(tr("Open Other Directory..."),
+                                QStringLiteral("folder-open-symbolic"),
+                                QStyle::SP_DirIcon);
     connect(otherBtn, &QPushButton::clicked, this, [this]() {
         emit openDirectoryRequested();
     });
@@ -88,7 +144,6 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
     layout->addSpacing(24);
 
-    // Filesystems section header.
     auto* fsHeader = new QLabel(tr("Open a File System"));
     QFont headerFont = fsHeader->font();
     headerFont.setPointSize(12);
@@ -99,7 +154,14 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
     layout->addSpacing(8);
 
-    // Filesystem buttons grid (wraps at 3 columns).
+    statusLabel_ = new QLabel(container);
+    statusLabel_->setAlignment(Qt::AlignCenter);
+    statusLabel_->setWordWrap(true);
+    statusLabel_->setVisible(false);
+    layout->addWidget(statusLabel_);
+
+    layout->addSpacing(8);
+
     fsLayout_ = new QGridLayout();
     fsLayout_->setAlignment(Qt::AlignCenter);
     layout->addLayout(fsLayout_);
@@ -111,7 +173,6 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 }
 
 void WelcomeWidget::populate(const FileSystems& fileSystems) {
-    // Clear existing buttons.
     while (auto* item = fsLayout_->takeAt(0)) {
         if (auto* widget = item->widget())
             delete widget;
@@ -121,55 +182,84 @@ void WelcomeWidget::populate(const FileSystems& fileSystems) {
     constexpr int columns = 3;
     int idx = 0;
 
-    auto formatSize = [](uint64_t bytes) -> QString {
-        if (bytes < 1024) return QString::number(bytes) + " B";
-        double kb = bytes / 1024.0;
-        if (kb < 1024) return QString::number(kb, 'f', 1) + " KB";
-        double mb = kb / 1024.0;
-        if (mb < 1024) return QString::number(mb, 'f', 1) + " MB";
-        double gb = mb / 1024.0;
-        return QString::number(gb, 'f', 1) + " GB";
-    };
-
     QFont fsFont = font();
     fsFont.setPointSize(10);
-    QSize fsIconSize(32, 32);
+    const QSize fsIconSize(32, 32);
 
-    for (const auto& m : fileSystems.mounts()) {
-        if (m.kind != FileSystemType::Real && m.kind != FileSystemType::Network)
+    for (const auto& volume : fileSystems.volumes()) {
+        if (volume.kind != FileSystemType::Real &&
+            volume.kind != FileSystemType::Network) {
             continue;
+        }
 
-        double freePct = m.totalBytes > 0
-            ? (static_cast<double>(m.availBytes) / m.totalBytes) * 100.0
-            : 0.0;
+        QString text;
+        if (volume.mounted) {
+            const double freePct = volume.totalBytes > 0
+                ? (static_cast<double>(volume.availBytes) / volume.totalBytes) * 100.0
+                : 0.0;
+            const QString capacityLine = volume.totalBytes > 0
+                ? QString("%1 free of %2 (%3% free)")
+                      .arg(formatSize(volume.availBytes))
+                      .arg(formatSize(volume.totalBytes))
+                      .arg(QString::number(freePct, 'f', 0))
+                : tr("Mounted");
 
-        QString text = QString("%1\n%2 -> %3\n%4 free of %5 (%6% free)")
-            .arg(QString::fromStdString(m.fsType))
-            .arg(QString::fromStdString(m.device))
-            .arg(QString::fromStdString(m.mountPoint))
-            .arg(formatSize(m.availBytes))
-            .arg(formatSize(m.totalBytes))
-            .arg(QString::number(freePct, 'f', 0));
+            text = QString("%1\n%2\n%3\n%4")
+                       .arg(volumeTitle(volume))
+                       .arg(QString::fromStdString(volume.devicePath))
+                       .arg(QString::fromStdString(volume.mountPoint))
+                       .arg(capacityLine);
+        } else {
+            QString stateLine = tr("Not mounted");
+            if (volume.readOnly)
+                stateLine += tr(" (read-only)");
+
+            const QString sizeLine = volume.sizeBytes > 0
+                ? formatSize(volume.sizeBytes)
+                : tr("Size unavailable");
+
+            text = QString("%1\n%2\n%3\n%4")
+                       .arg(volumeTitle(volume))
+                       .arg(QString::fromStdString(volume.devicePath))
+                       .arg(stateLine)
+                       .arg(sizeLine);
+        }
 
         auto* btn = new QPushButton(text);
         btn->setFont(fsFont);
-        btn->setMinimumHeight(60);
-        btn->setMinimumWidth(200);
-
-        auto pixmap = (m.kind == FileSystemType::Network)
-            ? QStyle::SP_DriveNetIcon
-            : QStyle::SP_DriveHDIcon;
-        btn->setIcon(style()->standardIcon(pixmap));
+        btn->setMinimumHeight(90);
+        btn->setMinimumWidth(220);
+        btn->setIcon(volumeIcon(this, volume));
         btn->setIconSize(fsIconSize);
 
-        auto mountPoint = QString::fromStdString(m.mountPoint);
-        connect(btn, &QPushButton::clicked, this, [this, mountPoint]() {
-            emit scanRequested(mountPoint);
-        });
+        if (volume.mounted) {
+            const QString mountPoint = QString::fromStdString(volume.mountPoint);
+            connect(btn, &QPushButton::clicked, this, [this, mountPoint]() {
+                emit scanRequested(mountPoint);
+            });
+        } else {
+            const QString devicePath = QString::fromStdString(volume.devicePath);
+            connect(btn, &QPushButton::clicked, this, [this, devicePath]() {
+                emit mountAndScanRequested(devicePath);
+            });
+        }
 
         fsLayout_->addWidget(btn, idx / columns, idx % columns);
         ++idx;
     }
+
+    setBusy(busy_, busyStatus_);
+}
+
+void WelcomeWidget::setBusy(bool busy, const QString& status) {
+    busy_ = busy;
+    busyStatus_ = status;
+
+    statusLabel_->setText(status);
+    statusLabel_->setVisible(busy_ && !busyStatus_.isEmpty());
+
+    for (auto* button : findChildren<QPushButton*>())
+        button->setEnabled(!busy_);
 }
 
 } // namespace ldirstat

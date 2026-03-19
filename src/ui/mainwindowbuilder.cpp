@@ -55,9 +55,10 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
 
     w->graphTypeButton_ = new QToolButton(w->toolbar_);
+    w->graphTypeButton_->setIcon(QIcon::fromTheme("find-location-symbolic"));
     w->graphTypeButton_->setText(MainWindow::tr("Graph Type"));
     w->graphTypeButton_->setPopupMode(QToolButton::InstantPopup);
-    w->graphTypeButton_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    w->graphTypeButton_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 }
 
 void MainWindowBuilder::buildAnalysisWidgets(MainWindow* w) {
@@ -136,8 +137,16 @@ void MainWindowBuilder::connectCoreSignals(MainWindow* w) {
                      w, &MainWindow::onGraphEntrySelected);
     QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected,
                      w, &MainWindow::onGraphEntrySelected);
+    QObject::connect(w->dirListView_, &DirListView::contextMenuRequested,
+                     w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->flameGraphWidget_, &GraphWidget::contextMenuRequested,
+                     w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->treeMapWidget_, &GraphWidget::contextMenuRequested,
+                     w, &MainWindow::showEntryContextMenu);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested,
                      w, &MainWindow::startScan);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::mountAndScanRequested,
+                     w, &MainWindow::mountAndScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,
                      w, [w]() {
         QString dir = QFileDialog::getExistingDirectory(
@@ -178,10 +187,14 @@ void MainWindowBuilder::updateGraphTypeButtonVisibility(MainWindow* w) {
     if (!w->graphTypeButton_)
         return;
 
-    w->graphTypeButton_->setVisible(
+    const bool welcomeVisible =
+        w->viewStack_ && w->viewStack_->currentWidget() == w->welcomeWidget_;
+    const bool graphVisible =
         w->viewStack_ && w->flameStack_ &&
-        w->viewStack_->currentIndex() == 1 &&
-        w->flameStack_->currentIndex() == 1);
+        w->viewStack_->currentWidget() != w->welcomeWidget_ &&
+        w->flameStack_->currentWidget() == w->graphTypeStack_;
+
+    w->graphTypeButton_->setVisible(!welcomeVisible && graphVisible);
 }
 
 void MainWindowBuilder::activateGraphWidget(MainWindow* w,

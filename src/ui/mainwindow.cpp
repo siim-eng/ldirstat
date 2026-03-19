@@ -2,17 +2,28 @@
 #include "mainwindowbuilder.h"
 
 #include "dirlistview.h"
+#include "entrytooltip.h"
 #include "graphwidget.h"
 #include "scanprogresswidget.h"
 #include "welcomewidget.h"
 
 #include <QAction>
+#include <QApplication>
+#include <QClipboard>
+#include <QDesktopServices>
 #include <QEvent>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QMenu>
+#include <QMessageBox>
+#include <QProcess>
 #include <QStackedWidget>
+#include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
 #include <QToolBar>
+#include <QUrl>
 
 namespace ldirstat {
 
@@ -31,14 +42,19 @@ MainWindow::MainWindow(QWidget* parent)
         }
     }
 
-    fileSystems_.readMounts();
-    welcomeWidget_->populate(fileSystems_);
+    refreshWelcomeVolumes();
 
     connect(this, &MainWindow::scanComplete,
             this, &MainWindow::onScanFinished, Qt::QueuedConnection);
 }
 
 MainWindow::~MainWindow() {
+    if (mountProcess_) {
+        mountProcess_->kill();
+        mountProcess_->waitForFinished();
+        delete mountProcess_;
+    }
+
     if (scanThread_) {
         scanThread_->wait();
         delete scanThread_;
@@ -60,8 +76,33 @@ void MainWindow::changeEvent(QEvent* event) {
     QMainWindow::changeEvent(event);
 }
 
+void MainWindow::refreshWelcomeVolumes() {
+    fileSystems_.refresh();
+    welcomeWidget_->populate(fileSystems_);
+}
+
+void MainWindow::setMountInProgress(bool inProgress, const QString& status) {
+    if (welcomeWidget_)
+        welcomeWidget_->setBusy(inProgress, status);
+    if (toolbar_)
+        toolbar_->setEnabled(!inProgress);
+
+    if (inProgress) {
+        if (!QApplication::overrideCursor())
+            QApplication::setOverrideCursor(Qt::BusyCursor);
+        return;
+    }
+
+    if (QApplication::overrideCursor())
+        QApplication::restoreOverrideCursor();
+}
+
 void MainWindow::onOverview() {
+    if (mountProcess_)
+        return;
+
     if (viewStack_->currentIndex() == 1) {
+        refreshWelcomeVolumes();
         viewStack_->setCurrentIndex(0);
         overviewAction_->setText(tr("Back"));
         rescanAction_->setVisible(false);
@@ -78,7 +119,7 @@ void MainWindow::onRescan() {
 }
 
 void MainWindow::startScan(const QString& path) {
-    if (scanThread_ && scanThread_->isRunning())
+    if (mountProcess_ || (scanThread_ && scanThread_->isRunning()))
         return;
 
     lastScanPath_ = path;
@@ -123,6 +164,81 @@ void MainWindow::startScan(const QString& path) {
     scanThread_->start();
 }
 
+void MainWindow::mountAndScan(const QString& devicePath) {
+    if (devicePath.isEmpty() || mountProcess_ || (scanThread_ && scanThread_->isRunning()))
+        return;
+
+    viewStack_->setCurrentIndex(0);
+    setMountInProgress(true, tr("Mounting %1...").arg(devicePath));
+
+    auto* process = new QProcess(this);
+    mountProcess_ = process;
+    process->setProgram(QStringLiteral("udisksctl"));
+    process->setArguments({QStringLiteral("mount"), QStringLiteral("-b"), devicePath});
+
+    const auto complete = [this, process, devicePath](bool success, const QString& message) {
+        if (process != mountProcess_)
+            return;
+
+        mountProcess_ = nullptr;
+        refreshWelcomeVolumes();
+        setMountInProgress(false);
+        process->deleteLater();
+
+        if (!success) {
+            QMessageBox::warning(this,
+                                 tr("Mount Failed"),
+                                 message.isEmpty()
+                                     ? tr("Unable to mount %1.").arg(devicePath)
+                                     : message);
+            return;
+        }
+
+        const VolumeInfo* volume =
+            fileSystems_.findVolumeByDevice(devicePath.toStdString());
+        if (!volume || !volume->mounted || volume->mountPoint.empty()) {
+            QMessageBox::warning(this,
+                                 tr("Mount Failed"),
+                                 tr("Mounted %1, but no mount point could be resolved.")
+                                     .arg(devicePath));
+            return;
+        }
+
+        startScan(QString::fromStdString(volume->mountPoint));
+    };
+
+    connect(process,
+            qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this,
+            [process, complete](int exitCode, QProcess::ExitStatus exitStatus) {
+                const QString stdErr =
+                    QString::fromUtf8(process->readAllStandardError()).trimmed();
+                const QString stdOut =
+                    QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+
+                if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+                    const QString message =
+                        !stdErr.isEmpty() ? stdErr
+                                          : (!stdOut.isEmpty() ? stdOut : process->errorString());
+                    complete(false, message);
+                    return;
+                }
+
+                complete(true, {});
+            });
+
+    connect(process,
+            &QProcess::errorOccurred,
+            this,
+            [process, complete](QProcess::ProcessError) {
+                const QString message =
+                    QString::fromUtf8(process->readAllStandardError()).trimmed();
+                complete(false, message.isEmpty() ? process->errorString() : message);
+            });
+
+    process->start();
+}
+
 void MainWindow::onScanPollTick() {
     scanProgress_->updateCounts(scanner_.filesScanned(), scanner_.dirsScanned());
 }
@@ -145,6 +261,7 @@ void MainWindow::onScanFinished(EntryRef root) {
         nameStore_.clear();
         dirListView_->setEnabled(true);
         viewStack_->setCurrentIndex(0);
+        refreshWelcomeVolumes();
         if (!currentRoot_.valid()) {
             toolbar_->setVisible(false);
         } else {
@@ -182,5 +299,63 @@ void MainWindow::onGraphEntrySelected(EntryRef ref) {
     onDirSelected(dirRef);
 }
 
+void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
+    if (!ref.valid())
+        return;
+
+    const DirEntry& entry = entryStore_[ref];
+    const QString path = entryFullPath(entryStore_, nameStore_, ref);
+
+    QMenu menu(this);
+
+    auto* openAction = menu.addAction(
+        QIcon::fromTheme("document-open-symbolic"), tr("Open"),
+        QKeySequence(Qt::CTRL | Qt::Key_O));
+
+    auto* terminalAction = menu.addAction(
+        QIcon::fromTheme("utilities-terminal-symbolic"), tr("Open Terminal"),
+        QKeySequence(Qt::CTRL | Qt::Key_T));
+
+    auto* copyAction = menu.addAction(
+        QIcon::fromTheme("edit-copy-symbolic"), tr("Copy to Clipboard"),
+        QKeySequence(Qt::CTRL | Qt::Key_C));
+
+    menu.addSeparator();
+
+    auto* trashAction = menu.addAction(
+        QIcon::fromTheme("user-trash-symbolic"), tr("Move to Trash"),
+        QKeySequence(Qt::Key_Delete));
+
+    QAction* chosen = menu.exec(globalPos);
+    if (!chosen)
+        return;
+
+    if (chosen == openAction) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    } else if (chosen == terminalAction) {
+        const QString dir = entry.isDir() ? path : QFileInfo(path).path();
+        QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
+        if (terminal.isEmpty()) {
+            for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
+                                          "xterm"}) {
+                if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
+                    terminal = candidate;
+                    break;
+                }
+            }
+        }
+        if (!terminal.isEmpty())
+            QProcess::startDetached(terminal, {"--workdir", dir});
+    } else if (chosen == copyAction) {
+        QGuiApplication::clipboard()->setText(path);
+    } else if (chosen == trashAction) {
+        auto answer = QMessageBox::question(
+            this, tr("Move to Trash"),
+            tr("Move \"%1\" to trash?").arg(path),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (answer == QMessageBox::Yes)
+            QFile::moveToTrash(path);
+    }
+}
 
 } // namespace ldirstat

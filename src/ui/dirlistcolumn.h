@@ -36,6 +36,7 @@ public:
 
 signals:
     void entryClicked(ldirstat::EntryRef ref, bool isDir);
+    void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
