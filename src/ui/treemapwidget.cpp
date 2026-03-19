@@ -10,6 +10,8 @@ namespace ldirstat {
 
 namespace {
 
+constexpr qreal kSelectionBorderWidth = 2.0;
+
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     return entry.isDir() ? colors.primaryBackground : colors.secondaryBackground;
 }
@@ -214,6 +216,17 @@ void TreeMapWidget::paintPacked(QPainter& painter, const QPalette& widgetPalette
         painter.setPen(textColorForBackground(fill, widgetPalette));
         painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, text);
     }
+
+    if (selectedEntry_.valid()) {
+        painter.setPen(QPen(themeColors_.selectionBorder, kSelectionBorderWidth));
+        painter.setBrush(Qt::NoBrush);
+
+        for (const TreeMapNode& node : treeMap_.nodes()) {
+            if (node.ref != selectedEntry_ || node.rect.width < 1.0f || node.rect.height < 1.0f)
+                continue;
+            painter.drawRect(toQRect(node.rect));
+        }
+    }
 }
 
 void TreeMapWidget::paintDirectoryHeaders(QPainter& painter, const QPalette& widgetPalette) const {
@@ -277,6 +290,17 @@ void TreeMapWidget::paintDirectoryHeaders(QPainter& painter, const QPalette& wid
         painter.drawText(labelRect.adjusted(3.0, 0.0, -3.0, 0.0),
                          Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
                          text);
+    }
+
+    if (selectedEntry_.valid()) {
+        painter.setPen(QPen(themeColors_.selectionBorder, kSelectionBorderWidth));
+        painter.setBrush(Qt::NoBrush);
+
+        for (const TreeMapNode& node : treeMap_.nodes()) {
+            if (node.ref != selectedEntry_ || node.rect.width < 1.0f || node.rect.height < 1.0f)
+                continue;
+            painter.drawRect(toQRect(node.rect));
+        }
     }
 }
 

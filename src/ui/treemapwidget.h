@@ -23,6 +23,10 @@ public:
 
     void setStores(const DirEntryStore* store, const NameStore* names) override;
     void setDirectory(EntryRef dir) override;
+    void setSelectedEntry(EntryRef ref) override {
+        selectedEntry_ = ref;
+        update();
+    }
     void setThemeColors(const ThemeColors& colors) override {
         themeColors_ = colors;
         update();
@@ -53,6 +57,7 @@ private:
     const NameStore* names_ = nullptr;
     ThemeColors themeColors_;
     EntryRef currentDir_;
+    EntryRef selectedEntry_ = kNoEntry;
     QSize lastLayoutSize_;
     bool layoutDirty_ = true;
 };

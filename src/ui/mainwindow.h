@@ -64,7 +64,11 @@ private:
     void setMountInProgress(bool inProgress, const QString& status = {});
     bool isGraphPageVisible() const;
     bool shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const;
+    EntryRef graphFocusForEntry(EntryRef ref) const;
+    bool isEntryInSubtree(EntryRef ref, EntryRef ancestor) const;
     void setCurrentEntry(EntryRef ref);
+    void syncGraphHighlight();
+    void syncGraphSelection();
     void updateEntryActions();
     QString pathForEntry(EntryRef ref) const;
 
@@ -80,7 +84,7 @@ private:
 
     EntryRef currentRoot_ = kNoEntry;
     EntryRef currentEntry_ = kNoEntry;
-    EntryRef selectedDir_ = kNoEntry;
+    EntryRef graphFocusDir_ = kNoEntry;
     ThemeColors themeColors_;
 
     // UI widgets (created by builder, parented to this).

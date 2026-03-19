@@ -18,6 +18,7 @@ public:
 
     virtual void setStores(const DirEntryStore* store, const NameStore* names) = 0;
     virtual void setDirectory(EntryRef dir) = 0;
+    virtual void setSelectedEntry(EntryRef ref) = 0;
     virtual void setThemeColors(const ThemeColors& colors) = 0;
 
 signals:

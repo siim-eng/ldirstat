@@ -88,9 +88,44 @@ bool MainWindow::isGraphPageVisible() const {
            flameStack_->currentWidget() == graphTypeStack_;
 }
 
+EntryRef MainWindow::graphFocusForEntry(EntryRef ref) const {
+    if (!currentRoot_.valid())
+        return kNoEntry;
+    if (!ref.valid())
+        return currentRoot_;
+
+    const EntryRef parent = entryStore_[ref].parent;
+    return parent.valid() ? parent : ref;
+}
+
+bool MainWindow::isEntryInSubtree(EntryRef ref, EntryRef ancestor) const {
+    while (ref.valid()) {
+        if (ref == ancestor)
+            return true;
+        ref = entryStore_[ref].parent;
+    }
+    return false;
+}
+
 void MainWindow::setCurrentEntry(EntryRef ref) {
     currentEntry_ = ref;
     updateEntryActions();
+}
+
+void MainWindow::syncGraphHighlight() {
+    if (!graphWidget_)
+        return;
+
+    graphWidget_->setSelectedEntry(currentEntry_);
+}
+
+void MainWindow::syncGraphSelection() {
+    if (!graphWidget_)
+        return;
+
+    const EntryRef focusDir = graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_;
+    graphWidget_->setDirectory(focusDir.valid() ? focusDir : kNoEntry);
+    syncGraphHighlight();
 }
 
 void MainWindow::updateEntryActions() {
@@ -179,7 +214,10 @@ void MainWindow::onOverview() {
         return;
 
     if (viewStack_->currentIndex() == 1) {
+        if (currentRoot_.valid())
+            graphFocusDir_ = currentRoot_;
         setCurrentEntry(kNoEntry);
+        syncGraphSelection();
         refreshWelcomeVolumes();
         viewStack_->setCurrentIndex(0);
         overviewAction_->setText(tr("Back"));
@@ -217,7 +255,7 @@ void MainWindow::startScan(const QString& path) {
 
     currentRoot_ = kNoEntry;
     currentEntry_ = kNoEntry;
-    selectedDir_ = kNoEntry;
+    graphFocusDir_ = kNoEntry;
     updateEntryActions();
 
     entryStore_.clear();
@@ -229,6 +267,7 @@ void MainWindow::startScan(const QString& path) {
                 continue;
             widget->setStores(nullptr, nullptr);
             widget->setDirectory(kNoEntry);
+            widget->setSelectedEntry(kNoEntry);
         }
     }
 
@@ -341,6 +380,7 @@ void MainWindow::onScanFinished(EntryRef root) {
         entryStore_.clear();
         nameStore_.clear();
         setCurrentEntry(kNoEntry);
+        graphFocusDir_ = kNoEntry;
         dirListView_->setEnabled(true);
         viewStack_->setCurrentIndex(0);
         refreshWelcomeVolumes();
@@ -359,16 +399,16 @@ void MainWindow::onScanFinished(EntryRef root) {
 
     currentRoot_ = root;
     setCurrentEntry(kNoEntry);
-    selectedDir_ = root;
+    graphFocusDir_ = root;
 
     dirListView_->setRoot(entryStore_, nameStore_, root);
     graphWidget_->setStores(&entryStore_, &nameStore_);
-    onDirSelected(root);
+    syncGraphSelection();
 }
 
 void MainWindow::onDirSelected(EntryRef ref) {
-    selectedDir_ = ref;
-    graphWidget_->setDirectory(ref);
+    graphFocusDir_ = ref.valid() ? ref : currentRoot_;
+    syncGraphSelection();
 }
 
 void MainWindow::onEntrySelected(EntryRef ref) {
@@ -376,15 +416,12 @@ void MainWindow::onEntrySelected(EntryRef ref) {
 }
 
 void MainWindow::onGraphEntrySelected(EntryRef ref) {
-    const DirEntry& entry = entryStore_[ref];
     setCurrentEntry(ref);
+    graphFocusDir_ = graphFocusForEntry(ref);
 
     // Navigate the dir list to show this entry selected.
     dirListView_->selectEntry(ref);
-
-    // Rebuild the graph for the relevant directory.
-    EntryRef dirRef = entry.isDir() ? ref : entry.parent;
-    onDirSelected(dirRef);
+    syncGraphSelection();
 }
 
 void MainWindow::openCurrentEntry() {
@@ -455,31 +492,10 @@ void MainWindow::trashCurrentEntry() {
         return;
 
     EntryRef parentDir = entry.parent;
-
-    // If selectedDir_ is the removed entry or a descendant of it,
-    // fall back to the parent of the removed entry.
-    if (selectedDir_.valid()) {
-        EntryRef cur = selectedDir_;
-        while (cur.valid()) {
-            if (cur == ref) {
-                selectedDir_ = parentDir;
-                break;
-            }
-            cur = entryStore_[cur].parent;
-        }
-    }
-
-    bool currentEntryRemoved = false;
-    if (currentEntry_.valid()) {
-        EntryRef cur = currentEntry_;
-        while (cur.valid()) {
-            if (cur == ref) {
-                currentEntryRemoved = true;
-                break;
-            }
-            cur = entryStore_[cur].parent;
-        }
-    }
+    const bool currentEntryRemoved =
+        currentEntry_.valid() && isEntryInSubtree(currentEntry_, ref);
+    const bool graphFocusRemoved =
+        graphFocusDir_.valid() && isEntryInSubtree(graphFocusDir_, ref);
 
     entryStore_.remove(ref);
     dirListView_->refreshAfterRemoval(ref, parentDir);
@@ -487,8 +503,13 @@ void MainWindow::trashCurrentEntry() {
     if (currentEntryRemoved)
         setCurrentEntry(kNoEntry);
 
-    if (selectedDir_.valid())
-        graphWidget_->setDirectory(selectedDir_);
+    if (currentEntry_.valid()) {
+        graphFocusDir_ = graphFocusForEntry(currentEntry_);
+    } else if (graphFocusRemoved) {
+        graphFocusDir_ = parentDir.valid() ? parentDir : currentRoot_;
+    }
+
+    syncGraphSelection();
 }
 
 void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
@@ -496,6 +517,7 @@ void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
         return;
 
     setCurrentEntry(ref);
+    syncGraphHighlight();
 
     QMenu menu(this);
     menu.addAction(openEntryAction_);

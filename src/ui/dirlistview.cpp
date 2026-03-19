@@ -89,12 +89,30 @@ bool DirListView::handleArrowKey(int key) {
 
     if (key == Qt::Key_Left) {
         if (activeColumnIndex_ == 0) {
-            emit entrySelected(kNoEntry);
             enterRootFocus();
             return true;
         }
+        const int focusedColumnIndex = activeColumnIndex_;
+        const EntryRef focusedDir = columns_[focusedColumnIndex]->dirRef();
+        const EntryRef parentDir = (*store_)[focusedDir].parent;
+        const int parentColumnIndex = focusedColumnIndex - 1;
+        const int lastColumnIndex = static_cast<int>(columns_.size()) - 1;
+        const int keepThroughColumn =
+            focusedColumnIndex == lastColumnIndex ? parentColumnIndex : focusedColumnIndex;
 
-        setActiveColumnIndex(activeColumnIndex_ - 1);
+        columns_[parentColumnIndex]->setSelectedRef(focusedDir);
+        truncateColumnsAfter(keepThroughColumn);
+
+        if (keepThroughColumn == focusedColumnIndex && focusedColumnIndex < static_cast<int>(columns_.size())) {
+            columns_[focusedColumnIndex]->clearSelection();
+            setActiveColumnIndex(focusedColumnIndex);
+        } else {
+            setActiveColumnIndex(parentColumnIndex);
+        }
+
+        rootFocused_ = false;
+        emit entrySelected(focusedDir);
+        emit directorySelected(parentDir.valid() ? parentDir : focusedDir);
         return true;
     }
 
@@ -317,15 +335,18 @@ void DirListView::applySelectionInColumn(int columnIndex, int rowIndex) {
     rootFocused_ = false;
     setActiveColumnIndex(columnIndex);
     emit entrySelected(ref);
+    EntryRef focusDir = column->dirRef();
+    if (const EntryRef parent = (*store_)[ref].parent; parent.valid())
+        focusDir = parent;
+    else if (ref.valid())
+        focusDir = ref;
 
     if (isDir) {
         addColumn(ref);
         scrollToLastColumn();
-        emit directorySelected(ref);
-        return;
     }
 
-    emit directorySelected(column->dirRef());
+    emit directorySelected(focusDir);
 }
 
 void DirListView::addColumn(EntryRef dirRef) {
@@ -357,8 +378,10 @@ void DirListView::enterRootFocus(bool emitSelection) {
     setActiveColumnIndex(0);
     scrollArea_->horizontalScrollBar()->setValue(0);
 
-    if (emitSelection)
+    if (emitSelection) {
+        emit entrySelected(kNoEntry);
         emit directorySelected(columns_[0]->dirRef());
+    }
 }
 
 int DirListView::indexOfColumn(const DirListColumn* column) const {

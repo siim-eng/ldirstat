@@ -9,6 +9,8 @@ namespace ldirstat {
 
 namespace {
 
+constexpr qreal kSelectionBorderWidth = 2.0;
+
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     if (entry.isDir())
         return colors.primaryBackground;
@@ -36,8 +38,11 @@ void FlameGraphWidget::setStores(const DirEntryStore* store, const NameStore* na
 }
 
 void FlameGraphWidget::setDirectory(EntryRef dir) {
-    if (!store_)
+    if (!store_ || !dir.valid()) {
+        flameGraph_ = FlameGraph();
+        update();
         return;
+    }
     flameGraph_.build(*store_, dir);
     update();
 }
@@ -66,6 +71,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     const int w = graphArea.width();
     const int xOffset = graphArea.left();
     const int yBase = graphArea.y() + graphArea.height();
+    QPen selectionPen(themeColors_.selectionBorder, kSelectionBorderWidth);
 
     for (int r = 0; r < flameGraph_.rowCount(); ++r) {
         int y = yBase - (r + 1) * kRowHeight;
@@ -97,6 +103,31 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
             }
         }
     }
+
+    if (selectedEntry_.valid()) {
+        painter.setPen(selectionPen);
+        painter.setBrush(Qt::NoBrush);
+
+        for (int r = 0; r < flameGraph_.rowCount(); ++r) {
+            int y = yBase - (r + 1) * kRowHeight;
+            if (y + kRowHeight <= graphArea.top())
+                break;
+
+            const auto& rects = flameGraph_.row(r);
+            for (const auto& fr : rects) {
+                if (fr.ref != selectedEntry_)
+                    continue;
+
+                const int x1 = xOffset + static_cast<int>(fr.x1 * w);
+                const int x2 = xOffset + static_cast<int>(fr.x2 * w);
+                if (x2 - x1 < 1)
+                    continue;
+
+                painter.drawRect(QRectF(x1, y, x2 - x1, kRowHeight));
+            }
+        }
+    }
+
     painter.restore();
 }
 

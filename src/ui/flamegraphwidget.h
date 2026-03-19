@@ -13,6 +13,10 @@ public:
 
     void setStores(const DirEntryStore* store, const NameStore* names) override;
     void setDirectory(EntryRef dir) override;
+    void setSelectedEntry(EntryRef ref) override {
+        selectedEntry_ = ref;
+        update();
+    }
     void setThemeColors(const ThemeColors& colors) override { themeColors_ = colors; update(); }
 
 protected:
@@ -31,6 +35,7 @@ private:
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
     ThemeColors themeColors_;
+    EntryRef selectedEntry_ = kNoEntry;
 };
 
 } // namespace ldirstat

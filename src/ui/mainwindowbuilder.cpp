@@ -247,10 +247,9 @@ void MainWindowBuilder::activateGraphWidget(MainWindow* w,
     else
         w->graphWidget_->setStores(nullptr, nullptr);
 
-    if (w->selectedDir_.valid())
-        w->graphWidget_->setDirectory(w->selectedDir_);
-    else
-        w->graphWidget_->setDirectory(kNoEntry);
+    const EntryRef focusDir = w->graphFocusDir_.valid() ? w->graphFocusDir_ : w->currentRoot_;
+    w->graphWidget_->setDirectory(focusDir.valid() ? focusDir : kNoEntry);
+    w->graphWidget_->setSelectedEntry(w->currentEntry_);
 }
 
 } // namespace ldirstat
