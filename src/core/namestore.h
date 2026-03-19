@@ -80,6 +80,8 @@ public:
     std::string_view get(NameRef ref) const {
         return {&pages_[ref.pageId]->data[ref.offset], ref.length};
     }
+
+    uint16_t pageCount() const { return static_cast<uint16_t>(pages_.size()); }
 };
 
 } // namespace ldirstat

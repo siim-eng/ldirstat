@@ -64,8 +64,6 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     DirEntry& root = entryStore_[rootRef];
     root.type = EntryType::Directory;
     root.name = nameStore_.add(namePage, rootPath);
-    root.depth = 0;
-    root.device = rootSt.st_dev;
 
     {
         std::lock_guard lock(mutex_);
@@ -224,9 +222,8 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             DirEntry& entry = entryStore_[ref];
             entry.name = nameStore_.add(ctx.namePage, d->d_name);
             entry.parent = dirRef;
-            entry.depth = parent.depth + 1;
 
-            // Stat for size, blocks, device, inode.
+            // Stat for size, blocks, and same-filesystem filtering.
             struct stat st{};
             bool haveStat =
                 fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
@@ -234,8 +231,6 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             if (haveStat) {
                 entry.size = static_cast<uint64_t>(st.st_size);
                 entry.blocks = static_cast<uint64_t>(st.st_blocks);
-                entry.device = st.st_dev;
-                entry.inode = st.st_ino;
             }
 
             // Determine type: prefer d_type, fall back to stat.
@@ -277,7 +272,8 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
 
             // Queue subdirectories (same filesystem only).
             if (entry.type == EntryType::Directory &&
-                entry.device == rootDev_) {
+                haveStat &&
+                st.st_dev == rootDev_) {
                 ctx.subdirBatch.push_back(ref);
             }
         }

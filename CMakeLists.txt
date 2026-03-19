@@ -46,3 +46,5 @@ target_link_libraries(scandirs PRIVATE ldirstat_core)
 
 add_executable(scanmounts bench/scanmounts.cpp)
 target_link_libraries(scanmounts PRIVATE ldirstat_core)
+
+add_executable(gentree bench/gentree.cpp)

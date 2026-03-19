@@ -272,7 +272,7 @@ void MainWindow::startScan(const QString& path) {
     }
 
     auto scanPath = path.toStdString();
-    int workers = QThread::idealThreadCount();
+    int workers = std::clamp(QThread::idealThreadCount() / 2, 1, 8);
 
     scanThread_ = QThread::create([this, scanPath, workers]() {
         EntryRef root = scanner_.scan(scanPath, workers);

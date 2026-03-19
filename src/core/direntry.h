@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <sys/types.h>
 
 #include "namestore.h"
 
@@ -41,7 +39,6 @@ struct DirEntry {
     NameRef name;
 
     EntryType type = EntryType::File;
-    uint16_t  depth = 0;          // tree depth (0 = root)
 
     // Size in bytes. For files: st_size. For directories: sum of subtree.
     uint64_t size = 0;
@@ -59,12 +56,10 @@ struct DirEntry {
     uint32_t childCount = 0;         // number of direct children
     EntryRef nextSibling;
 
-    // Device and inode for hardlink detection.
-    dev_t device = 0;
-    ino_t inode  = 0;
-
     bool isDir()  const { return type == EntryType::Directory; }
     bool isFile() const { return type == EntryType::File; }
 };
+
+static_assert(sizeof(DirEntry) == 48);
 
 } // namespace ldirstat

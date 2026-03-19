@@ -11,14 +11,14 @@
 
 namespace ldirstat {
 
-// Page-based arena for DirEntry nodes. Each page holds 65536 entries.
+// Page-based arena for DirEntry nodes. Each page holds 32768 entries.
 // Grows by adding pages — never reallocates existing pages.
 // Workers get their own page to write to; page allocation is thread-safe,
 // writing within a page is not. The pages_ vector is pre-reserved so it
 // never reallocates, making operator[] safe to call without locking.
 class DirEntryStore {
 public:
-    static constexpr uint32_t kEntriesPerPage = 65536;
+    static constexpr uint32_t kEntriesPerPage = 32768;
     static constexpr size_t kMaxPages = 65535;
 
     DirEntryStore() { pages_.reserve(kMaxPages); }

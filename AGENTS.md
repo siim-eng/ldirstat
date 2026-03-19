@@ -26,7 +26,7 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
 - `src/core/` — pure C++ stdlib, no Qt. Core types, scanner, and filesystem info.
   - `direntry.h` — `DirEntry` struct, `EntryRef` (pageId + index), `EntryType` enum.
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
-  - `direntrystore.h` — `DirEntryStore`: page-based arena (65536 entries/page) for DirEntry nodes.
+  - `direntrystore.h` — `DirEntryStore`: page-based arena (32768 entries/page) for DirEntry nodes.
   - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Scans single device only (`rootDev_`). Stoppable via `stop()`.
   - `flamegraph.h/.cpp` — `FlameGraph`: builds per-row rect layout from DirEntry tree for flame-graph visualization. Binary search hit testing.
   - `filesystem.h/.cpp` — `FileSystems`: reads `/proc/mounts`, classifies filesystem types (Real, Network, Virtual, etc.), provides mount lookup by device. `MountInfo` struct with device, mountPoint, fsType, capacity.
