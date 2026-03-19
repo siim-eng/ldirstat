@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Agent notes for this repository. Prefer current code over stale prose.
 
 ## Project Overview
 
@@ -24,21 +24,25 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
 ## Folder Structure
 
 - `src/core/` — pure C++ stdlib, no Qt. Core types, scanner, and filesystem info.
-  - `direntry.h` — `DirEntry` struct, `EntryRef` (pageId + index), `EntryType` enum.
+  - `direntry.h` — `DirEntry` is a fixed 48-byte node: name ref, type, size/blocks, subtree counts, and tree links. No stored depth/device/inode.
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
   - `direntrystore.h` — `DirEntryStore`: page-based arena (32768 entries/page) for DirEntry nodes.
-  - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Scans single device only (`rootDev_`). Stoppable via `stop()`.
+  - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Same-device filtering uses transient `stat.st_dev`; entries do not retain device/inode. Stoppable via `stop()`.
   - `flamegraph.h/.cpp` — `FlameGraph`: builds per-row rect layout from DirEntry tree for flame-graph visualization. Binary search hit testing.
   - `filesystem.h/.cpp` — `FileSystems`: reads `/proc/mounts`, classifies filesystem types (Real, Network, Virtual, etc.), provides mount lookup by device. `MountInfo` struct with device, mountPoint, fsType, capacity.
 - `src/ui/` — Qt6 Widgets UI layer.
-  - `mainwindow.h/.cpp` — `MainWindow`: owns core state (FileSystems, DirEntryStore, NameStore, FlameGraph). Background scanning via QThread. QStackedWidget switches between welcome screen and analysis view.
-  - `mainwindowbuilder.h/.cpp` — `MainWindowBuilder`: friend class, creates widgets/layout/menus/signal wiring. Layout: top splitter (dir tree 30% | file list 70%), flamegraph full width below.
-  - `dirtreeview.h/.cpp` — `DirTreeView`: QTreeView with lazy-expand directory tree.
-  - `filelistview.h/.cpp` — `FileListView`: QTableView showing top 100 files by size in selected subtree.
-  - `flamegraphwidget.h/.cpp` — `FlameGraphWidget`: custom QWidget rendering FlameGraph rects with hit testing and tooltips.
-  - `welcomewidget.h/.cpp` — `WelcomeWidget`: initial landing screen with quick-access buttons (Home, Root, Open Directory) and a filesystem selection grid.
+  - `mainwindow.h/.cpp` — `MainWindow`: owns core state (`FileSystems`, stores, `Scanner`), scan thread, mount process, current selection/focus, and toolbar actions (open, terminal, copy path, trash).
+  - `mainwindowbuilder.h/.cpp` — `MainWindowBuilder`: builds the hidden toolbar, welcome page, analysis splitter, scan-progress stack, and graph-type menu. Central UI is `viewStack_` = welcome or analysis.
+  - `dirlistview.h/.cpp` — horizontal column browser for the directory hierarchy with keyboard navigation and context-menu forwarding.
+  - `dirlistcolumn.h/.cpp` — custom painted single-directory column with size, percent, name, and footer totals.
+  - `graphwidget.h/.cpp` — abstract base API shared by graph views.
+  - `flamegraphwidget.h/.cpp` — flame graph view with hit testing and subtree highlight contour.
+  - `treemapwidget.h/.cpp` — tree map view; supports packed mode and directory-header mode.
+  - `scanprogresswidget.h/.cpp` — indeterminate scan progress page with live file/dir counters and Stop button.
+  - `welcomewidget.h/.cpp` — landing page with Home/Root/Open Directory actions and a filesystem grid; unmounted devices go through `udisksctl mount`.
 - `src/app/` — application entry point.
   - `main.cpp` — QApplication setup, creates MainWindow.
 - `bench/` — benchmarks.
+  - `gentree.cpp` — CLI: `gentree <file_count>`, generates a small-file benchmark tree.
   - `scandirs.cpp` — CLI: `scandirs <rootdir> <worker_count>`, prints dirs/files/disk_used/time.
   - `scanmounts.cpp` — CLI: `scanmounts`, reads and displays all mount points with filesystem classification and capacity.
