@@ -12,6 +12,7 @@
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -81,6 +82,35 @@ void MainWindow::changeEvent(QEvent* event) {
     QMainWindow::changeEvent(event);
 }
 
+bool MainWindow::isGraphPageVisible() const {
+    return viewStack_ && flameStack_ && graphTypeStack_ &&
+           viewStack_->currentWidget() != welcomeWidget_ &&
+           flameStack_->currentWidget() == graphTypeStack_;
+}
+
+void MainWindow::setCurrentEntry(EntryRef ref) {
+    currentEntry_ = ref;
+    updateEntryActions();
+}
+
+void MainWindow::updateEntryActions() {
+    const bool enabled = isGraphPageVisible() && currentEntry_.valid();
+    if (openEntryAction_)
+        openEntryAction_->setEnabled(enabled);
+    if (openEntryTerminalAction_)
+        openEntryTerminalAction_->setEnabled(enabled);
+    if (copyEntryPathAction_)
+        copyEntryPathAction_->setEnabled(enabled);
+    if (trashEntryAction_)
+        trashEntryAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
+}
+
+QString MainWindow::pathForEntry(EntryRef ref) const {
+    if (!ref.valid())
+        return {};
+    return entryFullPath(entryStore_, nameStore_, ref);
+}
+
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (shouldForwardDirListArrowKey(watched, event)) {
         auto* keyEvent = static_cast<QKeyEvent*>(event);
@@ -130,11 +160,7 @@ bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) c
         return false;
     }
 
-    if (!viewStack_ || !flameStack_ || !graphTypeStack_)
-        return false;
-    if (viewStack_->currentWidget() == welcomeWidget_)
-        return false;
-    if (flameStack_->currentWidget() != graphTypeStack_)
+    if (!isGraphPageVisible())
         return false;
     if (!dirListView_->isEnabled() || !dirListView_->isVisible())
         return false;
@@ -153,6 +179,7 @@ void MainWindow::onOverview() {
         return;
 
     if (viewStack_->currentIndex() == 1) {
+        setCurrentEntry(kNoEntry);
         refreshWelcomeVolumes();
         viewStack_->setCurrentIndex(0);
         overviewAction_->setText(tr("Back"));
@@ -189,7 +216,9 @@ void MainWindow::startScan(const QString& path) {
     scanThread_ = nullptr;
 
     currentRoot_ = kNoEntry;
+    currentEntry_ = kNoEntry;
     selectedDir_ = kNoEntry;
+    updateEntryActions();
 
     entryStore_.clear();
     nameStore_.clear();
@@ -219,6 +248,7 @@ void MainWindow::mountAndScan(const QString& devicePath) {
     if (devicePath.isEmpty() || mountProcess_ || (scanThread_ && scanThread_->isRunning()))
         return;
 
+    setCurrentEntry(kNoEntry);
     viewStack_->setCurrentIndex(0);
     setMountInProgress(true, tr("Mounting %1...").arg(devicePath));
 
@@ -310,6 +340,7 @@ void MainWindow::onScanFinished(EntryRef root) {
     if (scanner_.stopped()) {
         entryStore_.clear();
         nameStore_.clear();
+        setCurrentEntry(kNoEntry);
         dirListView_->setEnabled(true);
         viewStack_->setCurrentIndex(0);
         refreshWelcomeVolumes();
@@ -327,6 +358,7 @@ void MainWindow::onScanFinished(EntryRef root) {
     dirListView_->setEnabled(true);
 
     currentRoot_ = root;
+    setCurrentEntry(kNoEntry);
     selectedDir_ = root;
 
     dirListView_->setRoot(entryStore_, nameStore_, root);
@@ -339,8 +371,13 @@ void MainWindow::onDirSelected(EntryRef ref) {
     graphWidget_->setDirectory(ref);
 }
 
+void MainWindow::onEntrySelected(EntryRef ref) {
+    setCurrentEntry(ref);
+}
+
 void MainWindow::onGraphEntrySelected(EntryRef ref) {
     const DirEntry& entry = entryStore_[ref];
+    setCurrentEntry(ref);
 
     // Navigate the dir list to show this entry selected.
     dirListView_->selectEntry(ref);
@@ -350,91 +387,123 @@ void MainWindow::onGraphEntrySelected(EntryRef ref) {
     onDirSelected(dirRef);
 }
 
+void MainWindow::openCurrentEntry() {
+    if (!currentEntry_.valid() || !isGraphPageVisible())
+        return;
+
+    const QString path = pathForEntry(currentEntry_);
+    if (path.isEmpty())
+        return;
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+void MainWindow::openCurrentEntryTerminal() {
+    if (!currentEntry_.valid() || !isGraphPageVisible())
+        return;
+
+    const DirEntry& entry = entryStore_[currentEntry_];
+    const QString path = pathForEntry(currentEntry_);
+    if (path.isEmpty())
+        return;
+
+    const QString dir = entry.isDir() ? path : QFileInfo(path).path();
+    QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
+    if (terminal.isEmpty()) {
+        for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
+                                      "xterm"}) {
+            if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
+                terminal = candidate;
+                break;
+            }
+        }
+    }
+
+    if (!terminal.isEmpty())
+        QProcess::startDetached(terminal, {"--workdir", dir});
+}
+
+void MainWindow::copyCurrentEntryPath() {
+    if (!currentEntry_.valid() || !isGraphPageVisible())
+        return;
+
+    const QString path = pathForEntry(currentEntry_);
+    if (path.isEmpty())
+        return;
+
+    QGuiApplication::clipboard()->setText(path);
+}
+
+void MainWindow::trashCurrentEntry() {
+    if (!currentEntry_.valid() || !isGraphPageVisible() || currentEntry_ == currentRoot_)
+        return;
+
+    const EntryRef ref = currentEntry_;
+    const DirEntry& entry = entryStore_[ref];
+    const QString path = pathForEntry(ref);
+    if (path.isEmpty())
+        return;
+
+    auto answer = QMessageBox::question(
+        this, tr("Move to Trash"),
+        tr("Move \"%1\" to trash?").arg(path),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (answer != QMessageBox::Yes)
+        return;
+
+    if (!QFile::moveToTrash(path))
+        return;
+
+    EntryRef parentDir = entry.parent;
+
+    // If selectedDir_ is the removed entry or a descendant of it,
+    // fall back to the parent of the removed entry.
+    if (selectedDir_.valid()) {
+        EntryRef cur = selectedDir_;
+        while (cur.valid()) {
+            if (cur == ref) {
+                selectedDir_ = parentDir;
+                break;
+            }
+            cur = entryStore_[cur].parent;
+        }
+    }
+
+    bool currentEntryRemoved = false;
+    if (currentEntry_.valid()) {
+        EntryRef cur = currentEntry_;
+        while (cur.valid()) {
+            if (cur == ref) {
+                currentEntryRemoved = true;
+                break;
+            }
+            cur = entryStore_[cur].parent;
+        }
+    }
+
+    entryStore_.remove(ref);
+    dirListView_->refreshAfterRemoval(ref, parentDir);
+
+    if (currentEntryRemoved)
+        setCurrentEntry(kNoEntry);
+
+    if (selectedDir_.valid())
+        graphWidget_->setDirectory(selectedDir_);
+}
+
 void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
     if (!ref.valid())
         return;
 
-    const DirEntry& entry = entryStore_[ref];
-    const QString path = entryFullPath(entryStore_, nameStore_, ref);
+    setCurrentEntry(ref);
 
     QMenu menu(this);
-
-    auto* openAction = menu.addAction(
-        QIcon::fromTheme("document-open-symbolic"), tr("Open"),
-        QKeySequence(Qt::CTRL | Qt::Key_O));
-
-    auto* terminalAction = menu.addAction(
-        QIcon::fromTheme("utilities-terminal-symbolic"), tr("Open Terminal"),
-        QKeySequence(Qt::CTRL | Qt::Key_T));
-
-    auto* copyAction = menu.addAction(
-        QIcon::fromTheme("edit-copy-symbolic"), tr("Copy to Clipboard"),
-        QKeySequence(Qt::CTRL | Qt::Key_C));
-
+    menu.addAction(openEntryAction_);
+    menu.addAction(openEntryTerminalAction_);
+    menu.addAction(copyEntryPathAction_);
     menu.addSeparator();
-
-    auto* trashAction = menu.addAction(
-        QIcon::fromTheme("user-trash-symbolic"), tr("Move to Trash"),
-        QKeySequence(Qt::Key_Delete));
-
-    QAction* chosen = menu.exec(globalPos);
-    if (!chosen)
-        return;
-
-    if (chosen == openAction) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    } else if (chosen == terminalAction) {
-        const QString dir = entry.isDir() ? path : QFileInfo(path).path();
-        QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
-        if (terminal.isEmpty()) {
-            for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
-                                          "xterm"}) {
-                if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
-                    terminal = candidate;
-                    break;
-                }
-            }
-        }
-        if (!terminal.isEmpty())
-            QProcess::startDetached(terminal, {"--workdir", dir});
-    } else if (chosen == copyAction) {
-        QGuiApplication::clipboard()->setText(path);
-    } else if (chosen == trashAction) {
-        // Cannot trash the scan root.
-        if (ref == currentRoot_)
-            return;
-
-        auto answer = QMessageBox::question(
-            this, tr("Move to Trash"),
-            tr("Move \"%1\" to trash?").arg(path),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (answer != QMessageBox::Yes)
-            return;
-
-        if (!QFile::moveToTrash(path))
-            return;
-
-        EntryRef parentDir = entry.parent;
-
-        // If selectedDir_ is the removed entry or a descendant of it,
-        // fall back to the parent of the removed entry.
-        if (selectedDir_.valid()) {
-            EntryRef cur = selectedDir_;
-            while (cur.valid()) {
-                if (cur == ref) {
-                    selectedDir_ = parentDir;
-                    break;
-                }
-                cur = entryStore_[cur].parent;
-            }
-        }
-
-        entryStore_.remove(ref);
-        dirListView_->refreshAfterRemoval(ref, parentDir);
-
-        if (selectedDir_.valid())
-            graphWidget_->setDirectory(selectedDir_);
-    }
+    menu.addAction(trashEntryAction_);
+    menu.exec(globalPos);
 }
 
 } // namespace ldirstat

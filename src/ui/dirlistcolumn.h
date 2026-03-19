@@ -9,7 +9,6 @@
 #include "themecolors.h"
 
 class QScrollBar;
-class QTimer;
 
 namespace ldirstat {
 
@@ -49,7 +48,6 @@ signals:
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
@@ -83,9 +81,6 @@ private:
     int selectedIndex_ = -1;
     bool keyboardActive_ = false;
     QScrollBar* scrollBar_;
-    QTimer* tooltipTimer_;
-    int hoverRow_ = -1;
-    QPoint hoverGlobalPos_;
 
     // Cached field widths.
     int sizeFieldWidth_ = 0;

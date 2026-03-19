@@ -47,9 +47,14 @@ private slots:
     void onRescan();
     void onScanFinished(EntryRef root);
     void onDirSelected(EntryRef ref);
+    void onEntrySelected(EntryRef ref);
     void onGraphEntrySelected(EntryRef ref);
     void onScanPollTick();
     void onStopScan();
+    void openCurrentEntry();
+    void openCurrentEntryTerminal();
+    void copyCurrentEntryPath();
+    void trashCurrentEntry();
     void startScan(const QString& path);
     void mountAndScan(const QString& devicePath);
     void showEntryContextMenu(EntryRef ref, QPoint globalPos);
@@ -57,7 +62,11 @@ private slots:
 private:
     void refreshWelcomeVolumes();
     void setMountInProgress(bool inProgress, const QString& status = {});
+    bool isGraphPageVisible() const;
     bool shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const;
+    void setCurrentEntry(EntryRef ref);
+    void updateEntryActions();
+    QString pathForEntry(EntryRef ref) const;
 
     QThread* scanThread_ = nullptr;
     QProcess* mountProcess_ = nullptr;
@@ -69,14 +78,19 @@ private:
     NameStore nameStore_;
     Scanner scanner_;
 
-    EntryRef currentRoot_;
-    EntryRef selectedDir_;
+    EntryRef currentRoot_ = kNoEntry;
+    EntryRef currentEntry_ = kNoEntry;
+    EntryRef selectedDir_ = kNoEntry;
     ThemeColors themeColors_;
 
     // UI widgets (created by builder, parented to this).
     QToolBar* toolbar_ = nullptr;
     QAction* overviewAction_ = nullptr;
     QAction* rescanAction_ = nullptr;
+    QAction* openEntryAction_ = nullptr;
+    QAction* openEntryTerminalAction_ = nullptr;
+    QAction* copyEntryPathAction_ = nullptr;
+    QAction* trashEntryAction_ = nullptr;
     QToolButton* graphTypeButton_ = nullptr;
     QAction* graphTypeAction_ = nullptr;
     QStackedWidget* viewStack_ = nullptr;

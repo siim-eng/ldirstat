@@ -11,6 +11,7 @@
 #include <QActionGroup>
 #include <QDir>
 #include <QFileDialog>
+#include <QKeySequence>
 #include <QMenu>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -53,6 +54,40 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->rescanAction_ = w->toolbar_->addAction(
         QIcon::fromTheme("view-refresh-symbolic"), MainWindow::tr("Rescan"));
     QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
+
+    auto configureEntryAction = [w](QAction*& action,
+                                    const QString& iconName,
+                                    const QString& text,
+                                    const QKeySequence& shortcut,
+                                    auto slot) {
+        action = new QAction(QIcon::fromTheme(iconName), text, w);
+        action->setShortcut(shortcut);
+        action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        action->setEnabled(false);
+        w->addAction(action);
+        QObject::connect(action, &QAction::triggered, w, slot);
+    };
+
+    configureEntryAction(w->openEntryAction_,
+                         QStringLiteral("document-open-symbolic"),
+                         MainWindow::tr("Open"),
+                         QKeySequence(Qt::CTRL | Qt::Key_O),
+                         &MainWindow::openCurrentEntry);
+    configureEntryAction(w->openEntryTerminalAction_,
+                         QStringLiteral("utilities-terminal-symbolic"),
+                         MainWindow::tr("Open Terminal"),
+                         QKeySequence(Qt::CTRL | Qt::Key_T),
+                         &MainWindow::openCurrentEntryTerminal);
+    configureEntryAction(w->copyEntryPathAction_,
+                         QStringLiteral("edit-copy-symbolic"),
+                         MainWindow::tr("Copy to Clipboard"),
+                         QKeySequence(Qt::CTRL | Qt::Key_C),
+                         &MainWindow::copyCurrentEntryPath);
+    configureEntryAction(w->trashEntryAction_,
+                         QStringLiteral("user-trash-symbolic"),
+                         MainWindow::tr("Move to Trash"),
+                         QKeySequence(Qt::Key_Delete),
+                         &MainWindow::trashCurrentEntry);
 
     w->graphTypeButton_ = new QToolButton(w->toolbar_);
     w->graphTypeButton_->setIcon(QIcon::fromTheme("find-location-symbolic"));
@@ -133,6 +168,8 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
 void MainWindowBuilder::connectCoreSignals(MainWindow* w) {
     QObject::connect(w->dirListView_, &DirListView::directorySelected,
                      w, &MainWindow::onDirSelected);
+    QObject::connect(w->dirListView_, &DirListView::entrySelected,
+                     w, &MainWindow::onEntrySelected);
     QObject::connect(w->flameGraphWidget_, &GraphWidget::entrySelected,
                      w, &MainWindow::onGraphEntrySelected);
     QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected,
@@ -176,10 +213,12 @@ void MainWindowBuilder::connectVisibilitySignals(MainWindow* w) {
     QObject::connect(w->viewStack_, &QStackedWidget::currentChanged,
                      w, [w](int) {
         updateGraphTypeButtonVisibility(w);
+        w->updateEntryActions();
     });
     QObject::connect(w->flameStack_, &QStackedWidget::currentChanged,
                      w, [w](int) {
         updateGraphTypeButtonVisibility(w);
+        w->updateEntryActions();
     });
 }
 

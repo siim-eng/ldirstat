@@ -1,11 +1,8 @@
 #include "dirlistcolumn.h"
-#include "entrytooltip.h"
 
 #include <QPainter>
 #include <QMouseEvent>
 #include <QScrollBar>
-#include <QTimer>
-#include <QToolTip>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -58,21 +55,10 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     , rootSize_(rootSize)
     , themeColors_(themeColors) {
     setFixedWidth(columnWidth);
-    setMouseTracking(true);
 
     scrollBar_ = new QScrollBar(Qt::Vertical, this);
     scrollBar_->setFocusPolicy(Qt::NoFocus);
     connect(scrollBar_, &QScrollBar::valueChanged, this, [this]() { update(); });
-
-    tooltipTimer_ = new QTimer(this);
-    tooltipTimer_->setSingleShot(true);
-    tooltipTimer_->setInterval(500);
-    connect(tooltipTimer_, &QTimer::timeout, this, [this]() {
-        if (hoverRow_ >= 0 && hoverRow_ < static_cast<int>(children_.size())) {
-            QString tip = entryTooltip(store_, names_, children_[hoverRow_].ref);
-            QToolTip::showText(hoverGlobalPos_, tip, this);
-        }
-    });
 
     QFontMetrics fm(font());
     sizeFieldWidth_ = fm.horizontalAdvance("9999 MB");
@@ -113,7 +99,6 @@ void DirListColumn::rebuild(uint64_t rootSize) {
     rootSize_ = rootSize;
     children_.clear();
     selectedIndex_ = -1;
-    hoverRow_ = -1;
     buildChildList();
     updateScrollBar();
     update();
@@ -314,21 +299,7 @@ void DirListColumn::mousePressEvent(QMouseEvent* event) {
         emit entryClicked(children_[row].ref, children_[row].isDir);
 }
 
-void DirListColumn::mouseMoveEvent(QMouseEvent* event) {
-    int row = hitTestRow(event->pos());
-    if (row != hoverRow_) {
-        QToolTip::hideText();
-        hoverRow_ = row;
-        if (row >= 0 && row < static_cast<int>(children_.size())) {
-            hoverGlobalPos_ = event->globalPosition().toPoint();
-            tooltipTimer_->start();
-        } else {
-            tooltipTimer_->stop();
-        }
-    } else {
-        hoverGlobalPos_ = event->globalPosition().toPoint();
-    }
-}
+
 
 void DirListColumn::wheelEvent(QWheelEvent* event) {
     int delta = -event->angleDelta().y();

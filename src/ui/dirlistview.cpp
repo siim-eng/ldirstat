@@ -89,6 +89,7 @@ bool DirListView::handleArrowKey(int key) {
 
     if (key == Qt::Key_Left) {
         if (activeColumnIndex_ == 0) {
+            emit entrySelected(kNoEntry);
             enterRootFocus();
             return true;
         }
@@ -290,6 +291,7 @@ void DirListView::onColumnContextMenuRequested(EntryRef ref, QPoint globalPos) {
         setActiveColumnIndex(colIndex);
     }
 
+    emit entrySelected(ref);
     emit contextMenuRequested(ref, globalPos);
 }
 
@@ -314,6 +316,7 @@ void DirListView::applySelectionInColumn(int columnIndex, int rowIndex) {
     column->setSelectedIndex(rowIndex);
     rootFocused_ = false;
     setActiveColumnIndex(columnIndex);
+    emit entrySelected(ref);
 
     if (isDir) {
         addColumn(ref);

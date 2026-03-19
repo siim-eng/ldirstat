@@ -38,6 +38,7 @@ protected:
 
 signals:
     void directorySelected(ldirstat::EntryRef ref);
+    void entrySelected(ldirstat::EntryRef ref);
     void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 private slots:
