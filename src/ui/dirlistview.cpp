@@ -84,6 +84,35 @@ void DirListView::selectEntry(EntryRef ref) {
     scrollToLastColumn();
 }
 
+void DirListView::refreshAfterRemoval(EntryRef removedRef, EntryRef parentRef) {
+    if (!store_ || columns_.empty())
+        return;
+
+    // Find the column showing the removed entry or its parent, and truncate
+    // any child columns beyond it.
+    int rebuildFrom = -1;
+    for (int i = 0; i < static_cast<int>(columns_.size()); ++i) {
+        if (columns_[i]->dirRef() == removedRef) {
+            truncateColumnsAfter(i - 1);
+            rebuildFrom = static_cast<int>(columns_.size()) - 1;
+            break;
+        }
+        if (columns_[i]->dirRef() == parentRef) {
+            truncateColumnsAfter(i);
+            rebuildFrom = i;
+            break;
+        }
+    }
+
+    // Rebuild the affected column and all ancestors so their cached
+    // sizes, percentages and footer stats reflect the removal.
+    if (!columns_.empty())
+        rootSize_ = (*store_)[columns_[0]->dirRef()].size;
+
+    for (int i = std::max(rebuildFrom, 0); i >= 0; --i)
+        columns_[i]->rebuild(rootSize_);
+}
+
 void DirListView::onColumnEntryClicked(EntryRef ref, bool isDir) {
     auto* col = qobject_cast<DirListColumn*>(sender());
     if (!col)

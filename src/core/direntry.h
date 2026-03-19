@@ -24,6 +24,11 @@ struct EntryRef {
     uint16_t index  = UINT16_MAX;
 
     bool valid() const { return pageId != UINT16_MAX; }
+
+    bool operator==(const EntryRef& other) const {
+        return pageId == other.pageId && index == other.index;
+    }
+    bool operator!=(const EntryRef& other) const { return !(*this == other); }
 };
 
 inline constexpr EntryRef kNoEntry{};

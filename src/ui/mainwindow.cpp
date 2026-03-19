@@ -349,12 +349,40 @@ void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
     } else if (chosen == copyAction) {
         QGuiApplication::clipboard()->setText(path);
     } else if (chosen == trashAction) {
+        // Cannot trash the scan root.
+        if (ref == currentRoot_)
+            return;
+
         auto answer = QMessageBox::question(
             this, tr("Move to Trash"),
             tr("Move \"%1\" to trash?").arg(path),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-        if (answer == QMessageBox::Yes)
-            QFile::moveToTrash(path);
+        if (answer != QMessageBox::Yes)
+            return;
+
+        if (!QFile::moveToTrash(path))
+            return;
+
+        EntryRef parentDir = entry.parent;
+
+        // If selectedDir_ is the removed entry or a descendant of it,
+        // fall back to the parent of the removed entry.
+        if (selectedDir_.valid()) {
+            EntryRef cur = selectedDir_;
+            while (cur.valid()) {
+                if (cur == ref) {
+                    selectedDir_ = parentDir;
+                    break;
+                }
+                cur = entryStore_[cur].parent;
+            }
+        }
+
+        entryStore_.remove(ref);
+        dirListView_->refreshAfterRemoval(ref, parentDir);
+
+        if (selectedDir_.valid())
+            graphWidget_->setDirectory(selectedDir_);
     }
 }
 

@@ -27,6 +27,7 @@ public:
     void setSelectedRef(EntryRef ref);
     void setThemeColors(const ThemeColors& colors);
     void clearSelection();
+    void rebuild(uint64_t rootSize);
 
     // Layout constants exposed for column width calculation.
     static constexpr int kRowHeight = 22;

@@ -108,6 +108,16 @@ void DirListColumn::buildChildList() {
     }
 }
 
+void DirListColumn::rebuild(uint64_t rootSize) {
+    rootSize_ = rootSize;
+    children_.clear();
+    selectedIndex_ = -1;
+    hoverRow_ = -1;
+    buildChildList();
+    updateScrollBar();
+    update();
+}
+
 EntryRef DirListColumn::selectedRef() const {
     if (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(children_.size()))
         return children_[selectedIndex_].ref;

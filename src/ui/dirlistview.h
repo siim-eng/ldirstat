@@ -24,6 +24,7 @@ public:
     void setThemeColors(const ThemeColors& colors);
     void setRoot(const DirEntryStore& store, const NameStore& names, EntryRef root);
     void selectEntry(EntryRef ref);
+    void refreshAfterRemoval(EntryRef removedRef, EntryRef parentRef);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

@@ -63,6 +63,53 @@ public:
         return pages_[ref.pageId]->entries[ref.index];
     }
 
+    // Unhook an entry from the tree and propagate size/count changes up.
+    // The entry's storage is not freed (arena allocator), but it becomes
+    // unreachable from the tree.
+    void remove(EntryRef ref) {
+        DirEntry& entry = (*this)[ref];
+        EntryRef parentRef = entry.parent;
+        if (!parentRef.valid())
+            return;
+
+        // Unlink from parent's child list.
+        DirEntry& parent = (*this)[parentRef];
+        if (parent.firstChild == ref) {
+            parent.firstChild = entry.nextSibling;
+        } else {
+            EntryRef prev = parent.firstChild;
+            while (prev.valid()) {
+                DirEntry& prevEntry = (*this)[prev];
+                if (prevEntry.nextSibling == ref) {
+                    prevEntry.nextSibling = entry.nextSibling;
+                    break;
+                }
+                prev = prevEntry.nextSibling;
+            }
+        }
+        parent.childCount--;
+
+        // Propagate size and count changes up to root.
+        uint64_t removedSize = entry.size;
+        uint64_t removedBlocks = entry.blocks;
+        uint32_t removedFiles = entry.isDir() ? entry.fileCount : 1;
+        uint32_t removedDirs = entry.isDir() ? (entry.dirCount + 1) : 0;
+
+        EntryRef ancestor = parentRef;
+        while (ancestor.valid()) {
+            DirEntry& a = (*this)[ancestor];
+            a.size -= removedSize;
+            a.blocks -= removedBlocks;
+            a.fileCount -= removedFiles;
+            a.dirCount -= removedDirs;
+            ancestor = a.parent;
+        }
+
+        // Clear the removed entry's links.
+        entry.parent = kNoEntry;
+        entry.nextSibling = kNoEntry;
+    }
+
     uint16_t pageCount() const { return static_cast<uint16_t>(pages_.size()); }
     uint32_t pageUsed(uint16_t pageId) const { return pages_[pageId]->used; }
 
