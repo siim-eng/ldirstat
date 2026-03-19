@@ -5,11 +5,36 @@
 #include <QPainter>
 #include <QToolTip>
 
+#include <algorithm>
+#include <cstddef>
+#include <unordered_map>
+#include <vector>
+
 namespace ldirstat {
 
 namespace {
 
 constexpr qreal kSelectionBorderWidth = 2.0;
+constexpr int kMinVisibleRectWidth = 2;
+
+struct GridPoint {
+    int x;
+    int y;
+
+    bool operator==(const GridPoint& other) const = default;
+};
+
+struct DirectedEdge {
+    GridPoint start;
+    GridPoint end;
+};
+
+struct GridPointHash {
+    size_t operator()(const GridPoint& point) const {
+        return (static_cast<size_t>(static_cast<uint32_t>(point.x)) << 32)
+             ^ static_cast<size_t>(static_cast<uint32_t>(point.y));
+    }
+};
 
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     if (entry.isDir())
@@ -25,6 +50,41 @@ QColor textColorForBackground(const QColor& background, const QPalette& palette)
     return palette.color(QPalette::Text);
 }
 
+int indexForCoord(const std::vector<int>& coords, int value) {
+    auto it = std::lower_bound(coords.begin(), coords.end(), value);
+    return static_cast<int>(std::distance(coords.begin(), it));
+}
+
+bool isCollinear(const GridPoint& a, const GridPoint& b, const GridPoint& c) {
+    return (a.x == b.x && b.x == c.x) || (a.y == b.y && b.y == c.y);
+}
+
+std::vector<GridPoint> simplifyLoop(std::vector<GridPoint> points) {
+    if (points.size() >= 2 && points.front() == points.back())
+        points.pop_back();
+
+    bool changed = true;
+    while (changed && points.size() >= 3) {
+        changed = false;
+        for (size_t i = 0; i < points.size() && points.size() >= 3;) {
+            const size_t prev = (i + points.size() - 1) % points.size();
+            const size_t next = (i + 1) % points.size();
+
+            if (points[i] == points[prev] ||
+                points[i] == points[next] ||
+                isCollinear(points[prev], points[i], points[next])) {
+                points.erase(points.begin() + static_cast<std::ptrdiff_t>(i));
+                changed = true;
+                continue;
+            }
+
+            ++i;
+        }
+    }
+
+    return points;
+}
+
 } // namespace
 
 FlameGraphWidget::FlameGraphWidget(QWidget* parent)
@@ -35,15 +95,18 @@ FlameGraphWidget::FlameGraphWidget(QWidget* parent)
 void FlameGraphWidget::setStores(const DirEntryStore* store, const NameStore* names) {
     store_ = store;
     names_ = names;
+    selectionContourDirty_ = true;
 }
 
 void FlameGraphWidget::setDirectory(EntryRef dir) {
     if (!store_ || !dir.valid()) {
         flameGraph_ = FlameGraph();
+        selectionContourDirty_ = true;
         update();
         return;
     }
     flameGraph_.build(*store_, dir);
+    selectionContourDirty_ = true;
     update();
 }
 
@@ -71,7 +134,6 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     const int w = graphArea.width();
     const int xOffset = graphArea.left();
     const int yBase = graphArea.y() + graphArea.height();
-    QPen selectionPen(themeColors_.selectionBorder, kSelectionBorderWidth);
 
     for (int r = 0; r < flameGraph_.rowCount(); ++r) {
         int y = yBase - (r + 1) * kRowHeight;
@@ -82,7 +144,7 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
         for (const auto& fr : rects) {
             int x1 = xOffset + static_cast<int>(fr.x1 * w);
             int x2 = xOffset + static_cast<int>(fr.x2 * w);
-            if (x2 - x1 < 4)
+            if (x2 - x1 < kMinVisibleRectWidth)
                 continue;
 
             const DirEntry& entry = (*store_)[fr.ref];
@@ -104,28 +166,12 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
         }
     }
 
-    if (selectedEntry_.valid()) {
-        painter.setPen(selectionPen);
-        painter.setBrush(Qt::NoBrush);
-
-        for (int r = 0; r < flameGraph_.rowCount(); ++r) {
-            int y = yBase - (r + 1) * kRowHeight;
-            if (y + kRowHeight <= graphArea.top())
-                break;
-
-            const auto& rects = flameGraph_.row(r);
-            for (const auto& fr : rects) {
-                if (fr.ref != selectedEntry_)
-                    continue;
-
-                const int x1 = xOffset + static_cast<int>(fr.x1 * w);
-                const int x2 = xOffset + static_cast<int>(fr.x2 * w);
-                if (x2 - x1 < 1)
-                    continue;
-
-                painter.drawRect(QRectF(x1, y, x2 - x1, kRowHeight));
-            }
-        }
+    ensureSelectionContour();
+    if (!selectionContourPath_.isEmpty()) {
+        QPen selectionPen(themeColors_.selectionBorder, kSelectionBorderWidth);
+        selectionPen.setCapStyle(Qt::SquareCap);
+        selectionPen.setJoinStyle(Qt::MiterJoin);
+        painter.strokePath(selectionContourPath_, selectionPen);
     }
 
     painter.restore();
@@ -167,6 +213,197 @@ EntryRef FlameGraphWidget::hitTest(const QPoint& pos) const {
 
     float relX = static_cast<float>(pos.x() - graphArea.left()) / graphArea.width();
     return flameGraph_.lookup(relX, row);
+}
+
+void FlameGraphWidget::ensureSelectionContour() {
+    const QRect area = graphRect();
+    if (!selectionContourDirty_ &&
+        cachedContourGraphRect_ == area &&
+        cachedContourEntry_ == selectedEntry_) {
+        return;
+    }
+
+    rebuildSelectionContour();
+}
+
+void FlameGraphWidget::rebuildSelectionContour() {
+    selectionContourPath_ = QPainterPath();
+    cachedContourGraphRect_ = graphRect();
+    cachedContourEntry_ = selectedEntry_;
+    selectionContourDirty_ = false;
+
+    if (!store_ || !selectedEntry_.valid())
+        return;
+    if (cachedContourGraphRect_.width() <= 0 || cachedContourGraphRect_.height() <= 0)
+        return;
+
+    const std::vector<QRect> rects = collectSelectedSubtreeRects(cachedContourGraphRect_);
+    if (rects.empty())
+        return;
+
+    std::vector<int> xCoords;
+    std::vector<int> yCoords;
+    xCoords.reserve(rects.size() * 2);
+    yCoords.reserve(rects.size() * 2);
+
+    for (const QRect& rect : rects) {
+        xCoords.push_back(rect.x());
+        xCoords.push_back(rect.x() + rect.width());
+        yCoords.push_back(rect.y());
+        yCoords.push_back(rect.y() + rect.height());
+    }
+
+    std::sort(xCoords.begin(), xCoords.end());
+    xCoords.erase(std::unique(xCoords.begin(), xCoords.end()), xCoords.end());
+    std::sort(yCoords.begin(), yCoords.end());
+    yCoords.erase(std::unique(yCoords.begin(), yCoords.end()), yCoords.end());
+
+    if (xCoords.size() < 2 || yCoords.size() < 2)
+        return;
+
+    const int gridWidth = static_cast<int>(xCoords.size()) - 1;
+    const int gridHeight = static_cast<int>(yCoords.size()) - 1;
+    std::vector<uint8_t> occupied(static_cast<size_t>(gridWidth * gridHeight), 0);
+    const auto cellIndex = [gridWidth](int x, int y) {
+        return static_cast<size_t>(y * gridWidth + x);
+    };
+
+    for (const QRect& rect : rects) {
+        const int x0 = indexForCoord(xCoords, rect.x());
+        const int x1 = indexForCoord(xCoords, rect.x() + rect.width());
+        const int y0 = indexForCoord(yCoords, rect.y());
+        const int y1 = indexForCoord(yCoords, rect.y() + rect.height());
+
+        for (int y = y0; y < y1; ++y) {
+            for (int x = x0; x < x1; ++x)
+                occupied[cellIndex(x, y)] = 1;
+        }
+    }
+
+    std::vector<DirectedEdge> edges;
+    edges.reserve(rects.size() * 8);
+    for (int y = 0; y < gridHeight; ++y) {
+        for (int x = 0; x < gridWidth; ++x) {
+            if (!occupied[cellIndex(x, y)])
+                continue;
+
+            const GridPoint topLeft{xCoords[x], yCoords[y]};
+            const GridPoint topRight{xCoords[x + 1], yCoords[y]};
+            const GridPoint bottomRight{xCoords[x + 1], yCoords[y + 1]};
+            const GridPoint bottomLeft{xCoords[x], yCoords[y + 1]};
+
+            if (y == 0 || !occupied[cellIndex(x, y - 1)])
+                edges.push_back({topLeft, topRight});
+            if (x == gridWidth - 1 || !occupied[cellIndex(x + 1, y)])
+                edges.push_back({topRight, bottomRight});
+            if (y == gridHeight - 1 || !occupied[cellIndex(x, y + 1)])
+                edges.push_back({bottomRight, bottomLeft});
+            if (x == 0 || !occupied[cellIndex(x - 1, y)])
+                edges.push_back({bottomLeft, topLeft});
+        }
+    }
+
+    if (edges.empty())
+        return;
+
+    std::unordered_multimap<GridPoint, int, GridPointHash> outgoingEdges;
+    outgoingEdges.reserve(edges.size());
+    for (int i = 0; i < static_cast<int>(edges.size()); ++i)
+        outgoingEdges.emplace(edges[i].start, i);
+
+    std::vector<uint8_t> visited(edges.size(), 0);
+    for (int edgeIndex = 0; edgeIndex < static_cast<int>(edges.size()); ++edgeIndex) {
+        if (visited[edgeIndex])
+            continue;
+
+        std::vector<GridPoint> loop;
+        int currentEdgeIndex = edgeIndex;
+        const GridPoint loopStart = edges[currentEdgeIndex].start;
+
+        while (true) {
+            if (visited[currentEdgeIndex]) {
+                loop.clear();
+                break;
+            }
+
+            const DirectedEdge& edge = edges[currentEdgeIndex];
+            visited[currentEdgeIndex] = 1;
+
+            if (loop.empty())
+                loop.push_back(edge.start);
+            loop.push_back(edge.end);
+
+            if (edge.end == loopStart)
+                break;
+
+            auto range = outgoingEdges.equal_range(edge.end);
+            currentEdgeIndex = -1;
+            for (auto it = range.first; it != range.second; ++it) {
+                if (!visited[it->second]) {
+                    currentEdgeIndex = it->second;
+                    break;
+                }
+            }
+
+            if (currentEdgeIndex < 0) {
+                loop.clear();
+                break;
+            }
+        }
+
+        loop = simplifyLoop(std::move(loop));
+        if (loop.size() < 3)
+            continue;
+
+        selectionContourPath_.moveTo(loop.front().x, loop.front().y);
+        for (size_t i = 1; i < loop.size(); ++i)
+            selectionContourPath_.lineTo(loop[i].x, loop[i].y);
+        selectionContourPath_.closeSubpath();
+    }
+}
+
+std::vector<QRect> FlameGraphWidget::collectSelectedSubtreeRects(const QRect& graphArea) const {
+    std::vector<QRect> rects;
+    if (!store_ || !selectedEntry_.valid() || flameGraph_.rowCount() == 0)
+        return rects;
+
+    const int width = graphArea.width();
+    const int xOffset = graphArea.left();
+    const int yBase = graphArea.y() + graphArea.height();
+
+    for (int r = 0; r < flameGraph_.rowCount(); ++r) {
+        const int y = yBase - (r + 1) * kRowHeight;
+        if (y + kRowHeight <= graphArea.top())
+            break;
+
+        const auto& rectRow = flameGraph_.row(r);
+        for (const FlameRect& fr : rectRow) {
+            if (!isInSelectedSubtree(fr.ref))
+                continue;
+
+            const int x1 = xOffset + static_cast<int>(fr.x1 * width);
+            const int x2 = xOffset + static_cast<int>(fr.x2 * width);
+            if (x2 - x1 < kMinVisibleRectWidth)
+                continue;
+
+            rects.emplace_back(x1, y, x2 - x1, kRowHeight);
+        }
+    }
+
+    return rects;
+}
+
+bool FlameGraphWidget::isInSelectedSubtree(EntryRef ref) const {
+    if (!store_ || !selectedEntry_.valid())
+        return false;
+
+    while (ref.valid()) {
+        if (ref == selectedEntry_)
+            return true;
+        ref = (*store_)[ref].parent;
+    }
+
+    return false;
 }
 
 } // namespace ldirstat

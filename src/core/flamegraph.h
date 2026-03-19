@@ -23,7 +23,7 @@ struct FlameRect {
 class FlameGraph {
 public:
     static constexpr int kMaxDepth = 64;
-    static constexpr float kMinWidth = 1e-4f;
+    static constexpr float kMinWidth = 1e-5f;
 
     // Builds the layout from the given focused entry.
     void build(const DirEntryStore& store, EntryRef focus);

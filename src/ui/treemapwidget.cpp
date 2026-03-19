@@ -11,6 +11,7 @@ namespace ldirstat {
 namespace {
 
 constexpr qreal kSelectionBorderWidth = 2.0;
+constexpr qreal kSelectionBorderInset = kSelectionBorderWidth * 0.5;
 
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     return entry.isDir() ? colors.primaryBackground : colors.secondaryBackground;
@@ -32,6 +33,16 @@ QColor textColorForBackground(const QColor& background, const QPalette& palette)
 
 QRectF toQRect(const TreeMapRect& rect) {
     return QRectF(rect.x, rect.y, rect.width, rect.height);
+}
+
+QRectF selectionOutlineRect(const TreeMapRect& rect) {
+    QRectF outline = toQRect(rect).adjusted(kSelectionBorderInset,
+                                            kSelectionBorderInset,
+                                            -kSelectionBorderInset,
+                                            -kSelectionBorderInset);
+    if (outline.width() <= 0.0 || outline.height() <= 0.0)
+        return {};
+    return outline;
 }
 
 QString entryName(const NameStore& names, const DirEntry& entry) {
@@ -218,13 +229,19 @@ void TreeMapWidget::paintPacked(QPainter& painter, const QPalette& widgetPalette
     }
 
     if (selectedEntry_.valid()) {
-        painter.setPen(QPen(themeColors_.selectionBorder, kSelectionBorderWidth));
+        QPen selectionPen(themeColors_.selectionBorder, kSelectionBorderWidth);
+        selectionPen.setCapStyle(Qt::SquareCap);
+        selectionPen.setJoinStyle(Qt::MiterJoin);
+        painter.setPen(selectionPen);
         painter.setBrush(Qt::NoBrush);
 
         for (const TreeMapNode& node : treeMap_.nodes()) {
             if (node.ref != selectedEntry_ || node.rect.width < 1.0f || node.rect.height < 1.0f)
                 continue;
-            painter.drawRect(toQRect(node.rect));
+            const QRectF outline = selectionOutlineRect(node.rect);
+            if (!outline.isValid() || outline.isEmpty())
+                continue;
+            painter.drawRect(outline);
         }
     }
 }
@@ -293,13 +310,19 @@ void TreeMapWidget::paintDirectoryHeaders(QPainter& painter, const QPalette& wid
     }
 
     if (selectedEntry_.valid()) {
-        painter.setPen(QPen(themeColors_.selectionBorder, kSelectionBorderWidth));
+        QPen selectionPen(themeColors_.selectionBorder, kSelectionBorderWidth);
+        selectionPen.setCapStyle(Qt::SquareCap);
+        selectionPen.setJoinStyle(Qt::MiterJoin);
+        painter.setPen(selectionPen);
         painter.setBrush(Qt::NoBrush);
 
         for (const TreeMapNode& node : treeMap_.nodes()) {
             if (node.ref != selectedEntry_ || node.rect.width < 1.0f || node.rect.height < 1.0f)
                 continue;
-            painter.drawRect(toQRect(node.rect));
+            const QRectF outline = selectionOutlineRect(node.rect);
+            if (!outline.isValid() || outline.isEmpty())
+                continue;
+            painter.drawRect(outline);
         }
     }
 }
