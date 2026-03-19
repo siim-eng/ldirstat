@@ -23,10 +23,17 @@ public:
                            QWidget* parent = nullptr);
 
     EntryRef dirRef() const { return dirRef_; }
+    int rowCount() const { return static_cast<int>(children_.size()); }
+    int selectedIndex() const { return selectedIndex_; }
     EntryRef selectedRef() const;
+    EntryRef refAtRow(int row) const;
+    bool rowIsDir(int row) const;
+    void setSelectedIndex(int row);
     void setSelectedRef(EntryRef ref);
+    void setKeyboardActive(bool active);
     void setThemeColors(const ThemeColors& colors);
     void clearSelection();
+    void ensureRowVisible(int row);
     void rebuild(uint64_t rootSize);
 
     // Layout constants exposed for column width calculation.
@@ -74,6 +81,7 @@ private:
     ThemeColors themeColors_;
     std::vector<ChildEntry> children_;
     int selectedIndex_ = -1;
+    bool keyboardActive_ = false;
     QScrollBar* scrollBar_;
     QTimer* tooltipTimer_;
     int hoverRow_ = -1;

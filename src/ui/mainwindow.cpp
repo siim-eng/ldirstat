@@ -15,6 +15,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProcess>
@@ -31,6 +32,7 @@ MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , scanner_(entryStore_, nameStore_) {
     MainWindowBuilder::build(this);
+    qApp->installEventFilter(this);
 
     themeColors_ = ThemeColors::fromPalette(palette());
     dirListView_->setThemeColors(themeColors_);
@@ -49,6 +51,9 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
+    if (qApp)
+        qApp->removeEventFilter(this);
+
     if (mountProcess_) {
         mountProcess_->kill();
         mountProcess_->waitForFinished();
@@ -76,6 +81,16 @@ void MainWindow::changeEvent(QEvent* event) {
     QMainWindow::changeEvent(event);
 }
 
+bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (shouldForwardDirListArrowKey(watched, event)) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        if (dirListView_->handleArrowKey(keyEvent->key()))
+            return true;
+    }
+
+    return QMainWindow::eventFilter(watched, event);
+}
+
 void MainWindow::refreshWelcomeVolumes() {
     fileSystems_.refresh();
     welcomeWidget_->populate(fileSystems_);
@@ -95,6 +110,42 @@ void MainWindow::setMountInProgress(bool inProgress, const QString& status) {
 
     if (QApplication::overrideCursor())
         QApplication::restoreOverrideCursor();
+}
+
+bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const {
+    if (!dirListView_ || event->type() != QEvent::KeyPress)
+        return false;
+
+    auto* keyEvent = static_cast<QKeyEvent*>(event);
+    if (keyEvent->modifiers() != Qt::NoModifier)
+        return false;
+
+    switch (keyEvent->key()) {
+    case Qt::Key_Up:
+    case Qt::Key_Down:
+    case Qt::Key_Left:
+    case Qt::Key_Right:
+        break;
+    default:
+        return false;
+    }
+
+    if (!viewStack_ || !flameStack_ || !graphTypeStack_)
+        return false;
+    if (viewStack_->currentWidget() == welcomeWidget_)
+        return false;
+    if (flameStack_->currentWidget() != graphTypeStack_)
+        return false;
+    if (!dirListView_->isEnabled() || !dirListView_->isVisible())
+        return false;
+    if (QApplication::activePopupWidget())
+        return false;
+
+    auto* widget = qobject_cast<QWidget*>(watched);
+    if (!widget)
+        return false;
+
+    return widget->window() == this;
 }
 
 void MainWindow::onOverview() {

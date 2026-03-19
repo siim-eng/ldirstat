@@ -37,6 +37,7 @@ public:
 
 protected:
     void changeEvent(QEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 signals:
     void scanComplete(EntryRef root);
@@ -56,6 +57,7 @@ private slots:
 private:
     void refreshWelcomeVolumes();
     void setMountInProgress(bool inProgress, const QString& status = {});
+    bool shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const;
 
     QThread* scanThread_ = nullptr;
     QProcess* mountProcess_ = nullptr;
@@ -76,6 +78,7 @@ private:
     QAction* overviewAction_ = nullptr;
     QAction* rescanAction_ = nullptr;
     QToolButton* graphTypeButton_ = nullptr;
+    QAction* graphTypeAction_ = nullptr;
     QStackedWidget* viewStack_ = nullptr;
     WelcomeWidget* welcomeWidget_ = nullptr;
     DirListView* dirListView_ = nullptr;

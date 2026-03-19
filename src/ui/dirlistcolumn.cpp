@@ -61,6 +61,7 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     setMouseTracking(true);
 
     scrollBar_ = new QScrollBar(Qt::Vertical, this);
+    scrollBar_->setFocusPolicy(Qt::NoFocus);
     connect(scrollBar_, &QScrollBar::valueChanged, this, [this]() { update(); });
 
     tooltipTimer_ = new QTimer(this);
@@ -124,27 +125,44 @@ EntryRef DirListColumn::selectedRef() const {
     return kNoEntry;
 }
 
+EntryRef DirListColumn::refAtRow(int row) const {
+    if (row < 0 || row >= static_cast<int>(children_.size()))
+        return kNoEntry;
+    return children_[row].ref;
+}
+
+bool DirListColumn::rowIsDir(int row) const {
+    return row >= 0 && row < static_cast<int>(children_.size()) && children_[row].isDir;
+}
+
+void DirListColumn::setSelectedIndex(int row) {
+    if (row < 0 || row >= static_cast<int>(children_.size())) {
+        clearSelection();
+        return;
+    }
+
+    selectedIndex_ = row;
+    ensureRowVisible(row);
+    update();
+}
+
 void DirListColumn::setSelectedRef(EntryRef ref) {
     for (int i = 0; i < static_cast<int>(children_.size()); ++i) {
         if (children_[i].ref.pageId == ref.pageId &&
             children_[i].ref.index == ref.index) {
-            selectedIndex_ = i;
-
-            // Scroll to make selected row visible.
-            int listHeight = height() - kFooterHeight - kFooterGap;
-            int rowTop = i * kRowHeight;
-            int rowBottom = rowTop + kRowHeight;
-            int scrollVal = scrollBar_->value();
-
-            if (rowTop < scrollVal)
-                scrollBar_->setValue(rowTop);
-            else if (rowBottom > scrollVal + listHeight)
-                scrollBar_->setValue(rowBottom - listHeight);
-
-            update();
+            setSelectedIndex(i);
             return;
         }
     }
+
+    clearSelection();
+}
+
+void DirListColumn::setKeyboardActive(bool active) {
+    if (keyboardActive_ == active)
+        return;
+    keyboardActive_ = active;
+    update();
 }
 
 void DirListColumn::setThemeColors(const ThemeColors& colors) {
@@ -153,8 +171,25 @@ void DirListColumn::setThemeColors(const ThemeColors& colors) {
 }
 
 void DirListColumn::clearSelection() {
+    if (selectedIndex_ < 0)
+        return;
     selectedIndex_ = -1;
     update();
+}
+
+void DirListColumn::ensureRowVisible(int row) {
+    if (row < 0 || row >= static_cast<int>(children_.size()))
+        return;
+
+    int listHeight = height() - kFooterHeight - kFooterGap;
+    int rowTop = row * kRowHeight;
+    int rowBottom = rowTop + kRowHeight;
+    int scrollVal = scrollBar_->value();
+
+    if (rowTop < scrollVal)
+        scrollBar_->setValue(rowTop);
+    else if (rowBottom > scrollVal + listHeight)
+        scrollBar_->setValue(rowBottom - listHeight);
 }
 
 void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
@@ -174,6 +209,14 @@ void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
 
     // Background.
     p.fillRect(rect(), pal.base());
+
+    if (keyboardActive_) {
+        QColor focusColor = themeColors_.primaryForeground;
+        focusColor.setAlpha(170);
+        p.setPen(QPen(focusColor, 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(rect().adjusted(1, 1, -2, -2));
+    }
 
     if (!children_.empty()) {
         // Clip list area so rows don't bleed into footer.

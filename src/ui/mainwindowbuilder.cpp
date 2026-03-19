@@ -124,8 +124,8 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
     graphTypeGroup->addAction(actions.treeMapPacked);
 
     w->graphTypeButton_->setMenu(graphTypeMenu);
-    w->toolbar_->addWidget(w->graphTypeButton_);
-    w->graphTypeButton_->setVisible(false);
+    w->graphTypeAction_ = w->toolbar_->addWidget(w->graphTypeButton_);
+    w->graphTypeAction_->setVisible(false);
 
     return actions;
 }
@@ -184,17 +184,15 @@ void MainWindowBuilder::connectVisibilitySignals(MainWindow* w) {
 }
 
 void MainWindowBuilder::updateGraphTypeButtonVisibility(MainWindow* w) {
-    if (!w->graphTypeButton_)
+    if (!w->graphTypeAction_)
         return;
 
-    const bool welcomeVisible =
-        w->viewStack_ && w->viewStack_->currentWidget() == w->welcomeWidget_;
     const bool graphVisible =
         w->viewStack_ && w->flameStack_ &&
         w->viewStack_->currentWidget() != w->welcomeWidget_ &&
         w->flameStack_->currentWidget() == w->graphTypeStack_;
 
-    w->graphTypeButton_->setVisible(!welcomeVisible && graphVisible);
+    w->graphTypeAction_->setVisible(graphVisible);
 }
 
 void MainWindowBuilder::activateGraphWidget(MainWindow* w,
