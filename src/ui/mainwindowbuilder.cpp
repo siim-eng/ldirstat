@@ -11,6 +11,7 @@
 #include <QActionGroup>
 #include <QDir>
 #include <QFileDialog>
+#include <QHBoxLayout>
 #include <QKeySequence>
 #include <QMenu>
 #include <QSplitter>
@@ -18,6 +19,7 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QWidget>
 
 namespace ldirstat {
 
@@ -46,6 +48,37 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->toolbar_->setFloatable(false);
     w->toolbar_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     w->toolbar_->setVisible(false);
+
+    auto* breadcrumbWidget = new QWidget(w->toolbar_);
+    breadcrumbWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    auto* breadcrumbLayout = new QHBoxLayout(breadcrumbWidget);
+    breadcrumbLayout->setContentsMargins(0, 0, 0, 0);
+    breadcrumbLayout->setSpacing(4);
+
+    w->breadcrumbPathWidget_ = new QWidget(breadcrumbWidget);
+    w->breadcrumbPathWidget_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    w->breadcrumbPathLayout_ = new QHBoxLayout(w->breadcrumbPathWidget_);
+    w->breadcrumbPathLayout_->setContentsMargins(0, 0, 0, 0);
+    w->breadcrumbPathLayout_->setSpacing(2);
+
+    w->breadcrumbCopyButton_ = new QToolButton(breadcrumbWidget);
+    w->breadcrumbCopyButton_->setIcon(QIcon::fromTheme("edit-copy-symbolic"));
+    w->breadcrumbCopyButton_->setToolTip(MainWindow::tr("Copy directory path"));
+    w->breadcrumbCopyButton_->setFocusPolicy(Qt::NoFocus);
+    QObject::connect(w->breadcrumbCopyButton_, &QToolButton::clicked,
+                     w, &MainWindow::copyCurrentDirectoryPath);
+
+    w->breadcrumbClearButton_ = new QToolButton(breadcrumbWidget);
+    w->breadcrumbClearButton_->setIcon(QIcon::fromTheme("edit-clear-symbolic"));
+    w->breadcrumbClearButton_->setToolTip(MainWindow::tr("Clear to root directory"));
+    w->breadcrumbClearButton_->setFocusPolicy(Qt::NoFocus);
+    QObject::connect(w->breadcrumbClearButton_, &QToolButton::clicked,
+                     w, &MainWindow::clearDirectoryBreadcrumb);
+
+    breadcrumbLayout->addWidget(w->breadcrumbPathWidget_);
+    breadcrumbLayout->addWidget(w->breadcrumbCopyButton_);
+    breadcrumbLayout->addWidget(w->breadcrumbClearButton_);
+    w->toolbar_->addWidget(breadcrumbWidget);
 
     w->overviewAction_ = w->toolbar_->addAction(
         QIcon::fromTheme("go-home-symbolic"), MainWindow::tr("Overview"));
@@ -94,6 +127,7 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->graphTypeButton_->setText(MainWindow::tr("Graph Type"));
     w->graphTypeButton_->setPopupMode(QToolButton::InstantPopup);
     w->graphTypeButton_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    w->graphTypeButton_->setFocusPolicy(Qt::NoFocus);
 }
 
 void MainWindowBuilder::buildAnalysisWidgets(MainWindow* w) {

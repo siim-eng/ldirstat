@@ -10,12 +10,14 @@
 #include "themecolors.h"
 
 class QAction;
+class QHBoxLayout;
 class QProcess;
 class QStackedWidget;
 class QSplitter;
 class QTimer;
 class QToolBar;
 class QToolButton;
+class QWidget;
 
 namespace ldirstat {
 
@@ -54,6 +56,8 @@ private slots:
     void openCurrentEntry();
     void openCurrentEntryTerminal();
     void copyCurrentEntryPath();
+    void copyCurrentDirectoryPath();
+    void clearDirectoryBreadcrumb();
     void trashCurrentEntry();
     void startScan(const QString& path);
     void mountAndScan(const QString& devicePath);
@@ -70,6 +74,9 @@ private:
     void syncGraphHighlight();
     void syncGraphSelection();
     void updateEntryActions();
+    void updateBreadcrumbPath();
+    EntryRef breadcrumbDirectory() const;
+    void navigateToDirectory(EntryRef ref);
     QString pathForEntry(EntryRef ref) const;
 
     QThread* scanThread_ = nullptr;
@@ -95,6 +102,10 @@ private:
     QAction* openEntryTerminalAction_ = nullptr;
     QAction* copyEntryPathAction_ = nullptr;
     QAction* trashEntryAction_ = nullptr;
+    QWidget* breadcrumbPathWidget_ = nullptr;
+    QHBoxLayout* breadcrumbPathLayout_ = nullptr;
+    QToolButton* breadcrumbCopyButton_ = nullptr;
+    QToolButton* breadcrumbClearButton_ = nullptr;
     QToolButton* graphTypeButton_ = nullptr;
     QAction* graphTypeAction_ = nullptr;
     QStackedWidget* viewStack_ = nullptr;

@@ -11,12 +11,15 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDesktopServices>
+#include <QDir>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProcess>
@@ -25,6 +28,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QUrl>
 
 namespace ldirstat {
@@ -46,6 +50,7 @@ MainWindow::MainWindow(QWidget* parent)
     }
 
     refreshWelcomeVolumes();
+    updateBreadcrumbPath();
 
     connect(this, &MainWindow::scanComplete,
             this, &MainWindow::onScanFinished, Qt::QueuedConnection);
@@ -126,6 +131,7 @@ void MainWindow::syncGraphSelection() {
     const EntryRef focusDir = graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_;
     graphWidget_->setDirectory(focusDir.valid() ? focusDir : kNoEntry);
     syncGraphHighlight();
+    updateBreadcrumbPath();
 }
 
 void MainWindow::updateEntryActions() {
@@ -144,6 +150,109 @@ QString MainWindow::pathForEntry(EntryRef ref) const {
     if (!ref.valid())
         return {};
     return entryFullPath(entryStore_, nameStore_, ref);
+}
+
+EntryRef MainWindow::breadcrumbDirectory() const {
+    if (currentEntry_.valid()) {
+        const DirEntry& entry = entryStore_[currentEntry_];
+        if (entry.isDir())
+            return currentEntry_;
+    }
+
+    if (graphFocusDir_.valid())
+        return graphFocusDir_;
+
+    return currentRoot_;
+}
+
+void MainWindow::navigateToDirectory(EntryRef ref) {
+    if (!ref.valid())
+        return;
+
+    setCurrentEntry(ref);
+    graphFocusDir_ = graphFocusForEntry(ref);
+    dirListView_->selectEntry(ref);
+    syncGraphSelection();
+}
+
+void MainWindow::updateBreadcrumbPath() {
+    if (!breadcrumbPathWidget_ || !breadcrumbPathLayout_ ||
+        !breadcrumbCopyButton_ || !breadcrumbClearButton_)
+        return;
+
+    while (QLayoutItem* item = breadcrumbPathLayout_->takeAt(0)) {
+        if (QWidget* widget = item->widget())
+            widget->deleteLater();
+        delete item;
+    }
+
+    const EntryRef focusDir = breadcrumbDirectory();
+    const QString path = pathForEntry(focusDir);
+    const QString rootPath = pathForEntry(currentRoot_);
+
+    breadcrumbPathWidget_->setToolTip(path);
+    breadcrumbCopyButton_->setEnabled(!path.isEmpty());
+    breadcrumbClearButton_->setEnabled(currentRoot_.valid() && focusDir.valid() &&
+                                       focusDir != currentRoot_);
+
+    if (path.isEmpty()) {
+        auto* placeholder = new QLabel(tr("Directory path"), breadcrumbPathWidget_);
+        placeholder->setEnabled(false);
+        breadcrumbPathLayout_->addWidget(placeholder);
+        breadcrumbPathLayout_->addStretch();
+        return;
+    }
+
+    std::vector<EntryRef> dirChain;
+    EntryRef cur = focusDir;
+    while (cur.valid()) {
+        dirChain.push_back(cur);
+        cur = entryStore_[cur].parent;
+    }
+    std::reverse(dirChain.begin(), dirChain.end());
+
+    auto splitPath = [](const QString& value) {
+        const QString normalized = QDir::cleanPath(value);
+        QStringList parts = normalized.split(QDir::separator(), Qt::SkipEmptyParts);
+        if (normalized.startsWith(QDir::separator()))
+            parts.prepend(QString(1, QDir::separator()));
+        if (parts.isEmpty())
+            parts.append(QString(1, QDir::separator()));
+        return parts;
+    };
+
+    const QStringList pathParts = splitPath(path);
+    const QStringList rootParts = rootPath.isEmpty() ? QStringList{} : splitPath(rootPath);
+    const int rootStartIndex = rootParts.isEmpty() ? -1 : static_cast<int>(rootParts.size()) - 1;
+
+    for (int i = 0; i < pathParts.size(); ++i) {
+        if (i > 0) {
+            auto* separator = new QLabel(QStringLiteral(">"), breadcrumbPathWidget_);
+            separator->setEnabled(false);
+            breadcrumbPathLayout_->addWidget(separator);
+        }
+
+        auto* button = new QToolButton(breadcrumbPathWidget_);
+        button->setText(pathParts[i]);
+        button->setAutoRaise(true);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        button->setFocusPolicy(Qt::NoFocus);
+
+        const int chainIndex = i - rootStartIndex;
+        const bool isClickable = chainIndex > 0 && chainIndex < static_cast<int>(dirChain.size());
+        if (isClickable) {
+            const EntryRef targetDir = dirChain[chainIndex];
+            connect(button, &QToolButton::clicked, this, [this, targetDir]() {
+                navigateToDirectory(targetDir);
+            });
+        } else {
+            button->setEnabled(false);
+        }
+
+        breadcrumbPathLayout_->addWidget(button);
+    }
+
+    breadcrumbPathLayout_->addStretch();
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
@@ -257,6 +366,7 @@ void MainWindow::startScan(const QString& path) {
     currentEntry_ = kNoEntry;
     graphFocusDir_ = kNoEntry;
     updateEntryActions();
+    updateBreadcrumbPath();
 
     entryStore_.clear();
     nameStore_.clear();
@@ -469,6 +579,28 @@ void MainWindow::copyCurrentEntryPath() {
         return;
 
     QGuiApplication::clipboard()->setText(path);
+}
+
+void MainWindow::copyCurrentDirectoryPath() {
+    const EntryRef focusDir = breadcrumbDirectory();
+    if (!focusDir.valid())
+        return;
+
+    const QString path = pathForEntry(focusDir);
+    if (path.isEmpty())
+        return;
+
+    QGuiApplication::clipboard()->setText(path);
+}
+
+void MainWindow::clearDirectoryBreadcrumb() {
+    if (!currentRoot_.valid() || breadcrumbDirectory() == currentRoot_)
+        return;
+
+    setCurrentEntry(kNoEntry);
+    graphFocusDir_ = currentRoot_;
+    dirListView_->selectEntry(currentRoot_);
+    syncGraphSelection();
 }
 
 void MainWindow::trashCurrentEntry() {

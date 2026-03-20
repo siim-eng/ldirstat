@@ -302,8 +302,17 @@ void DirListColumn::mousePressEvent(QMouseEvent* event) {
 
 
 void DirListColumn::wheelEvent(QWheelEvent* event) {
-    int delta = -event->angleDelta().y();
-    scrollBar_->setValue(scrollBar_->value() + delta);
+    if (!scrollBar_->isVisible() || scrollBar_->maximum() <= 0) {
+        event->accept();
+        return;
+    }
+
+    if (!event->pixelDelta().isNull())
+        scrollBar_->setValue(scrollBar_->value() - event->pixelDelta().y());
+    else
+        scrollBar_->setValue(scrollBar_->value() - event->angleDelta().y());
+
+    event->accept();
 }
 
 void DirListColumn::resizeEvent(QResizeEvent* event) {
