@@ -18,10 +18,10 @@ enum class EntryType : uint8_t {
 
 // Reference to a DirEntry in the page-based store.
 struct EntryRef {
-    uint16_t pageId = UINT16_MAX;
+    uint32_t pageId = UINT32_MAX;
     uint16_t index  = UINT16_MAX;
 
-    bool valid() const { return pageId != UINT16_MAX; }
+    bool valid() const { return pageId != UINT32_MAX; }
 
     bool operator==(const EntryRef& other) const {
         return pageId == other.pageId && index == other.index;
@@ -60,6 +60,7 @@ struct DirEntry {
     bool isFile() const { return type == EntryType::File; }
 };
 
-static_assert(sizeof(DirEntry) == 48);
+static_assert(sizeof(EntryRef) == 8);
+static_assert(sizeof(DirEntry) == 72);
 
 } // namespace ldirstat

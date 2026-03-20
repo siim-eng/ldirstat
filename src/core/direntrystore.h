@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 #include "direntry.h"
@@ -14,26 +15,23 @@ namespace ldirstat {
 // Page-based arena for DirEntry nodes. Each page holds 32768 entries.
 // Grows by adding pages — never reallocates existing pages.
 // Workers get their own page to write to; page allocation is thread-safe,
-// writing within a page is not. The pages_ vector is pre-reserved so it
-// never reallocates, making operator[] safe to call without locking.
+// writing within a page is not. Page lookup is protected by a shared mutex
+// so the store can keep growing without a fixed page cap.
 class DirEntryStore {
 public:
     static constexpr uint32_t kEntriesPerPage = 32768;
-    static constexpr size_t kMaxPages = 65535;
-
-    DirEntryStore() { pages_.reserve(kMaxPages); }
 
     void clear() {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock lock(mutex_);
         pages_.clear();
     }
 
     // Thread-safe. Allocates a new empty page, returns its ID.
-    uint16_t allocatePage() {
+    uint32_t allocatePage() {
         auto page = std::make_unique<Page>();
-        std::lock_guard<std::mutex> lock(mutex_);
-        assert(pages_.size() < kMaxPages);
-        auto id = static_cast<uint16_t>(pages_.size());
+        std::unique_lock lock(mutex_);
+        assert(pages_.size() < UINT32_MAX);
+        auto id = static_cast<uint32_t>(pages_.size());
         pages_.push_back(std::move(page));
         return id;
     }
@@ -41,13 +39,12 @@ public:
     // NOT thread-safe per page. Caller must have exclusive access to currentPage.
     // Returns an EntryRef to the claimed entry. If the page is full, allocates
     // a new page and updates currentPage.
-    EntryRef add(uint16_t& currentPage) {
-        assert(currentPage < pages_.size());
-        auto* page = pages_[currentPage].get();
+    EntryRef add(uint32_t& currentPage) {
+        auto* page = pageFor(currentPage);
 
         if (page->used >= kEntriesPerPage) {
             currentPage = allocatePage();
-            page = pages_[currentPage].get();
+            page = pageFor(currentPage);
         }
 
         EntryRef ref{currentPage, static_cast<uint16_t>(page->used)};
@@ -56,11 +53,11 @@ public:
     }
 
     DirEntry& operator[](EntryRef ref) {
-        return pages_[ref.pageId]->entries[ref.index];
+        return pageFor(ref.pageId)->entries[ref.index];
     }
 
     const DirEntry& operator[](EntryRef ref) const {
-        return pages_[ref.pageId]->entries[ref.index];
+        return pageFor(ref.pageId)->entries[ref.index];
     }
 
     // Unhook an entry from the tree and propagate size/count changes up.
@@ -110,8 +107,12 @@ public:
         entry.nextSibling = kNoEntry;
     }
 
-    uint16_t pageCount() const { return static_cast<uint16_t>(pages_.size()); }
-    uint32_t pageUsed(uint16_t pageId) const { return pages_[pageId]->used; }
+    uint32_t pageCount() const {
+        std::shared_lock lock(mutex_);
+        return static_cast<uint32_t>(pages_.size());
+    }
+
+    uint32_t pageUsed(uint32_t pageId) const { return pageFor(pageId)->used; }
 
 private:
     struct Page {
@@ -119,8 +120,18 @@ private:
         uint32_t used = 0;
     };
 
+    Page* pageFor(uint32_t pageId) {
+        std::shared_lock lock(mutex_);
+        return pages_[pageId].get();
+    }
+
+    const Page* pageFor(uint32_t pageId) const {
+        std::shared_lock lock(mutex_);
+        return pages_[pageId].get();
+    }
+
     std::vector<std::unique_ptr<Page>> pages_;
-    std::mutex mutex_;
+    mutable std::shared_mutex mutex_;
 };
 
 } // namespace ldirstat

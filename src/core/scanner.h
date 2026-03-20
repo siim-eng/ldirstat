@@ -45,8 +45,8 @@ private:
         std::vector<char> getdentsBuf;
         std::vector<EntryRef> subdirBatch;
         std::vector<char> pathBuf;
-        uint16_t entryPage;
-        uint16_t namePage;
+        uint32_t entryPage;
+        uint32_t namePage;
     };
 
     std::optional<EntryRef> takeWork();

@@ -58,8 +58,8 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
     rootDev_ = rootSt.st_dev;
 
     // Create root entry.
-    uint16_t entryPage = entryStore_.allocatePage();
-    uint16_t namePage = nameStore_.allocatePage();
+    uint32_t entryPage = entryStore_.allocatePage();
+    uint32_t namePage = nameStore_.allocatePage();
     EntryRef rootRef = entryStore_.add(entryPage);
     DirEntry& root = entryStore_[rootRef];
     root.type = EntryType::Directory;
