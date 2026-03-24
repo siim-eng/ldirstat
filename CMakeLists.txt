@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ldirstat LANGUAGES CXX)
+project(ldirstat VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,6 +34,7 @@ add_library(ldirstat_ui STATIC
     src/ui/welcomewidget.cpp
 )
 target_include_directories(ldirstat_ui PUBLIC src/ui)
+target_compile_definitions(ldirstat_ui PUBLIC LDIRSTAT_APP_VERSION=\"${PROJECT_VERSION}\")
 target_link_libraries(ldirstat_ui PUBLIC ldirstat_core Qt6::Widgets)
 
 # Main application.

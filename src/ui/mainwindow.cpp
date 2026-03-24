@@ -12,6 +12,8 @@
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -32,6 +34,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QUrl>
+#include <QVBoxLayout>
 
 #include <algorithm>
 
@@ -790,6 +793,47 @@ void MainWindow::clearDirectoryBreadcrumb() {
     graphFocusDir_ = currentRoot_;
     dirListView_->selectEntry(currentRoot_);
     syncGraphSelection();
+}
+
+void MainWindow::openHelpPage() {
+    QDesktopServices::openUrl(
+        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/docs/blob/main/HELP.md")));
+}
+
+void MainWindow::reportIssue() {
+    QDesktopServices::openUrl(
+        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/issues")));
+}
+
+void MainWindow::showAboutDialog() {
+    QDialog dialog(this);
+    const QString appName = QApplication::applicationName();
+    const QString appVersion = QApplication::applicationVersion();
+
+    dialog.setWindowTitle(tr("About %1").arg(appName));
+    dialog.setModal(true);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* text = new QLabel(
+        tr("<p><b>%1</b><br>Version %2</p>"
+           "<p>LDirStat scans directories quickly to show where disk space is used. "
+           "It combines a directory list and graphical views so large files and folders are easy to find.</p>"
+           "<p>Copyright Siim Suisalu 2026<br>"
+           "License: MIT</p>"
+           "<p><a href=\"https://github.com/siim-eng/ldirstat\">Source code repository</a></p>")
+            .arg(appName, appVersion),
+        &dialog);
+    text->setWordWrap(true);
+    text->setTextFormat(Qt::RichText);
+    text->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    text->setOpenExternalLinks(true);
+    layout->addWidget(text);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+
+    dialog.exec();
 }
 
 void MainWindow::trashCurrentEntry() {

@@ -59,6 +59,9 @@ private slots:
     void copyCurrentEntryPath();
     void copyCurrentDirectoryPath();
     void clearDirectoryBreadcrumb();
+    void openHelpPage();
+    void reportIssue();
+    void showAboutDialog();
     void trashCurrentEntry();
     void deleteCurrentEntryPermanently();
     void startScan(const QString& path);

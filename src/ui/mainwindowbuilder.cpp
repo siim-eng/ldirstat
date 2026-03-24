@@ -16,6 +16,7 @@
 #include <QMenu>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -30,6 +31,7 @@ void MainWindowBuilder::build(MainWindow* w) {
     buildScanPollTimer(w);
     buildCentralView(w);
     const GraphTypeActions graphTypeActions = buildGraphTypeMenu(w);
+    buildHelpMenu(w);
     connectCoreSignals(w);
     connectGraphTypeSignals(w, graphTypeActions);
     connectVisibilitySignals(w);
@@ -202,6 +204,35 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
     w->graphTypeAction_->setVisible(false);
 
     return actions;
+}
+
+void MainWindowBuilder::buildHelpMenu(MainWindow* w) {
+    //QIcon helpIcon = QIcon::fromTheme("open-menu-symbolic");
+    QIcon helpIcon = QIcon::fromTheme("help-contents-symbolic");
+    if (helpIcon.isNull())
+        helpIcon = w->style()->standardIcon(QStyle::SP_DialogHelpButton);
+
+    auto* helpButton = new QToolButton(w->toolbar_);
+    helpButton->setIcon(helpIcon);
+    helpButton->setToolTip(MainWindow::tr("Help"));
+    helpButton->setPopupMode(QToolButton::InstantPopup);
+    helpButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    helpButton->setFocusPolicy(Qt::NoFocus);
+
+    auto* helpMenu = new QMenu(helpButton);
+    auto* helpAction = helpMenu->addAction(MainWindow::tr("Help"));
+    QObject::connect(helpAction, &QAction::triggered, w, &MainWindow::openHelpPage);
+
+    auto* reportIssueAction = helpMenu->addAction(MainWindow::tr("Report an Issue"));
+    QObject::connect(reportIssueAction, &QAction::triggered, w, &MainWindow::reportIssue);
+
+    helpMenu->addSeparator();
+
+    auto* aboutAction = helpMenu->addAction(MainWindow::tr("About"));
+    QObject::connect(aboutAction, &QAction::triggered, w, &MainWindow::showAboutDialog);
+
+    helpButton->setMenu(helpMenu);
+    w->toolbar_->addWidget(helpButton);
 }
 
 void MainWindowBuilder::connectCoreSignals(MainWindow* w) {

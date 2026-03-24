@@ -1,14 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128" fill="none" stroke="#7EC8E3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Drive -->
-    <rect x="8" y="36" width="48" height="14" rx="4"/>
-    <circle cx="16" cy="43" r="1.5" fill="#7EC8E3" stroke="none"/>
-    <circle cx="22" cy="43" r="1.5" fill="#7EC8E3" stroke="none"/>
-
-    <!-- Usage ring -->
-    <circle cx="32" cy="22" r="10" opacity="0.25"/>
-    <path d="M32 12
-          A10 10 0 1 1 22 22"/>
-
-    <!-- Center dot -->
-    <circle cx="32" cy="22" r="2" fill="#7EC8E3" stroke="none"/>
-</svg>
+<svg fill="#7A9CFF" height="200px" width="200px" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 507.85 507.85" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M490.8,148.725l-104.8-104c-11.2-10.8-26-17.2-41.6-17.2c-15.6,0-30.4,6-41.6,17.2l-285.6,284 C6,339.525,0,354.325,0,369.925c0,15.6,6,30.4,17.2,41.2l66.8,66.8c1.6,1.6,3.6,2.4,5.6,2.4h279.6c4.4,0,8-3.6,8-8 c0-4.4-3.6-8-8-8H256.4l234-232.8C513.6,208.725,513.6,171.525,490.8,148.725z M234,464.325H92.8l-64.4-64 c-8-8-12.4-18.8-12.4-30.4c0-11.6,4.4-22,12.4-30.4l140.4-139.2l165.2,164.4L234,464.325z"></path> </g> </g> </g></svg>

@@ -25,6 +25,7 @@ private:
     static void buildScanPollTimer(MainWindow* window);
     static void buildCentralView(MainWindow* window);
     static GraphTypeActions buildGraphTypeMenu(MainWindow* window);
+    static void buildHelpMenu(MainWindow* window);
     static void connectCoreSignals(MainWindow* window);
     static void connectGraphTypeSignals(MainWindow* window, const GraphTypeActions& actions);
     static void connectVisibilitySignals(MainWindow* window);
