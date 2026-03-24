@@ -1,6 +1,7 @@
 #include "dirlistview.h"
 #include "dirlistcolumn.h"
 
+#include <QApplication>
 #include <QFocusEvent>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -39,9 +40,14 @@ DirListView::DirListView(QWidget* parent)
 
     columnWidth_ = computeColumnWidth();
 
-    // When horizontal scrollbar appears/disappears, viewport height changes.
     connect(scrollArea_->horizontalScrollBar(), &QScrollBar::rangeChanged,
             this, [this]() { syncColumnHeights(); });
+}
+
+std::vector<EntryRef> DirListView::selectedEntries() const {
+    if (activeColumnIndex_ < 0 || activeColumnIndex_ >= static_cast<int>(columns_.size()))
+        return {};
+    return columns_[activeColumnIndex_]->selectedRefs();
 }
 
 void DirListView::setThemeColors(const ThemeColors& colors) {
@@ -50,7 +56,12 @@ void DirListView::setThemeColors(const ThemeColors& colors) {
         col->setThemeColors(colors);
 }
 
-bool DirListView::handleArrowKey(int key) {
+bool DirListView::handleArrowKey(int key, Qt::KeyboardModifiers modifiers) {
+    const Qt::KeyboardModifiers supportedModifiers =
+        Qt::ShiftModifier | Qt::ControlModifier;
+    if ((modifiers & ~supportedModifiers) != Qt::NoModifier)
+        return false;
+
     switch (key) {
     case Qt::Key_Up:
     case Qt::Key_Down:
@@ -79,7 +90,9 @@ bool DirListView::handleArrowKey(int key) {
             return true;
 
         const int targetRow = key == Qt::Key_Up ? rootColumn->rowCount() - 1 : 0;
-        applySelectionInColumn(0, targetRow);
+        applyFocusInColumn(0, targetRow, modifiers,
+                           modifiers.testFlag(Qt::ControlModifier) &&
+                           !modifiers.testFlag(Qt::ShiftModifier));
         return true;
     }
 
@@ -88,68 +101,66 @@ bool DirListView::handleArrowKey(int key) {
         return true;
 
     if (key == Qt::Key_Left) {
+        if (modifiers != Qt::NoModifier)
+            return true;
         if (activeColumnIndex_ == 0) {
             enterRootFocus();
             return true;
         }
+
         const int focusedColumnIndex = activeColumnIndex_;
         const EntryRef focusedDir = columns_[focusedColumnIndex]->dirRef();
         const EntryRef parentDir = (*store_)[focusedDir].parent;
         const int parentColumnIndex = focusedColumnIndex - 1;
-        const int lastColumnIndex = static_cast<int>(columns_.size()) - 1;
-        const int selectedRow = column->selectedIndex();
-        const bool hasFileSelection =
-            selectedRow >= 0 && !column->rowIsDir(selectedRow);
-        const int keepThroughColumn =
-            (focusedColumnIndex == lastColumnIndex && !hasFileSelection)
-                ? parentColumnIndex
-                : focusedColumnIndex;
 
-        columns_[parentColumnIndex]->setSelectedRef(focusedDir);
-        truncateColumnsAfter(keepThroughColumn);
-
-        if (keepThroughColumn == focusedColumnIndex &&
-            focusedColumnIndex < static_cast<int>(columns_.size())) {
-            columns_[focusedColumnIndex]->clearSelection();
-        }
-
+        suppressColumnFocusChanges_ = true;
+        truncateColumnsAfter(focusedColumnIndex);
         setActiveColumnIndex(parentColumnIndex);
-
+        if (focusedColumnIndex < static_cast<int>(columns_.size()))
+            columns_[focusedColumnIndex]->clearFocus();
         rootFocused_ = false;
+        columns_[parentColumnIndex]->setFocusedRef(focusedDir, true);
+        syncPathHighlights();
+        suppressColumnFocusChanges_ = false;
+
         emit entrySelected(focusedDir);
         emit directorySelected(parentDir.valid() ? parentDir : focusedDir);
         return true;
     }
 
     if (key == Qt::Key_Right) {
-        const int selectedRow = column->selectedIndex();
-        if (selectedRow < 0 || !column->rowIsDir(selectedRow))
+        if (modifiers != Qt::NoModifier)
+            return true;
+        const int focusedRow = column->focusedIndex();
+        if (focusedRow < 0 || !column->rowIsDir(focusedRow))
             return true;
         if (activeColumnIndex_ + 1 >= static_cast<int>(columns_.size()))
             return true;
 
         DirListColumn* nextColumn = columns_[activeColumnIndex_ + 1];
         if (nextColumn->rowCount() > 0)
-            applySelectionInColumn(activeColumnIndex_ + 1, 0);
-        else
+            applyFocusInColumn(activeColumnIndex_ + 1, 0);
+        else {
             setActiveColumnIndex(activeColumnIndex_ + 1);
+            rootFocused_ = false;
+        }
         return true;
     }
 
     if (column->rowCount() == 0)
         return true;
 
-    int selectedRow = column->selectedIndex();
-    if (selectedRow < 0)
-        selectedRow = key == Qt::Key_Up ? column->rowCount() - 1 : 0;
+    int focusedRow = column->focusedIndex();
+    if (focusedRow < 0)
+        focusedRow = key == Qt::Key_Up ? column->rowCount() - 1 : 0;
     else if (key == Qt::Key_Up)
-        selectedRow = std::max(0, selectedRow - 1);
+        focusedRow = std::max(0, focusedRow - 1);
     else
-        selectedRow = std::min(column->rowCount() - 1, selectedRow + 1);
+        focusedRow = std::min(column->rowCount() - 1, focusedRow + 1);
 
-    if (selectedRow != column->selectedIndex())
-        applySelectionInColumn(activeColumnIndex_, selectedRow);
-
+    applyFocusInColumn(activeColumnIndex_, focusedRow, modifiers,
+                       modifiers.testFlag(Qt::ControlModifier) &&
+                       !modifiers.testFlag(Qt::ShiftModifier));
     return true;
 }
 
@@ -159,8 +170,12 @@ void DirListView::setRoot(const DirEntryStore& store, const NameStore& names,
     names_ = &names;
     rootSize_ = store[root].size;
 
+    suppressColumnFocusChanges_ = true;
     truncateColumnsAfter(-1);
     addColumn(root);
+    syncPathHighlights();
+    suppressColumnFocusChanges_ = false;
+
     rootFocused_ = true;
     activeColumnIndex_ = 0;
     updateActiveColumnState();
@@ -170,7 +185,6 @@ void DirListView::selectEntry(EntryRef ref) {
     if (!store_ || !ref.valid())
         return;
 
-    // Build path from root to ref by walking parent chain.
     std::vector<EntryRef> path;
     EntryRef cur = ref;
     while (cur.valid()) {
@@ -179,97 +193,59 @@ void DirListView::selectEntry(EntryRef ref) {
     }
     std::reverse(path.begin(), path.end());
 
-    // path[0] should be the scan root. Rebuild columns.
-    truncateColumnsAfter(-1);
-
-    int deepestSelectedColumn = -1;
-    for (size_t i = 0; i < path.size(); ++i) {
-        const DirEntry& entry = (*store_)[path[i]];
-        if (entry.isDir()) {
-            addColumn(path[i]);
-            // Select the next entry in the path within this column.
-            if (i + 1 < path.size()) {
-                columns_.back()->setSelectedRef(path[i + 1]);
-                if (columns_.back()->selectedIndex() >= 0)
-                    deepestSelectedColumn = static_cast<int>(columns_.size()) - 1;
-            }
-        }
-    }
-
-    if (deepestSelectedColumn >= 0) {
-        rootFocused_ = false;
-        setActiveColumnIndex(deepestSelectedColumn);
-    } else {
-        enterRootFocus(false);
-    }
-
-    scrollToLastColumn();
-}
-
-void DirListView::refreshAfterRemoval(EntryRef removedRef, EntryRef parentRef) {
-    if (!store_ || columns_.empty())
+    if (path.empty())
         return;
 
-    std::vector<EntryRef> selectedRefs;
-    selectedRefs.reserve(columns_.size());
-    for (auto* column : columns_)
-        selectedRefs.push_back(column->selectedRef());
+    rootSize_ = (*store_)[path.front()].size;
 
-    const int previousActiveColumn = activeColumnIndex_;
+    suppressColumnFocusChanges_ = true;
+    truncateColumnsAfter(-1);
 
-    // Find the column showing the removed entry or its parent, and truncate
-    // any child columns beyond it.
-    int rebuildFrom = -1;
-    for (int i = 0; i < static_cast<int>(columns_.size()); ++i) {
-        if (columns_[i]->dirRef() == removedRef) {
-            truncateColumnsAfter(i - 1);
-            rebuildFrom = static_cast<int>(columns_.size()) - 1;
-            break;
-        }
-        if (columns_[i]->dirRef() == parentRef) {
-            truncateColumnsAfter(i);
-            rebuildFrom = i;
-            break;
-        }
+    for (EntryRef pathRef : path) {
+        const DirEntry& entry = (*store_)[pathRef];
+        if (entry.isDir())
+            addColumn(pathRef);
     }
 
-    if (rebuildFrom < 0)
-        rebuildFrom = static_cast<int>(columns_.size()) - 1;
+    syncPathHighlights();
 
-    // Rebuild the affected column and all ancestors so their cached
-    // sizes, percentages and footer stats reflect the removal.
-    if (!columns_.empty())
-        rootSize_ = (*store_)[columns_[0]->dirRef()].size;
-
-    for (int i = std::max(rebuildFrom, 0); i >= 0; --i)
-        columns_[i]->rebuild(rootSize_);
-
-    int deepestSelectedColumn = -1;
-    for (int i = 0; i < static_cast<int>(columns_.size()) && i < static_cast<int>(selectedRefs.size());
-         ++i) {
-        if (!selectedRefs[i].valid())
-            break;
-
-        columns_[i]->setSelectedRef(selectedRefs[i]);
-        if (columns_[i]->selectedRef() != selectedRefs[i]) {
-            truncateColumnsAfter(i);
-            break;
-        }
-
-        deepestSelectedColumn = i;
+    int focusColumnIndex = -1;
+    if (ref != path.front()) {
+        if ((*store_)[ref].isDir())
+            focusColumnIndex = static_cast<int>(columns_.size()) - 2;
+        else
+            focusColumnIndex = static_cast<int>(columns_.size()) - 1;
     }
 
-    if (deepestSelectedColumn >= 0) {
+    if (focusColumnIndex >= 0 && focusColumnIndex < static_cast<int>(columns_.size())) {
+        columns_[focusColumnIndex]->setFocusedRef(ref, true);
+        activeColumnIndex_ = focusColumnIndex;
         rootFocused_ = false;
-        setActiveColumnIndex(std::min(previousActiveColumn,
-                                      static_cast<int>(columns_.size()) - 1));
     } else {
-        enterRootFocus(false);
+        activeColumnIndex_ = columns_.empty() ? -1 : 0;
+        rootFocused_ = true;
+        if (!columns_.empty()) {
+            columns_[0]->clearSelection();
+            columns_[0]->clearFocus();
+        }
+    }
+
+    suppressColumnFocusChanges_ = false;
+    updateActiveColumnState();
+    scrollToLastColumn();
+
+    if (focusColumnIndex >= 0) {
+        emit entrySelected(ref);
+        const EntryRef parent = (*store_)[ref].parent;
+        emit directorySelected(parent.valid() ? parent : ref);
+    } else if (!columns_.empty()) {
+        emit entrySelected(kNoEntry);
+        emit directorySelected(columns_[0]->dirRef());
     }
 }
 
 void DirListView::keyPressEvent(QKeyEvent* event) {
-    if (event->modifiers() == Qt::NoModifier && handleArrowKey(event->key())) {
+    if (handleArrowKey(event->key(), event->modifiers())) {
         event->accept();
         return;
     }
@@ -287,7 +263,7 @@ void DirListView::focusOutEvent(QFocusEvent* event) {
     updateActiveColumnState();
 }
 
-void DirListView::onColumnEntryClicked(EntryRef /*ref*/, bool /*isDir*/) {
+void DirListView::onColumnActivated() {
     auto* col = qobject_cast<DirListColumn*>(sender());
     if (!col)
         return;
@@ -296,10 +272,53 @@ void DirListView::onColumnEntryClicked(EntryRef /*ref*/, bool /*isDir*/) {
     if (colIndex < 0)
         return;
 
-    setFocus(Qt::MouseFocusReason);
-    rootFocused_ = false;
     setActiveColumnIndex(colIndex);
-    applySelectionInColumn(colIndex, col->selectedIndex());
+    rootFocused_ = !col->focusedRef().valid() && colIndex == 0;
+    updateActiveColumnState();
+}
+
+void DirListView::onColumnFocusChanged(EntryRef ref, bool isDir) {
+    if (suppressColumnFocusChanges_)
+        return;
+
+    auto* col = qobject_cast<DirListColumn*>(sender());
+    if (!col)
+        return;
+
+    const int colIndex = indexOfColumn(col);
+    if (colIndex < 0)
+        return;
+
+    QWidget* focusWidget = QApplication::focusWidget();
+    if (focusWidget == nullptr || !col->isAncestorOf(focusWidget))
+        setFocus(Qt::MouseFocusReason);
+    setActiveColumnIndex(colIndex);
+    rootFocused_ = !ref.valid() && colIndex == 0;
+
+    truncateColumnsAfter(colIndex);
+    if (ref.valid() && isDir) {
+        addColumn(ref);
+        scrollToLastColumn();
+        rootFocused_ = false;
+    }
+
+    syncPathHighlights();
+
+    if (ref.valid()) {
+        emit entrySelected(ref);
+
+        EntryRef focusDir = col->dirRef();
+        if (const EntryRef parent = (*store_)[ref].parent; parent.valid())
+            focusDir = parent;
+        else
+            focusDir = ref;
+
+        emit directorySelected(focusDir);
+        return;
+    }
+
+    emit entrySelected(kNoEntry);
+    emit directorySelected(col->dirRef());
 }
 
 void DirListView::onColumnContextMenuRequested(EntryRef ref, QPoint globalPos) {
@@ -309,12 +328,10 @@ void DirListView::onColumnContextMenuRequested(EntryRef ref, QPoint globalPos) {
 
     const int colIndex = indexOfColumn(col);
     if (colIndex >= 0) {
-        setFocus(Qt::MouseFocusReason);
-        rootFocused_ = false;
         setActiveColumnIndex(colIndex);
+        rootFocused_ = false;
     }
 
-    emit entrySelected(ref);
     emit contextMenuRequested(ref, globalPos);
 }
 
@@ -323,7 +340,9 @@ void DirListView::resizeEvent(QResizeEvent* event) {
     syncColumnHeights();
 }
 
-void DirListView::applySelectionInColumn(int columnIndex, int rowIndex) {
+void DirListView::applyFocusInColumn(int columnIndex, int rowIndex,
+                                     Qt::KeyboardModifiers modifiers,
+                                     bool preserveSelection) {
     if (columnIndex < 0 || columnIndex >= static_cast<int>(columns_.size()))
         return;
 
@@ -331,40 +350,23 @@ void DirListView::applySelectionInColumn(int columnIndex, int rowIndex) {
     if (!column || rowIndex < 0 || rowIndex >= column->rowCount())
         return;
 
-    const EntryRef ref = column->refAtRow(rowIndex);
-    const bool isDir = column->rowIsDir(rowIndex);
-
-    truncateColumnsAfter(columnIndex);
-    column = columns_[columnIndex];
-    column->setSelectedIndex(rowIndex);
-    rootFocused_ = false;
     setActiveColumnIndex(columnIndex);
-    emit entrySelected(ref);
-    EntryRef focusDir = column->dirRef();
-    if (const EntryRef parent = (*store_)[ref].parent; parent.valid())
-        focusDir = parent;
-    else if (ref.valid())
-        focusDir = ref;
-
-    if (isDir) {
-        addColumn(ref);
-        scrollToLastColumn();
-    }
-
-    emit directorySelected(focusDir);
+    rootFocused_ = false;
+    column->applySelectionAtRow(rowIndex, modifiers, preserveSelection);
 }
 
 void DirListView::addColumn(EntryRef dirRef) {
     auto* col = new DirListColumn(*store_, *names_, dirRef, rootSize_,
                                   themeColors_, columnWidth_, scrollContent_);
 
-    // Insert before the stretch.
-    int insertIndex = columnsLayout_->count() - 1;
+    const int insertIndex = columnsLayout_->count() - 1;
     columnsLayout_->insertWidget(insertIndex, col);
     columns_.push_back(col);
 
-    connect(col, &DirListColumn::entryClicked,
-            this, &DirListView::onColumnEntryClicked);
+    connect(col, &DirListColumn::activated,
+            this, &DirListView::onColumnActivated);
+    connect(col, &DirListColumn::focusChanged,
+            this, &DirListView::onColumnFocusChanged);
     connect(col, &DirListColumn::contextMenuRequested,
             this, &DirListView::onColumnContextMenuRequested);
 
@@ -379,6 +381,8 @@ void DirListView::enterRootFocus(bool emitSelection) {
 
     truncateColumnsAfter(0);
     columns_[0]->clearSelection();
+    columns_[0]->clearFocus();
+    syncPathHighlights();
     rootFocused_ = true;
     setActiveColumnIndex(0);
     scrollArea_->horizontalScrollBar()->setValue(0);
@@ -403,15 +407,31 @@ void DirListView::setActiveColumnIndex(int columnIndex) {
         return;
     }
 
-    activeColumnIndex_ = std::clamp(columnIndex, 0, static_cast<int>(columns_.size()) - 1);
+    const int clamped =
+        std::clamp(columnIndex, 0, static_cast<int>(columns_.size()) - 1);
+    if (activeColumnIndex_ >= 0 &&
+        activeColumnIndex_ < static_cast<int>(columns_.size()) &&
+        activeColumnIndex_ != clamped) {
+        columns_[activeColumnIndex_]->clearSelection();
+    }
+
+    activeColumnIndex_ = clamped;
     updateActiveColumnState();
 }
 
-void DirListView::truncateColumnsAfter(int columnIndex) {
-    int startRemove = columnIndex + 1;
-    for (int i = static_cast<int>(columns_.size()) - 1; i >= startRemove; --i) {
-        delete columns_[i];
+void DirListView::syncPathHighlights() {
+    for (int i = 0; i < static_cast<int>(columns_.size()); ++i) {
+        const EntryRef nextDir =
+            i + 1 < static_cast<int>(columns_.size()) ? columns_[i + 1]->dirRef() : kNoEntry;
+        columns_[i]->setPathRef(nextDir);
     }
+}
+
+void DirListView::truncateColumnsAfter(int columnIndex) {
+    const int startRemove = columnIndex + 1;
+    for (int i = static_cast<int>(columns_.size()) - 1; i >= startRemove; --i)
+        delete columns_[i];
+
     if (startRemove < static_cast<int>(columns_.size()))
         columns_.erase(columns_.begin() + startRemove, columns_.end());
 
@@ -423,25 +443,30 @@ void DirListView::truncateColumnsAfter(int columnIndex) {
                                         static_cast<int>(columns_.size()) - 1);
     }
 
+    syncPathHighlights();
     updateActiveColumnState();
     syncColumnHeights();
     QTimer::singleShot(0, this, [this]() { syncColumnHeights(); });
 }
 
 void DirListView::updateActiveColumnState() {
-    const bool showActiveColumn = hasFocus() && activeColumnIndex_ >= 0;
+    const QWidget* focusWidget = QApplication::focusWidget();
+    const bool showActiveColumn =
+        activeColumnIndex_ >= 0 &&
+        (hasFocus() || (focusWidget != nullptr && isAncestorOf(const_cast<QWidget*>(focusWidget))));
+
     for (int i = 0; i < static_cast<int>(columns_.size()); ++i)
         columns_[i]->setKeyboardActive(showActiveColumn && i == activeColumnIndex_);
 }
 
 void DirListView::syncColumnHeights() {
-    int h = scrollArea_->viewport()->height();
+    const int h = scrollArea_->viewport()->height();
     for (auto* col : columns_)
         col->setFixedHeight(h);
 
-    int spacing = columnsLayout_->spacing();
-    int n = static_cast<int>(columns_.size());
-    int totalWidth = n * columnWidth_ + (n > 1 ? (n - 1) * spacing : 0);
+    const int spacing = columnsLayout_->spacing();
+    const int n = static_cast<int>(columns_.size());
+    const int totalWidth = n * columnWidth_ + (n > 1 ? (n - 1) * spacing : 0);
     scrollContent_->setFixedWidth(std::max(totalWidth, scrollArea_->viewport()->width()));
     scrollContent_->setFixedHeight(h);
 }
@@ -455,11 +480,11 @@ void DirListView::scrollToLastColumn() {
 
 int DirListView::computeColumnWidth() const {
     QFontMetrics fm(font());
-    int sizeField = fm.horizontalAdvance("9999 MB");
-    int pctField = fm.horizontalAdvance("100%");
-    int nameField = fm.horizontalAdvance("directoryname123");
-    int arrowSpace = DirListColumn::kArrowSize * 2 + DirListColumn::kPadding;
-    int scrollBarW = style()->pixelMetric(QStyle::PM_ScrollBarExtent);
+    const int sizeField = fm.horizontalAdvance("9999 MB");
+    const int pctField = fm.horizontalAdvance("100%");
+    const int nameField = fm.horizontalAdvance("directoryname123");
+    const int arrowSpace = DirListColumn::kArrowSize * 2 + DirListColumn::kPadding;
+    const int scrollBarW = style()->pixelMetric(QStyle::PM_ScrollBarExtent);
     return DirListColumn::kLeftPadding + sizeField + DirListColumn::kPadding
          + pctField + DirListColumn::kPadding + nameField + arrowSpace
          + DirListColumn::kPadding + scrollBarW;

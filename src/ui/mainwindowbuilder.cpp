@@ -121,6 +121,11 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
                          MainWindow::tr("Move to Trash"),
                          QKeySequence(Qt::Key_Delete),
                          &MainWindow::trashCurrentEntry);
+    configureEntryAction(w->deleteEntryPermanentlyAction_,
+                         QStringLiteral("edit-delete-symbolic"),
+                         MainWindow::tr("Delete Permanently"),
+                         QKeySequence(Qt::CTRL | Qt::Key_Delete),
+                         &MainWindow::deleteCurrentEntryPermanently);
 
     w->graphTypeButton_ = new QToolButton(w->toolbar_);
     w->graphTypeButton_->setIcon(QIcon::fromTheme("find-location-symbolic"));
@@ -209,7 +214,7 @@ void MainWindowBuilder::connectCoreSignals(MainWindow* w) {
     QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected,
                      w, &MainWindow::onGraphEntrySelected);
     QObject::connect(w->dirListView_, &DirListView::contextMenuRequested,
-                     w, &MainWindow::showEntryContextMenu);
+                     w, &MainWindow::showDirListContextMenu);
     QObject::connect(w->flameGraphWidget_, &GraphWidget::contextMenuRequested,
                      w, &MainWindow::showEntryContextMenu);
     QObject::connect(w->treeMapWidget_, &GraphWidget::contextMenuRequested,

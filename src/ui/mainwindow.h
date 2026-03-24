@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QThread>
+#include <vector>
 
 #include "direntrystore.h"
 #include "filesystem.h"
@@ -59,9 +60,11 @@ private slots:
     void copyCurrentDirectoryPath();
     void clearDirectoryBreadcrumb();
     void trashCurrentEntry();
+    void deleteCurrentEntryPermanently();
     void startScan(const QString& path);
     void mountAndScan(const QString& devicePath);
     void showEntryContextMenu(EntryRef ref, QPoint globalPos);
+    void showDirListContextMenu(EntryRef ref, QPoint globalPos);
 
 private:
     void refreshWelcomeVolumes();
@@ -71,11 +74,22 @@ private:
     EntryRef graphFocusForEntry(EntryRef ref) const;
     bool isEntryInSubtree(EntryRef ref, EntryRef ancestor) const;
     void setCurrentEntry(EntryRef ref);
+    void openEntry(EntryRef ref);
+    void openEntryTerminal(EntryRef ref);
+    void copyEntryPath(EntryRef ref);
     void syncGraphHighlight();
     void syncGraphSelection();
     void updateEntryActions();
     void updateBreadcrumbPath();
     EntryRef breadcrumbDirectory() const;
+    bool dirListSelectionIsActive() const;
+    std::vector<EntryRef> actionTargets() const;
+    std::vector<EntryRef> collapseNestedTargets(const std::vector<EntryRef>& refs) const;
+    void applyPostRemovalState(const std::vector<EntryRef>& removedRefs);
+    void showBatchFailureDialog(const QString& title,
+                                const QString& actionDescription,
+                                const QStringList& failedPaths);
+    void showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList);
     void navigateToDirectory(EntryRef ref);
     QString pathForEntry(EntryRef ref) const;
 
@@ -102,6 +116,7 @@ private:
     QAction* openEntryTerminalAction_ = nullptr;
     QAction* copyEntryPathAction_ = nullptr;
     QAction* trashEntryAction_ = nullptr;
+    QAction* deleteEntryPermanentlyAction_ = nullptr;
     QWidget* breadcrumbPathWidget_ = nullptr;
     QHBoxLayout* breadcrumbPathLayout_ = nullptr;
     QToolButton* breadcrumbCopyButton_ = nullptr;
@@ -118,6 +133,7 @@ private:
     GraphWidget* graphWidget_ = nullptr;
     ScanProgressWidget* scanProgress_ = nullptr;
     QTimer* scanPollTimer_ = nullptr;
+    bool contextMenuFromDirList_ = false;
 };
 
 } // namespace ldirstat

@@ -18,8 +18,10 @@
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProcess>
@@ -31,7 +33,21 @@
 #include <QToolButton>
 #include <QUrl>
 
+#include <algorithm>
+
 namespace ldirstat {
+
+namespace {
+
+bool permanentlyRemovePath(const QString& path) {
+    const QFileInfo info(path);
+    // Check symlinks before isDir(); following a directory symlink here would be dangerous.
+    if (info.isSymLink() || !info.isDir())
+        return QFile::remove(path);
+    return QDir(path).removeRecursively();
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -117,6 +133,53 @@ void MainWindow::setCurrentEntry(EntryRef ref) {
     updateEntryActions();
 }
 
+void MainWindow::openEntry(EntryRef ref) {
+    if (!ref.valid() || !isGraphPageVisible())
+        return;
+
+    const QString path = pathForEntry(ref);
+    if (path.isEmpty())
+        return;
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+void MainWindow::openEntryTerminal(EntryRef ref) {
+    if (!ref.valid() || !isGraphPageVisible())
+        return;
+
+    const DirEntry& entry = entryStore_[ref];
+    const QString path = pathForEntry(ref);
+    if (path.isEmpty())
+        return;
+
+    const QString dir = entry.isDir() ? path : QFileInfo(path).path();
+    QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
+    if (terminal.isEmpty()) {
+        for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
+                                      "xterm"}) {
+            if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
+                terminal = candidate;
+                break;
+            }
+        }
+    }
+
+    if (!terminal.isEmpty())
+        QProcess::startDetached(terminal, {"--workdir", dir});
+}
+
+void MainWindow::copyEntryPath(EntryRef ref) {
+    if (!ref.valid() || !isGraphPageVisible())
+        return;
+
+    const QString path = pathForEntry(ref);
+    if (path.isEmpty())
+        return;
+
+    QGuiApplication::clipboard()->setText(path);
+}
+
 void MainWindow::syncGraphHighlight() {
     if (!graphWidget_)
         return;
@@ -144,6 +207,159 @@ void MainWindow::updateEntryActions() {
         copyEntryPathAction_->setEnabled(enabled);
     if (trashEntryAction_)
         trashEntryAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
+    if (deleteEntryPermanentlyAction_)
+        deleteEntryPermanentlyAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
+}
+
+bool MainWindow::dirListSelectionIsActive() const {
+    if (!dirListView_ || !isGraphPageVisible())
+        return false;
+    if (contextMenuFromDirList_)
+        return true;
+
+    QWidget* focusWidget = QApplication::focusWidget();
+    return focusWidget != nullptr &&
+           (focusWidget == dirListView_ || dirListView_->isAncestorOf(focusWidget));
+}
+
+std::vector<EntryRef> MainWindow::actionTargets() const {
+    if (dirListSelectionIsActive())
+        return collapseNestedTargets(dirListView_->selectedEntries());
+
+    std::vector<EntryRef> refs;
+
+    if (currentEntry_.valid() && currentEntry_ != currentRoot_)
+        refs.push_back(currentEntry_);
+
+    return collapseNestedTargets(refs);
+}
+
+std::vector<EntryRef> MainWindow::collapseNestedTargets(const std::vector<EntryRef>& refs) const {
+    std::vector<EntryRef> collapsed;
+    collapsed.reserve(refs.size());
+
+    for (EntryRef ref : refs) {
+        if (!ref.valid() || ref == currentRoot_)
+            continue;
+
+        bool containedByExisting = false;
+        for (EntryRef existing : collapsed) {
+            if (isEntryInSubtree(ref, existing)) {
+                containedByExisting = true;
+                break;
+            }
+        }
+        if (containedByExisting)
+            continue;
+
+        collapsed.erase(
+            std::remove_if(collapsed.begin(), collapsed.end(),
+                           [this, ref](EntryRef existing) {
+                               return isEntryInSubtree(existing, ref);
+                           }),
+            collapsed.end());
+        collapsed.push_back(ref);
+    }
+
+    return collapsed;
+}
+
+void MainWindow::applyPostRemovalState(const std::vector<EntryRef>& removedRefs) {
+    if (!currentRoot_.valid())
+        return;
+
+    bool currentEntryRemoved = false;
+    bool graphFocusRemoved = false;
+    EntryRef fallbackDir = currentRoot_;
+
+    for (EntryRef ref : removedRefs) {
+        if (!ref.valid())
+            continue;
+
+        const EntryRef parentDir = entryStore_[ref].parent;
+        if (parentDir.valid())
+            fallbackDir = parentDir;
+
+        currentEntryRemoved = currentEntryRemoved ||
+            (currentEntry_.valid() && isEntryInSubtree(currentEntry_, ref));
+        graphFocusRemoved = graphFocusRemoved ||
+            (graphFocusDir_.valid() && isEntryInSubtree(graphFocusDir_, ref));
+    }
+
+    for (EntryRef ref : removedRefs) {
+        if (!isEntryInSubtree(ref, currentRoot_))
+            continue;
+        entryStore_.remove(ref);
+    }
+
+    if (currentEntryRemoved)
+        setCurrentEntry(kNoEntry);
+
+    if (currentEntry_.valid())
+        graphFocusDir_ = graphFocusForEntry(currentEntry_);
+    else if (graphFocusRemoved)
+        graphFocusDir_ = fallbackDir.valid() ? fallbackDir : currentRoot_;
+
+    if (dirListView_) {
+        const EntryRef target =
+            currentEntry_.valid() ? currentEntry_
+                                  : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
+        dirListView_->selectEntry(target);
+    }
+
+    syncGraphSelection();
+}
+
+void MainWindow::showBatchFailureDialog(const QString& title,
+                                        const QString& actionDescription,
+                                        const QStringList& failedPaths) {
+    if (failedPaths.isEmpty())
+        return;
+
+    QStringList lines;
+    const int limit = 8;
+    const int shownCount = std::min(limit, static_cast<int>(failedPaths.size()));
+    for (int i = 0; i < shownCount; ++i)
+        lines.push_back(failedPaths[i]);
+    if (failedPaths.size() > shownCount)
+        lines.push_back(tr("...and %1 more").arg(failedPaths.size() - shownCount));
+
+    QMessageBox::warning(
+        this, title,
+        tr("Failed to %1 %2 entr%3:\n%4")
+            .arg(actionDescription)
+            .arg(failedPaths.size())
+            .arg(failedPaths.size() == 1 ? tr("y") : tr("ies"))
+            .arg(lines.join('\n')));
+}
+
+void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList) {
+    if (!ref.valid())
+        return;
+
+    contextMenuFromDirList_ = fromDirList;
+
+    QMenu menu(this);
+    if (fromDirList) {
+        menu.addAction(openEntryAction_->icon(), openEntryAction_->text(),
+                       this, [this, ref]() { openEntry(ref); });
+        menu.addAction(openEntryTerminalAction_->icon(), openEntryTerminalAction_->text(),
+                       this, [this, ref]() { openEntryTerminal(ref); });
+        menu.addAction(copyEntryPathAction_->icon(), copyEntryPathAction_->text(),
+                       this, [this, ref]() { copyEntryPath(ref); });
+    } else {
+        setCurrentEntry(ref);
+        syncGraphHighlight();
+        menu.addAction(openEntryAction_);
+        menu.addAction(openEntryTerminalAction_);
+        menu.addAction(copyEntryPathAction_);
+    }
+    menu.addSeparator();
+    menu.addAction(trashEntryAction_);
+    menu.addAction(deleteEntryPermanentlyAction_);
+    menu.exec(globalPos);
+
+    contextMenuFromDirList_ = false;
 }
 
 QString MainWindow::pathForEntry(EntryRef ref) const {
@@ -258,7 +474,7 @@ void MainWindow::updateBreadcrumbPath() {
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (shouldForwardDirListArrowKey(watched, event)) {
         auto* keyEvent = static_cast<QKeyEvent*>(event);
-        if (dirListView_->handleArrowKey(keyEvent->key()))
+        if (dirListView_->handleArrowKey(keyEvent->key(), keyEvent->modifiers()))
             return true;
     }
 
@@ -291,7 +507,9 @@ bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) c
         return false;
 
     auto* keyEvent = static_cast<QKeyEvent*>(event);
-    if (keyEvent->modifiers() != Qt::NoModifier)
+    const Qt::KeyboardModifiers supportedModifiers =
+        Qt::ShiftModifier | Qt::ControlModifier;
+    if ((keyEvent->modifiers() & ~supportedModifiers) != Qt::NoModifier)
         return false;
 
     switch (keyEvent->key()) {
@@ -314,6 +532,12 @@ bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) c
     auto* widget = qobject_cast<QWidget*>(watched);
     if (!widget)
         return false;
+    if (qobject_cast<QLineEdit*>(widget))
+        return false;
+    if (widget->inherits("QTextEdit") || widget->inherits("QPlainTextEdit") ||
+        widget->inherits("QAbstractSpinBox")) {
+        return false;
+    }
 
     return widget->window() == this;
 }
@@ -535,50 +759,15 @@ void MainWindow::onGraphEntrySelected(EntryRef ref) {
 }
 
 void MainWindow::openCurrentEntry() {
-    if (!currentEntry_.valid() || !isGraphPageVisible())
-        return;
-
-    const QString path = pathForEntry(currentEntry_);
-    if (path.isEmpty())
-        return;
-
-    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    openEntry(currentEntry_);
 }
 
 void MainWindow::openCurrentEntryTerminal() {
-    if (!currentEntry_.valid() || !isGraphPageVisible())
-        return;
-
-    const DirEntry& entry = entryStore_[currentEntry_];
-    const QString path = pathForEntry(currentEntry_);
-    if (path.isEmpty())
-        return;
-
-    const QString dir = entry.isDir() ? path : QFileInfo(path).path();
-    QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
-    if (terminal.isEmpty()) {
-        for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
-                                      "xterm"}) {
-            if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
-                terminal = candidate;
-                break;
-            }
-        }
-    }
-
-    if (!terminal.isEmpty())
-        QProcess::startDetached(terminal, {"--workdir", dir});
+    openEntryTerminal(currentEntry_);
 }
 
 void MainWindow::copyCurrentEntryPath() {
-    if (!currentEntry_.valid() || !isGraphPageVisible())
-        return;
-
-    const QString path = pathForEntry(currentEntry_);
-    if (path.isEmpty())
-        return;
-
-    QGuiApplication::clipboard()->setText(path);
+    copyEntryPath(currentEntry_);
 }
 
 void MainWindow::copyCurrentDirectoryPath() {
@@ -604,60 +793,103 @@ void MainWindow::clearDirectoryBreadcrumb() {
 }
 
 void MainWindow::trashCurrentEntry() {
-    if (!currentEntry_.valid() || !isGraphPageVisible() || currentEntry_ == currentRoot_)
+    if (!isGraphPageVisible())
+        return;
+    if (!contextMenuFromDirList_) {
+        QWidget* focusWidget = QApplication::focusWidget();
+        if (qobject_cast<QLineEdit*>(focusWidget))
+            return;
+    }
+
+    const std::vector<EntryRef> refs = actionTargets();
+    if (refs.empty())
         return;
 
-    const EntryRef ref = currentEntry_;
-    const DirEntry& entry = entryStore_[ref];
-    const QString path = pathForEntry(ref);
-    if (path.isEmpty())
-        return;
-
-    auto answer = QMessageBox::question(
-        this, tr("Move to Trash"),
-        tr("Move \"%1\" to trash?").arg(path),
+    const QString prompt = refs.size() == 1
+        ? tr("Move \"%1\" to trash?").arg(pathForEntry(refs.front()))
+        : tr("Move %1 selected entries to trash?").arg(refs.size());
+    const auto answer = QMessageBox::question(
+        this, tr("Move to Trash"), prompt,
         QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (answer != QMessageBox::Yes)
         return;
 
-    if (!QFile::moveToTrash(path))
-        return;
-
-    EntryRef parentDir = entry.parent;
-    const bool currentEntryRemoved =
-        currentEntry_.valid() && isEntryInSubtree(currentEntry_, ref);
-    const bool graphFocusRemoved =
-        graphFocusDir_.valid() && isEntryInSubtree(graphFocusDir_, ref);
-
-    entryStore_.remove(ref);
-    dirListView_->refreshAfterRemoval(ref, parentDir);
-
-    if (currentEntryRemoved)
-        setCurrentEntry(kNoEntry);
-
-    if (currentEntry_.valid()) {
-        graphFocusDir_ = graphFocusForEntry(currentEntry_);
-    } else if (graphFocusRemoved) {
-        graphFocusDir_ = parentDir.valid() ? parentDir : currentRoot_;
+    std::vector<EntryRef> removedRefs;
+    removedRefs.reserve(refs.size());
+    QStringList failedPaths;
+    for (EntryRef ref : refs) {
+        const QString path = pathForEntry(ref);
+        if (path.isEmpty())
+            continue;
+        if (!QFile::moveToTrash(path)) {
+            failedPaths.push_back(path);
+            continue;
+        }
+        removedRefs.push_back(ref);
     }
 
-    syncGraphSelection();
+    if (removedRefs.empty() && failedPaths.isEmpty())
+        return;
+
+    if (!removedRefs.empty())
+        applyPostRemovalState(removedRefs);
+    showBatchFailureDialog(tr("Move to Trash"), tr("move to trash"), failedPaths);
+}
+
+void MainWindow::deleteCurrentEntryPermanently() {
+    if (!isGraphPageVisible())
+        return;
+    if (!contextMenuFromDirList_) {
+        QWidget* focusWidget = QApplication::focusWidget();
+        if (qobject_cast<QLineEdit*>(focusWidget))
+            return;
+    }
+
+    const std::vector<EntryRef> refs = actionTargets();
+    if (refs.empty())
+        return;
+
+    QString prompt;
+    if (refs.size() == 1) {
+        prompt = tr("Type yes to permanently delete \"%1\".").arg(pathForEntry(refs.front()));
+    } else {
+        prompt = tr("Type yes to permanently delete %1 selected entries.").arg(refs.size());
+    }
+
+    bool ok = false;
+    const QString confirmation = QInputDialog::getText(
+        this, tr("Delete Permanently"), prompt, QLineEdit::Normal, {}, &ok);
+    if (!ok || confirmation != QStringLiteral("yes"))
+        return;
+
+    std::vector<EntryRef> removedRefs;
+    removedRefs.reserve(refs.size());
+    QStringList failedPaths;
+    for (EntryRef ref : refs) {
+        const QString path = pathForEntry(ref);
+        if (path.isEmpty())
+            continue;
+        if (!permanentlyRemovePath(path)) {
+            failedPaths.push_back(path);
+            continue;
+        }
+        removedRefs.push_back(ref);
+    }
+
+    if (removedRefs.empty() && failedPaths.isEmpty())
+        return;
+
+    if (!removedRefs.empty())
+        applyPostRemovalState(removedRefs);
+    showBatchFailureDialog(tr("Delete Permanently"), tr("delete permanently"), failedPaths);
 }
 
 void MainWindow::showEntryContextMenu(EntryRef ref, QPoint globalPos) {
-    if (!ref.valid())
-        return;
+    showEntryContextMenuInternal(ref, globalPos, false);
+}
 
-    setCurrentEntry(ref);
-    syncGraphHighlight();
-
-    QMenu menu(this);
-    menu.addAction(openEntryAction_);
-    menu.addAction(openEntryTerminalAction_);
-    menu.addAction(copyEntryPathAction_);
-    menu.addSeparator();
-    menu.addAction(trashEntryAction_);
-    menu.exec(globalPos);
+void MainWindow::showDirListContextMenu(EntryRef ref, QPoint globalPos) {
+    showEntryContextMenuInternal(ref, globalPos, true);
 }
 
 } // namespace ldirstat

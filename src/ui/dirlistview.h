@@ -24,11 +24,11 @@ class DirListView : public QWidget {
 public:
     explicit DirListView(QWidget* parent = nullptr);
 
-    bool handleArrowKey(int key);
+    bool handleArrowKey(int key, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
+    std::vector<EntryRef> selectedEntries() const;
     void setThemeColors(const ThemeColors& colors);
     void setRoot(const DirEntryStore& store, const NameStore& names, EntryRef root);
     void selectEntry(EntryRef ref);
-    void refreshAfterRemoval(EntryRef removedRef, EntryRef parentRef);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -42,15 +42,19 @@ signals:
     void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 private slots:
-    void onColumnEntryClicked(ldirstat::EntryRef ref, bool isDir);
+    void onColumnActivated();
+    void onColumnFocusChanged(ldirstat::EntryRef ref, bool isDir);
     void onColumnContextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 private:
-    void applySelectionInColumn(int columnIndex, int rowIndex);
+    void applyFocusInColumn(int columnIndex, int rowIndex,
+                            Qt::KeyboardModifiers modifiers = Qt::NoModifier,
+                            bool preserveSelection = false);
     void addColumn(EntryRef dirRef);
     void enterRootFocus(bool emitSelection = true);
     int indexOfColumn(const DirListColumn* column) const;
     void setActiveColumnIndex(int columnIndex);
+    void syncPathHighlights();
     void truncateColumnsAfter(int columnIndex);
     void updateActiveColumnState();
     void scrollToLastColumn();
@@ -69,6 +73,7 @@ private:
     int activeColumnIndex_ = -1;
     bool rootFocused_ = true;
     int columnWidth_ = 0;
+    bool suppressColumnFocusChanges_ = false;
 };
 
 } // namespace ldirstat
