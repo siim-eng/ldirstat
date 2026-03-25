@@ -24,7 +24,7 @@ Thread-safe worker agents with small, well-defined IPC/queue contracts.
 ## Folder Structure
 
 - `src/core/` — pure C++ stdlib, no Qt. Core types, scanner, and filesystem info.
-  - `direntry.h` — `DirEntry` is a fixed 48-byte node: name ref, type, size/blocks, subtree counts, and tree links. No stored depth/device/inode.
+  - `direntry.h` — `DirEntry` is a fixed 48-byte node: name ref, type, size, subtree counts, and tree links. No stored depth/device/inode.
   - `namestore.h` — `NameRef` + `NameStore`: page-based (64KB pages) string storage for names.
   - `direntrystore.h` — `DirEntryStore`: page-based arena (32768 entries/page) for DirEntry nodes.
   - `scanner.h/.cpp` — `Scanner`: multi-threaded dir walker using `SYS_getdents64`. Workers share a dir queue, get own store/name pages. Same-device filtering uses transient `stat.st_dev`; entries do not retain device/inode. Stoppable via `stop()`. Exposes atomic `filesScanned()`/`dirsScanned()` counters for live progress.

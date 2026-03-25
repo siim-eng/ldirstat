@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 
     std::printf("dirs:      %u\n", root.dirCount);
     std::printf("files:     %u\n", root.fileCount);
-    std::printf("disk_used: %lu bytes\n", root.blocks * 512);
+    std::printf("disk_used: %lu bytes\n", root.size);
     std::printf("scan:      %.3f ms\n", scanMs);
     std::printf("propagate: %.3f ms\n", propagateMs);
     std::printf("sort:      %.3f ms\n", sortMs);

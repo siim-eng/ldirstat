@@ -20,16 +20,27 @@ namespace ldirstat {
 namespace {
 
 QString formatSize(uint64_t bytes) {
+    auto formatUnit = [](double value, const char* suffix) {
+        if (value < 10.0) {
+            const double truncated = std::floor(value * 10.0) / 10.0;
+            return QString::number(truncated, 'f', 1) + " " + suffix;
+        }
+        return QString::number(static_cast<uint64_t>(value)) + " " + suffix;
+    };
+
     if (bytes < 1024)
         return QString::number(bytes) + " B";
-    uint64_t kb = bytes / 1024;
-    if (kb < 1024)
-        return QString::number(kb) + " KB";
-    uint64_t mb = bytes / (1024 * 1024);
-    if (mb < 1024)
-        return QString::number(mb) + " MB";
-    uint64_t gb = bytes / (1024ULL * 1024 * 1024);
-    return QString::number(gb) + " GB";
+
+    const double kb = bytes / 1024.0;
+    if (kb < 1024.0)
+        return formatUnit(kb, "KB");
+
+    const double mb = bytes / (1024.0 * 1024.0);
+    if (mb < 1024.0)
+        return formatUnit(mb, "MB");
+
+    const double gb = bytes / (1024.0 * 1024.0 * 1024.0);
+    return formatUnit(gb, "GB");
 }
 
 QString formatPercent(uint64_t entrySize, uint64_t rootSize) {

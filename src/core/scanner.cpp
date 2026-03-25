@@ -112,7 +112,6 @@ void Scanner::propagate(EntryRef root) {
             parent.fileCount += entry.fileCount;
             parent.dirCount += entry.dirCount;
             parent.size += entry.size;
-            parent.blocks += entry.blocks;
         }
         dirPopped = false;
         child = entry.nextSibling;
@@ -197,8 +196,10 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
     EntryRef prevChild;
     uint32_t files = 0;
     uint32_t dirs = 0;
+    uint32_t links = 0;
     uint64_t totalSize = 0;
     uint64_t totalBlocks = 0;
+    uint64_t entryBlocks = 0;
 
     for (;;) {
         if (stop_.load(std::memory_order_relaxed))
@@ -223,14 +224,25 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             entry.name = nameStore_.add(ctx.namePage, d->d_name);
             entry.parent = dirRef;
 
-            // Stat for size, blocks, and same-filesystem filtering.
+            // Stat for size, and same-filesystem filtering.
             struct stat st{};
             bool haveStat =
                 fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
 
             if (haveStat) {
                 entry.size = static_cast<uint64_t>(st.st_size);
-                entry.blocks = static_cast<uint64_t>(st.st_blocks);
+                entryBlocks = static_cast<uint64_t>(st.st_blocks);
+                if (d->d_type == DT_REG) {
+                  links = static_cast<uint64_t>(st.st_nlink);
+                  if (links < 2)
+                    entryBlocks *= 512;
+                  else if (links == 2)
+                    entryBlocks *= 256;
+                  else
+                   entryBlocks = (entryBlocks * 512) / links;
+                } else {
+                    entryBlocks *= 512;
+                } 
             }
 
             // Determine type: prefer d_type, fall back to stat.
@@ -260,7 +272,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
                 ++dirs;
             }
             totalSize += entry.size;
-            totalBlocks += entry.blocks;
+            totalBlocks += entryBlocks;
 
             // Chain child into parent's child list.
             if (prevChild.valid())
@@ -281,8 +293,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
 
     parent.fileCount = files;
     parent.dirCount = dirs;
-    parent.size += totalSize;
-    parent.blocks += totalBlocks;
+    parent.size += totalBlocks;
 
     filesScanned_.fetch_add(files, std::memory_order_relaxed);
     dirsScanned_.fetch_add(1, std::memory_order_relaxed);

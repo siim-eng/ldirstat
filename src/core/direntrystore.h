@@ -88,7 +88,6 @@ public:
 
         // Propagate size and count changes up to root.
         uint64_t removedSize = entry.size;
-        uint64_t removedBlocks = entry.blocks;
         uint32_t removedFiles = entry.isDir() ? entry.fileCount : 1;
         uint32_t removedDirs = entry.isDir() ? (entry.dirCount + 1) : 0;
 
@@ -96,7 +95,6 @@ public:
         while (ancestor.valid()) {
             DirEntry& a = (*this)[ancestor];
             a.size -= removedSize;
-            a.blocks -= removedBlocks;
             a.fileCount -= removedFiles;
             a.dirCount -= removedDirs;
             ancestor = a.parent;

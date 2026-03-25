@@ -43,9 +43,6 @@ struct DirEntry {
     // Size in bytes. For files: st_size. For directories: sum of subtree.
     uint64_t size = 0;
 
-    // Allocated disk blocks (512-byte units from st_blocks).
-    uint64_t blocks = 0;
-
     // Number of files/dirs in subtree (excluding self). 0 for files.
     uint32_t fileCount = 0;
     uint32_t dirCount = 0;
@@ -61,6 +58,6 @@ struct DirEntry {
 };
 
 static_assert(sizeof(EntryRef) == 8);
-static_assert(sizeof(DirEntry) == 72);
+static_assert(sizeof(DirEntry) == 64);
 
 } // namespace ldirstat

@@ -33,7 +33,7 @@ public:
     uint64_t dirsScanned() const { return dirsScanned_.load(std::memory_order_relaxed); }
 
     // Single-threaded post-scan pass. Propagates fileCount, dirCount,
-    // size, and blocks from child directories up to their parents.
+    // size from child directories up to their parents.
     void propagate(EntryRef root);
 
     // Sort each directory's children by size (descending).
