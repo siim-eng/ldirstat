@@ -3,6 +3,7 @@
 
 #include "dirlistview.h"
 #include "flamegraphwidget.h"
+#include "iconutil.h"
 #include "scanprogresswidget.h"
 #include "treemapwidget.h"
 #include "welcomewidget.h"
@@ -42,6 +43,12 @@ void MainWindowBuilder::build(MainWindow* w) {
 void MainWindowBuilder::configureWindow(MainWindow* w) {
     w->setWindowTitle("LDirStat");
     w->resize(1200, 800);
+
+    auto* closeAction = new QAction(MainWindow::tr("Close"), w);
+    closeAction->setShortcut(QKeySequence(Qt::Key_Escape));
+    closeAction->setShortcutContext(Qt::ApplicationShortcut);
+    w->addAction(closeAction);
+    QObject::connect(closeAction, &QAction::triggered, w, &QWidget::close);
 }
 
 void MainWindowBuilder::buildToolbar(MainWindow* w) {
@@ -64,14 +71,16 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->breadcrumbPathLayout_->setSpacing(2);
 
     w->breadcrumbCopyButton_ = new QToolButton(breadcrumbWidget);
-    w->breadcrumbCopyButton_->setIcon(QIcon::fromTheme("edit-copy-symbolic"));
+    w->breadcrumbCopyButton_->setIcon(
+        themedIcon(w, QStringLiteral("edit-copy-symbolic"), QStyle::SP_FileIcon));
     w->breadcrumbCopyButton_->setToolTip(MainWindow::tr("Copy directory path"));
     w->breadcrumbCopyButton_->setFocusPolicy(Qt::NoFocus);
     QObject::connect(w->breadcrumbCopyButton_, &QToolButton::clicked,
                      w, &MainWindow::copyCurrentDirectoryPath);
 
     w->breadcrumbClearButton_ = new QToolButton(breadcrumbWidget);
-    w->breadcrumbClearButton_->setIcon(QIcon::fromTheme("edit-clear-symbolic"));
+    w->breadcrumbClearButton_->setIcon(
+        themedIcon(w, QStringLiteral("edit-clear-symbolic"), QStyle::SP_DialogResetButton));
     w->breadcrumbClearButton_->setToolTip(MainWindow::tr("Clear to root directory"));
     w->breadcrumbClearButton_->setFocusPolicy(Qt::NoFocus);
     QObject::connect(w->breadcrumbClearButton_, &QToolButton::clicked,
@@ -83,19 +92,22 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->toolbar_->addWidget(breadcrumbWidget);
 
     w->overviewAction_ = w->toolbar_->addAction(
-        QIcon::fromTheme("go-home-symbolic"), MainWindow::tr("Overview"));
+        themedIcon(w, QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon),
+        MainWindow::tr("Overview"));
     QObject::connect(w->overviewAction_, &QAction::triggered, w, &MainWindow::onOverview);
 
     w->rescanAction_ = w->toolbar_->addAction(
-        QIcon::fromTheme("view-refresh-symbolic"), MainWindow::tr("Rescan"));
+        themedIcon(w, QStringLiteral("view-refresh-symbolic"), QStyle::SP_BrowserReload),
+        MainWindow::tr("Rescan"));
     QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
 
     auto configureEntryAction = [w](QAction*& action,
                                     const QString& iconName,
+                                    QStyle::StandardPixmap fallback,
                                     const QString& text,
                                     const QKeySequence& shortcut,
                                     auto slot) {
-        action = new QAction(QIcon::fromTheme(iconName), text, w);
+        action = new QAction(themedIcon(w, iconName, fallback), text, w);
         action->setShortcut(shortcut);
         action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         action->setEnabled(false);
@@ -105,32 +117,38 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
 
     configureEntryAction(w->openEntryAction_,
                          QStringLiteral("document-open-symbolic"),
+                         QStyle::SP_DialogOpenButton,
                          MainWindow::tr("Open"),
                          QKeySequence(Qt::CTRL | Qt::Key_O),
                          &MainWindow::openCurrentEntry);
     configureEntryAction(w->openEntryTerminalAction_,
                          QStringLiteral("utilities-terminal-symbolic"),
+                         QStyle::SP_ComputerIcon,
                          MainWindow::tr("Open Terminal"),
                          QKeySequence(Qt::CTRL | Qt::Key_T),
                          &MainWindow::openCurrentEntryTerminal);
     configureEntryAction(w->copyEntryPathAction_,
                          QStringLiteral("edit-copy-symbolic"),
+                         QStyle::SP_FileIcon,
                          MainWindow::tr("Copy to Clipboard"),
                          QKeySequence(Qt::CTRL | Qt::Key_C),
                          &MainWindow::copyCurrentEntryPath);
     configureEntryAction(w->trashEntryAction_,
                          QStringLiteral("user-trash-symbolic"),
+                         QStyle::SP_TrashIcon,
                          MainWindow::tr("Move to Trash"),
                          QKeySequence(Qt::Key_Delete),
                          &MainWindow::trashCurrentEntry);
     configureEntryAction(w->deleteEntryPermanentlyAction_,
                          QStringLiteral("edit-delete-symbolic"),
+                         QStyle::SP_DialogDiscardButton,
                          MainWindow::tr("Delete Permanently"),
                          QKeySequence(Qt::CTRL | Qt::Key_Delete),
                          &MainWindow::deleteCurrentEntryPermanently);
 
     w->graphTypeButton_ = new QToolButton(w->toolbar_);
-    w->graphTypeButton_->setIcon(QIcon::fromTheme("find-location-symbolic"));
+    w->graphTypeButton_->setIcon(
+        themedIcon(w, QStringLiteral("find-location-symbolic"), QStyle::SP_FileDialogContentsView));
     w->graphTypeButton_->setText(MainWindow::tr("Graph Type"));
     w->graphTypeButton_->setPopupMode(QToolButton::InstantPopup);
     w->graphTypeButton_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -207,10 +225,8 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
 }
 
 void MainWindowBuilder::buildHelpMenu(MainWindow* w) {
-    //QIcon helpIcon = QIcon::fromTheme("open-menu-symbolic");
-    QIcon helpIcon = QIcon::fromTheme("help-contents-symbolic");
-    if (helpIcon.isNull())
-        helpIcon = w->style()->standardIcon(QStyle::SP_DialogHelpButton);
+    QIcon helpIcon =
+        themedIcon(w, QStringLiteral("help-contents-symbolic"), QStyle::SP_DialogHelpButton);
 
     auto* helpButton = new QToolButton(w->toolbar_);
     helpButton->setIcon(helpIcon);

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LDirStat
+Comment=Analyze disk usage statistics by directory
+Exec=LDirStat
+TryExec=LDirStat
+Icon=ldirstat
+Terminal=false
+Categories=System;FileTools;
+Keywords=disk;usage;filesystem;storage;space;directory;
+StartupNotify=true
+StartupWMClass=LDirStat

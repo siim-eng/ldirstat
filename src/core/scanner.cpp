@@ -22,6 +22,7 @@ struct linux_dirent64 {
 };
 
 constexpr size_t kGetdentsBufSize = 32768;
+constexpr size_t kInitialPathBufSize = 4096;
 
 bool isDotOrDotdot(const char* name) {
     return name[0] == '.' &&
@@ -75,7 +76,7 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
         threads_.emplace_back([this] {
             WorkerCtx ctx;
             ctx.getdentsBuf.resize(kGetdentsBufSize);
-            ctx.pathBuf.resize(4096);
+            ctx.pathBuf.resize(kInitialPathBufSize);
             ctx.entryPage = entryStore_.allocatePage();
             ctx.namePage = nameStore_.allocatePage();
             workerLoop(ctx);
@@ -148,6 +149,9 @@ void Scanner::returnWork(std::vector<EntryRef>& subdirs) {
 }
 
 void Scanner::buildPath(EntryRef ref, WorkerCtx& ctx) {
+    // avoid memory allocation per directory path creation, use scratch buffer
+    // kind of useless optimization, but still worth around 2%-5%    
+
     // Walk parent chain, collecting refs.
     EntryRef chain[256];
     int depth = 0;
@@ -197,22 +201,19 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
     uint32_t files = 0;
     uint32_t dirs = 0;
     uint32_t links = 0;
-    uint64_t totalSize = 0;
-    uint64_t totalBlocks = 0;
-    uint64_t entryBlocks = 0;
+    uint64_t totalAllocatedBytes = 0;
+    uint64_t allocatedBytes = 0;
 
     for (;;) {
         if (stop_.load(std::memory_order_relaxed))
             break;
 
-        long nread = syscall(SYS_getdents64, fd,
-                             ctx.getdentsBuf.data(),
-                             ctx.getdentsBuf.size());
+        // using syscall instead of readdir allows us to reuse buffer, readdir does malloc internally
+        long nread = syscall(SYS_getdents64, fd, ctx.getdentsBuf.data(), ctx.getdentsBuf.size());
         if (nread <= 0) break;
 
         for (long pos = 0; pos < nread;) {
-            auto* d = reinterpret_cast<linux_dirent64*>(
-                ctx.getdentsBuf.data() + pos);
+            auto* d = reinterpret_cast<linux_dirent64*>(ctx.getdentsBuf.data() + pos);
             pos += d->d_reclen;
 
             if (isDotOrDotdot(d->d_name))
@@ -226,23 +227,17 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
 
             // Stat for size, and same-filesystem filtering.
             struct stat st{};
-            bool haveStat =
-                fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
+            bool haveStat = fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
 
             if (haveStat) {
                 entry.size = static_cast<uint64_t>(st.st_size);
-                entryBlocks = static_cast<uint64_t>(st.st_blocks);
-                if (d->d_type == DT_REG) {
-                  links = static_cast<uint64_t>(st.st_nlink);
-                  if (links < 2)
-                    entryBlocks *= 512;
-                  else if (links == 2)
-                    entryBlocks *= 256;
-                  else
-                   entryBlocks = (entryBlocks * 512) / links;
-                } else {
-                    entryBlocks *= 512;
-                } 
+
+                allocatedBytes = static_cast<uint64_t>(st.st_blocks) * 512;
+                if (S_ISREG(st.st_mode)) {
+                    const uint64_t linkCount = static_cast<uint64_t>(st.st_nlink);
+                    if (linkCount > 1)
+                        allocatedBytes /= linkCount;
+                }
             }
 
             // Determine type: prefer d_type, fall back to stat.
@@ -271,8 +266,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             } else if (entry.type == EntryType::Directory) {
                 ++dirs;
             }
-            totalSize += entry.size;
-            totalBlocks += entryBlocks;
+            totalAllocatedBytes += allocatedBytes;
 
             // Chain child into parent's child list.
             if (prevChild.valid())
@@ -283,9 +277,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             ++parent.childCount;
 
             // Queue subdirectories (same filesystem only).
-            if (entry.type == EntryType::Directory &&
-                haveStat &&
-                st.st_dev == rootDev_) {
+            if (entry.type == EntryType::Directory && haveStat && st.st_dev == rootDev_) {
                 ctx.subdirBatch.push_back(ref);
             }
         }
@@ -293,7 +285,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
 
     parent.fileCount = files;
     parent.dirCount = dirs;
-    parent.size += totalBlocks;
+    parent.size += totalAllocatedBytes;
 
     filesScanned_.fetch_add(files, std::memory_order_relaxed);
     dirsScanned_.fetch_add(1, std::memory_order_relaxed);

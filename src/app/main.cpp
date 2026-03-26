@@ -7,6 +7,7 @@
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("LDirStat");
+    app.setDesktopFileName("ldirstat");
     app.setApplicationVersion(QString::fromLatin1(LDIRSTAT_APP_VERSION));
     app.setWindowIcon(QIcon(":/icons/app.svg"));
 

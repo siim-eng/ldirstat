@@ -1,0 +1,112 @@
+name: Release AppImage
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            curl \
+            patchelf \
+            desktop-file-utils \
+            appstream \
+            qt6-base-dev \
+            qt6-base-dev-tools \
+            libqt6opengl6-dev \
+            libqt6svg6-dev
+
+      - name: Read project version
+        id: version
+        run: echo "value=$(./packaging/read-project-version.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Determine release date
+        id: release_date
+        run: |
+          release_date=$(date -u +%F)
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            release_date=$(git for-each-ref --format='%(taggerdate:short)' "refs/tags/${GITHUB_REF_NAME}" | head -n 1)
+            if [[ -z "${release_date}" ]]; then
+              release_date=$(git log -1 --format=%cs "${GITHUB_REF_NAME}")
+            fi
+          fi
+          echo "value=${release_date}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches project version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          expected_tag="v${{ steps.version.outputs.value }}"
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match project version ${expected_tag}." >&2
+            exit 1
+          fi
+
+      - name: Configure build tree
+        run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDIRSTAT_RELEASE_DATE=${{ steps.release_date.outputs.value }}
+
+      - name: Validate desktop entry
+        run: desktop-file-validate packaging/linux/ldirstat.desktop
+
+      - name: Validate AppStream metadata
+        run: appstreamcli validate --no-net build/ci/packaging/io.github.siim_eng.ldirstat.desktop.metainfo.xml
+
+      - name: Build AppImage
+        env:
+          LDIRSTAT_RELEASE_DATE: ${{ steps.release_date.outputs.value }}
+        run: ./packaging/build-appimage.sh
+
+      - name: Smoke test AppImage
+        run: |
+          appimage="dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage"
+          status=0
+          timeout 5s env QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 "${appimage}" || status=$?
+          if [[ "${status}" -ne 0 && "${status}" -ne 124 ]]; then
+            exit "${status}"
+          fi
+
+      - name: Inspect AppImage structure
+        run: |
+          appimage="dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage"
+          rm -rf squashfs-root
+          "${appimage}" --appimage-extract >/dev/null
+
+          test -e squashfs-root/AppRun
+
+          desktop_count=$(find squashfs-root -maxdepth 1 \( -type f -o -type l \) -name '*.desktop' | wc -l)
+          if [[ "${desktop_count}" -ne 1 ]]; then
+            echo "Expected exactly one desktop file in AppDir root, found ${desktop_count}." >&2
+            exit 1
+          fi
+
+          test -e squashfs-root/.DirIcon
+          test -e squashfs-root/ldirstat.desktop
+          test -e squashfs-root/usr/bin/LDirStat
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LDirStat-AppImage
+          path: dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage
+
+      - name: Publish GitHub release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage

@@ -1,12 +1,13 @@
 #include "dirlistcolumn.h"
+#include "iconutil.h"
 
 #include <QEvent>
-#include <QIcon>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QStyle>
 #include <QTimer>
 #include <QToolButton>
 #include <QWheelEvent>
@@ -104,7 +105,8 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     filterMenuButton_->setFocusPolicy(Qt::NoFocus);
     filterMenuButton_->setPopupMode(QToolButton::InstantPopup);
     filterMenuButton_->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    filterMenuButton_->setIcon(QIcon::fromTheme("open-menu-symbolic"));
+    filterMenuButton_->setIcon(
+        themedIcon(this, QStringLiteral("open-menu-symbolic"), QStyle::SP_ArrowDown));
     filterMenuButton_->setToolTip(tr("Filter/Selection Actions"));
     filterMenuButton_->installEventFilter(this);
 

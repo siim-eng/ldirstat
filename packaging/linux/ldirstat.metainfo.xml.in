@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.siim_eng.ldirstat.desktop</id>
+  <name>LDirStat</name>
+  <summary>Inspect disk usage with directory statistics views</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.siim_eng">
+    <name>Siim Suisalu</name>
+  </developer>
+  <launchable type="desktop-id">ldirstat.desktop</launchable>
+  <provides>
+    <binary>LDirStat</binary>
+  </provides>
+  <description>
+    <p>LDirStat scans directories and helps you understand disk usage with flame graph and tree map views.</p>
+    <p>It is built for fast, low-latency analysis with low memory usage and a desktop UI for exploring large directory trees.</p>
+  </description>
+  <url type="homepage">https://github.com/siim-eng/ldirstat</url>
+  <url type="bugtracker">https://github.com/siim-eng/ldirstat/issues</url>
+  <releases>
+    <release version="@PROJECT_VERSION@" date="@LDIRSTAT_RELEASE_DATE@"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

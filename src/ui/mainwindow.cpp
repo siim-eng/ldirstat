@@ -816,8 +816,8 @@ void MainWindow::showAboutDialog() {
     auto* layout = new QVBoxLayout(&dialog);
     auto* text = new QLabel(
         tr("<p><b>%1</b><br>Version %2</p>"
-           "<p>LDirStat scans directories quickly to show where disk space is used. "
-           "It combines a directory list and graphical views so large files and folders are easy to find.</p>"
+           "<p>LDirStat scans directories and helps you understand disk usage with flame graph and tree map views. "
+           "It is built for fast, low-latency analysis with low memory usage for exploring large directory trees.</p>"
            "<p>Copyright Siim Suisalu 2026<br>"
            "License: MIT</p>"
            "<p><a href=\"https://github.com/siim-eng/ldirstat\">Source code repository</a></p>")

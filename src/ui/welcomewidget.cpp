@@ -1,11 +1,11 @@
 #include "welcomewidget.h"
 #include "filesystem.h"
+#include "iconutil.h"
 
 #include <QDir>
 #include <QFont>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QIcon>
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
@@ -42,12 +42,6 @@ QString volumeTitle(const VolumeInfo& volume) {
     if (!label.isEmpty())
         return QString("%1 (%2)").arg(label, fsType);
     return fsType;
-}
-
-QIcon themedIcon(const QWidget* widget,
-                 const QString& themeName,
-                 QStyle::StandardPixmap fallback) {
-    return QIcon::fromTheme(themeName, widget->style()->standardIcon(fallback));
 }
 
 QIcon volumeIcon(const QWidget* widget, const VolumeInfo& volume) {
