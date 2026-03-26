@@ -1,7 +1,6 @@
 # ldirstat
 
-LDirStat is a Qt desktop application for scanning directories and visualizing disk
-usage with flame graph and tree map views.
+LDirStat helps you see what is taking up space on your disk.
 
 ## Build
 

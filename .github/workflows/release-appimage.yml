@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install build dependencies
         run: |
@@ -28,6 +28,7 @@ jobs:
             patchelf \
             desktop-file-utils \
             appstream \
+            libgl-dev \
             qt6-base-dev \
             qt6-base-dev-tools \
             libqt6opengl6-dev \
@@ -100,7 +101,7 @@ jobs:
           test -e squashfs-root/usr/bin/LDirStat
 
       - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: LDirStat-AppImage
           path: dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage
