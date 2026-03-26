@@ -28,8 +28,7 @@ jobs:
             patchelf \
             desktop-file-utils \
             appstream \
-            libgl-dev \
-            libglvnd-dev \
+            libgl1-mesa-dev \
             qt6-base-dev \
             qt6-base-dev-tools \
             libqt6opengl6-dev \
