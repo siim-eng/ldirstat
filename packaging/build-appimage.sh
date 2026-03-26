@@ -23,30 +23,9 @@ determine_release_date() {
         return
     fi
 
-    if command -v git >/dev/null 2>&1 &&
-       git -C "${repoRoot}" rev-parse --git-dir >/dev/null 2>&1; then
-        local releaseTag="v${projectVersion}"
-        local headCommit=""
-        local tagCommit=""
-        headCommit=$(git -C "${repoRoot}" rev-parse HEAD 2>/dev/null || true)
-        tagCommit=$(git -C "${repoRoot}" rev-parse "${releaseTag}^{commit}" 2>/dev/null || true)
-
-        if [[ -n "${tagCommit}" ]] && [[ "${headCommit}" == "${tagCommit}" ]]; then
-            local tagDate=""
-            tagDate=$(git -C "${repoRoot}" for-each-ref --format='%(taggerdate:short)' \
-                      "refs/tags/${releaseTag}" | head -n 1)
-            if [[ -n "${tagDate}" ]]; then
-                printf '%s\n' "${tagDate}"
-                return
-            fi
-
-            tagDate=$(git -C "${repoRoot}" log -1 --format=%cs "${releaseTag}" 2>/dev/null || true)
-            if [[ -n "${tagDate}" ]]; then
-                printf '%s\n' "${tagDate}"
-                return
-            fi
-        fi
-    fi
+    local tag="v${projectVersion}"
+    git -C "${repoRoot}" rev-parse --verify "${tag}^{commit}" >/dev/null 2>&1 &&
+        git -C "${repoRoot}" log -1 --format=%cs "$tag" && return
 
     date -u +%F
 }
