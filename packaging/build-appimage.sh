@@ -3,6 +3,7 @@ set -euo pipefail
 
 scriptDir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repoRoot=$(cd "${scriptDir}/.." && pwd)
+cmakeBin="${CMAKE_BIN:-cmake}"
 
 buildDir="${BUILD_DIR:-${repoRoot}/build/appimage}"
 appDir="${APPDIR:-${buildDir}/AppDir}"
@@ -85,15 +86,15 @@ if [[ -n "${qmakeBinary}" ]]; then
     qtPluginBase=$("${qmakeBinary}" -query QT_INSTALL_PLUGINS)
 fi
 
-cmake -S "${repoRoot}" \
+"${cmakeBin}" -S "${repoRoot}" \
       -B "${buildDir}" \
       -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DLDIRSTAT_RELEASE_DATE="${releaseDate}"
 
-cmake --build "${buildDir}" --target LDirStat
-DESTDIR="${appDir}" cmake --install "${buildDir}" --component App
+"${cmakeBin}" --build "${buildDir}" --target LDirStat
+DESTDIR="${appDir}" "${cmakeBin}" --install "${buildDir}" --component App
 
 cp "${appDir}/usr/share/metainfo/io.github.siim_eng.ldirstat.desktop.metainfo.xml" \
    "${appDir}/usr/share/metainfo/io.github.siim_eng.ldirstat.desktop.appdata.xml"

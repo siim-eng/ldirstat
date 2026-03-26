@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   appimage:
     runs-on: ubuntu-22.04
@@ -33,6 +36,13 @@ jobs:
             qt6-base-dev-tools \
             libqt6opengl6-dev \
             libqt6svg6-dev
+
+      - name: Debug OpenGL
+        run: |
+          which cmake && cmake --version
+          find /usr/include -name "gl.h" 2>/dev/null || echo "gl.h not found"
+          dpkg -l | grep -i mesa || true
+          dpkg -l | grep -i glvnd || true
 
       - name: Read project version
         id: version
@@ -60,7 +70,9 @@ jobs:
           fi
 
       - name: Configure build tree
-        run: cmake -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDIRSTAT_RELEASE_DATE=${{ steps.release_date.outputs.value }}
+        env:
+          CMAKE_BIN: /usr/bin/cmake
+        run: $CMAKE_BIN -S . -B build/ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DLDIRSTAT_RELEASE_DATE=${{ steps.release_date.outputs.value }}
 
       - name: Validate desktop entry
         run: desktop-file-validate packaging/linux/ldirstat.desktop
@@ -70,6 +82,7 @@ jobs:
 
       - name: Build AppImage
         env:
+          CMAKE_BIN: /usr/bin/cmake
           LDIRSTAT_RELEASE_DATE: ${{ steps.release_date.outputs.value }}
         run: ./packaging/build-appimage.sh
 
