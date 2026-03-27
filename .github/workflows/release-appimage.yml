@@ -121,6 +121,12 @@ jobs:
 
       - name: Publish GitHub release asset
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPIMAGE: dist/LDirStat-${{ steps.version.outputs.value }}-x86_64.AppImage
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${APPIMAGE}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${APPIMAGE}" --verify-tag --generate-notes
+          fi

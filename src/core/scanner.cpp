@@ -260,10 +260,16 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
                 break;
             }
 
+            if (entry.type == EntryType::Directory && haveStat && st.st_dev != rootDev_) {
+                entry.type = EntryType::MountPoint;
+                entry.size = 0;
+                allocatedBytes = 0;
+            }
+
             // Accumulate counts and totals.
-            if (entry.type == EntryType::File) {
+            if (entry.isFile()) {
                 ++files;
-            } else if (entry.type == EntryType::Directory) {
+            } else if (entry.isDir()) {
                 ++dirs;
             }
             totalAllocatedBytes += allocatedBytes;

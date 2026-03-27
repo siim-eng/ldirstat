@@ -12,6 +12,7 @@ namespace ldirstat {
 enum class EntryType : uint8_t {
     File,
     Directory,
+    MountPoint,
     Symlink,
     Other,
 };
@@ -41,6 +42,7 @@ struct DirEntry {
     EntryType type = EntryType::File;
 
     // Size in bytes. For files: st_size. For directories: sum of subtree.
+    // Mount points are treated as empty directories and keep size 0.
     uint64_t size = 0;
 
     // Number of files/dirs in subtree (excluding self). 0 for files.
@@ -53,7 +55,10 @@ struct DirEntry {
     uint32_t childCount = 0;         // number of direct children
     EntryRef nextSibling;
 
-    bool isDir()  const { return type == EntryType::Directory; }
+    bool isDir() const {
+        return type == EntryType::Directory || type == EntryType::MountPoint;
+    }
+    bool isMountPoint() const { return type == EntryType::MountPoint; }
     bool isFile() const { return type == EntryType::File; }
 };
 

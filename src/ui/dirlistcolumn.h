@@ -77,6 +77,7 @@ private:
         QString pctStr;
         QString name;
         bool isDir;
+        bool isMountPoint;
         SizeTier sizeTier;
     };
 

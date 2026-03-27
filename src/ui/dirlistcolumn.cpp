@@ -176,10 +176,11 @@ void DirListColumn::buildChildList() {
 
         ChildEntry ce;
         ce.ref = childRef;
-        ce.sizeStr = formatSize(child.size);
+        ce.sizeStr = child.isMountPoint() ? tr("mnt") : formatSize(child.size);
         ce.pctStr = formatPercent(child.size, rootSize_);
         ce.name = QString::fromUtf8(sv.data(), static_cast<int>(sv.size()));
         ce.isDir = child.isDir();
+        ce.isMountPoint = child.isMountPoint();
         ce.sizeTier = sizeTierFor(child.size);
 
         children_.push_back(std::move(ce));
@@ -736,7 +737,9 @@ void DirListColumn::paintRows(QPainter& painter, const QRect& rowsRect) {
                                     : pal.color(QPalette::Text);
         QColor sizeColor = textColor;
         if (!selected) {
-            if (child.sizeTier == SizeTier::MB)
+            if (child.isMountPoint)
+                sizeColor = themeColors_.mountForeground;
+            else if (child.sizeTier == SizeTier::MB)
                 sizeColor = themeColors_.primaryForeground;
             else if (child.sizeTier == SizeTier::GB)
                 sizeColor = themeColors_.secondaryForeground;
