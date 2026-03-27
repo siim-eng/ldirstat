@@ -1,0 +1,46 @@
+Before(3/28/26):
+siim@siim-desktop:~/projects/ldirstat/build> ./scandirs / 8
+dirs:      35716
+files:     258838
+disk_used: 14308867169 bytes
+scan:      101.357 ms
+propagate: 1.258 ms
+sort:      31.899 ms
+memory:    40.5 MB (entries: 17 pages / 34.0 MB, names: 104 pages / 6.5 MB)
+rss:       46.1 MB
+siim@siim-desktop:~/projects/ldirstat/build>
+After(3/28/26):
+siim@siim-desktop:~/projects/ldirstat/build> ./scandirs / 8
+dirs:      35716
+files:     258838
+disk_used: 14311681121 bytes
+scan:      107.834 ms
+propagate: 1.300 ms
+sort:      27.951 ms
+memory:    40.5 MB (entries: 17 pages / 34.0 MB, names: 104 pages / 6.5 MB)
+rss:       46.5 MB
+siim@siim-desktop:~/projects/ldirstat/build>
+
+
+Before(3/28/26):
+siim@siim-desktop:~/projects/ldirstat/build> ./scandirs /home 8
+dirs:      3421
+files:     458497
+disk_used: 11013470875 bytes
+scan:      85.732 ms
+propagate: 1.162 ms
+sort:      33.440 ms
+memory:    42.4 MB (entries: 17 pages / 34.0 MB, names: 134 pages / 8.4 MB)
+rss:       46.9 MB
+siim@siim-desktop:~/projects/ldirstat/build>
+After(3/28/26):
+siim@siim-desktop:~/projects/ldirstat/build> ./scandirs /home 8
+dirs:      3422
+files:     458820
+disk_used: 11031579124 bytes
+scan:      87.748 ms
+propagate: 1.357 ms
+sort:      33.180 ms
+memory:    44.4 MB (entries: 18 pages / 36.0 MB, names: 135 pages / 8.4 MB)
+rss:       49.0 MB
+siim@siim-desktop:~/projects/ldirstat/build>

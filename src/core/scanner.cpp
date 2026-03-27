@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -27,6 +28,13 @@ constexpr size_t kInitialPathBufSize = 4096;
 bool isDotOrDotdot(const char* name) {
     return name[0] == '.' &&
            (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
+}
+
+uint16_t clampHardLinks(nlink_t links) {
+    constexpr nlink_t kMaxHardLinks = static_cast<nlink_t>(std::numeric_limits<uint16_t>::max());
+    if (links > kMaxHardLinks)
+        return std::numeric_limits<uint16_t>::max();
+    return static_cast<uint16_t>(links);
 }
 
 } // namespace
@@ -366,6 +374,11 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
                 entry.type = EntryType::MountPoint;
                 entry.size = 0;
                 allocatedBytes = 0;
+            }
+
+            if (entry.isFile()) {
+                entry.fileCategory = FileCategorizer::categorize(d->d_name);
+                entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
             }
 
             // Accumulate counts and totals.

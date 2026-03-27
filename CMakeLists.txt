@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(ldirstat VERSION 0.2.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -91,3 +92,11 @@ add_executable(scanmounts bench/scanmounts.cpp)
 target_link_libraries(scanmounts PRIVATE ldirstat_core)
 
 add_executable(gentree bench/gentree.cpp)
+target_link_libraries(gentree PRIVATE ldirstat_core)
+
+if(BUILD_TESTING)
+    add_executable(filecategorizer_tests tests/filecategorizer_tests.cpp)
+    target_include_directories(filecategorizer_tests PRIVATE third_party)
+    target_link_libraries(filecategorizer_tests PRIVATE ldirstat_core)
+    add_test(NAME filecategorizer_tests COMMAND filecategorizer_tests)
+endif()

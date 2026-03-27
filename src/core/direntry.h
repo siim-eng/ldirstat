@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
+#include "filecategorizer.h"
 #include "namestore.h"
 
 // Arena-friendly directory entry. Fixed-size, no heap allocations.
@@ -45,8 +47,18 @@ struct DirEntry {
     // Mount points are treated as empty directories and keep size 0.
     uint64_t size = 0;
 
-    // Number of files/dirs in subtree (excluding self). 0 for files.
-    uint32_t fileCount = 0;
+    // Directory/file specific payload at the same offset:
+    //  - directories and mount points use fileCount
+    //  - regular files use fileCategory + hardLinks
+    union {
+        uint32_t fileCount = 0;
+        struct {
+            FileCategory fileCategory;
+            uint16_t hardLinks;
+        };
+    };
+
+    // Number of descendant directories (excluding self). 0 for non-directories.
     uint32_t dirCount = 0;
 
     // Tree links (EntryRef into DirEntryStore).
@@ -63,6 +75,8 @@ struct DirEntry {
 };
 
 static_assert(sizeof(EntryRef) == 8);
+static_assert(offsetof(DirEntry, fileCount) == offsetof(DirEntry, fileCategory));
+static_assert(offsetof(DirEntry, hardLinks) == offsetof(DirEntry, fileCategory) + sizeof(FileCategory));
 static_assert(sizeof(DirEntry) == 64);
 
 } // namespace ldirstat
