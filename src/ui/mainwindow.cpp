@@ -905,7 +905,7 @@ void MainWindow::clearDirectoryBreadcrumb() {
 
 void MainWindow::openHelpPage() {
     QDesktopServices::openUrl(
-        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/docs/blob/main/HELP.md")));
+        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/blob/main/docs/HELP.md")));
 }
 
 void MainWindow::reportIssue() {
