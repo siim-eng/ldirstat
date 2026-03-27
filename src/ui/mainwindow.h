@@ -70,6 +70,11 @@ private slots:
     void showDirListContextMenu(EntryRef ref, QPoint globalPos);
 
 private:
+    enum class ScanMode : uint8_t {
+        FullRootScan,
+        ContinueMountPoint,
+    };
+
     void refreshWelcomeVolumes();
     void setMountInProgress(bool inProgress, const QString& status = {});
     bool isGraphPageVisible() const;
@@ -92,6 +97,7 @@ private:
     void showBatchFailureDialog(const QString& title,
                                 const QString& actionDescription,
                                 const QStringList& failedPaths);
+    void startContinueScan(EntryRef ref);
     void showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList);
     void navigateToDirectory(EntryRef ref);
     QString pathForEntry(EntryRef ref) const;
@@ -99,6 +105,8 @@ private:
     QThread* scanThread_ = nullptr;
     QProcess* mountProcess_ = nullptr;
     QString lastScanPath_;
+    ScanMode activeScanMode_ = ScanMode::FullRootScan;
+    EntryRef pendingContinueMount_ = kNoEntry;
 
     // Core state.
     FileSystems fileSystems_;

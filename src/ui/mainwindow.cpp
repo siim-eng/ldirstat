@@ -336,6 +336,37 @@ void MainWindow::showBatchFailureDialog(const QString& title,
             .arg(lines.join('\n')));
 }
 
+void MainWindow::startContinueScan(EntryRef ref) {
+    if (!ref.valid() || !currentRoot_.valid())
+        return;
+    if (mountProcess_ || (scanThread_ && scanThread_->isRunning()))
+        return;
+    if (!entryStore_[ref].isMountPoint())
+        return;
+
+    toolbar_->setVisible(true);
+    viewStack_->setCurrentIndex(1);
+    flameStack_->setCurrentIndex(0);
+    scanProgress_->reset();
+    scanPollTimer_->start();
+    dirListView_->setEnabled(false);
+    overviewAction_->setEnabled(false);
+    rescanAction_->setEnabled(false);
+
+    delete scanThread_;
+    scanThread_ = nullptr;
+
+    activeScanMode_ = ScanMode::ContinueMountPoint;
+    pendingContinueMount_ = ref;
+
+    const int workers = std::clamp(QThread::idealThreadCount() / 2, 1, 8);
+    scanThread_ = QThread::create([this, ref, workers]() {
+        const bool success = scanner_.continueScan(ref, workers);
+        emit scanComplete(success ? ref : kNoEntry);
+    });
+    scanThread_->start();
+}
+
 void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList) {
     if (!ref.valid())
         return;
@@ -356,6 +387,10 @@ void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bo
         menu.addAction(openEntryAction_);
         menu.addAction(openEntryTerminalAction_);
         menu.addAction(copyEntryPathAction_);
+    }
+    if (entryStore_[ref].isMountPoint()) {
+        menu.addAction(tr("Continue Scanning at Mount Point"),
+                       this, [this, ref]() { startContinueScan(ref); });
     }
     menu.addSeparator();
     menu.addAction(trashEntryAction_);
@@ -574,11 +609,15 @@ void MainWindow::startScan(const QString& path) {
     if (mountProcess_ || (scanThread_ && scanThread_->isRunning()))
         return;
 
+    activeScanMode_ = ScanMode::FullRootScan;
+    pendingContinueMount_ = kNoEntry;
     lastScanPath_ = path;
 
     toolbar_->setVisible(true);
     overviewAction_->setText(tr("Overview"));
     rescanAction_->setVisible(true);
+    overviewAction_->setEnabled(true);
+    rescanAction_->setEnabled(true);
 
     viewStack_->setCurrentIndex(1);
     flameStack_->setCurrentIndex(0);
@@ -613,8 +652,10 @@ void MainWindow::startScan(const QString& path) {
 
     scanThread_ = QThread::create([this, scanPath, workers]() {
         EntryRef root = scanner_.scan(scanPath, workers);
-        scanner_.propagate(root);
-        scanner_.sortBySize(workers);
+        if (root.valid()) {
+            scanner_.propagate(root);
+            scanner_.sortBySize(workers);
+        }
         emit scanComplete(root);
     });
     scanThread_->start();
@@ -713,6 +754,51 @@ void MainWindow::onScanFinished(EntryRef root) {
         scanThread_ = nullptr;
     }
 
+    if (activeScanMode_ == ScanMode::ContinueMountPoint) {
+        const EntryRef continuedMount = pendingContinueMount_;
+        const EntryRef fallbackTarget = currentEntry_.valid()
+            ? currentEntry_
+            : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
+        bool continueSucceeded = false;
+
+        if (scanner_.stopped()) {
+            scanner_.revertContinueScan(continuedMount);
+        } else if (!root.valid()) {
+            scanner_.revertContinueScan(continuedMount);
+            QMessageBox::warning(
+                this,
+                tr("Continue Scan Failed"),
+                tr("Unable to continue scanning \"%1\".")
+                    .arg(pathForEntry(continuedMount)));
+        } else {
+            onScanPollTick();
+            scanner_.commitContinueScan(continuedMount);
+            continueSucceeded = true;
+        }
+
+        flameStack_->setCurrentIndex(1);
+        dirListView_->setEnabled(true);
+        overviewAction_->setEnabled(true);
+        rescanAction_->setEnabled(true);
+
+        if (currentRoot_.valid()) {
+            dirListView_->setRoot(entryStore_, nameStore_, currentRoot_);
+            graphWidget_->setStores(&entryStore_, &nameStore_);
+
+            const EntryRef refreshTarget =
+                continueSucceeded ? continuedMount : fallbackTarget;
+            const EntryRef target = refreshTarget.valid() ? refreshTarget : currentRoot_;
+            if (target.valid() && target != currentRoot_)
+                dirListView_->selectEntry(target);
+
+            syncGraphSelection();
+        }
+
+        activeScanMode_ = ScanMode::FullRootScan;
+        pendingContinueMount_ = kNoEntry;
+        return;
+    }
+
     if (scanner_.stopped()) {
         entryStore_.clear();
         nameStore_.clear();
@@ -721,12 +807,32 @@ void MainWindow::onScanFinished(EntryRef root) {
         dirListView_->setEnabled(true);
         viewStack_->setCurrentIndex(0);
         refreshWelcomeVolumes();
+        activeScanMode_ = ScanMode::FullRootScan;
+        pendingContinueMount_ = kNoEntry;
         if (!currentRoot_.valid()) {
             toolbar_->setVisible(false);
         } else {
             overviewAction_->setText(tr("Back"));
             rescanAction_->setVisible(false);
         }
+        return;
+    }
+
+    if (!root.valid()) {
+        entryStore_.clear();
+        nameStore_.clear();
+        setCurrentEntry(kNoEntry);
+        graphFocusDir_ = kNoEntry;
+        dirListView_->setEnabled(true);
+        viewStack_->setCurrentIndex(0);
+        refreshWelcomeVolumes();
+        toolbar_->setVisible(false);
+        activeScanMode_ = ScanMode::FullRootScan;
+        pendingContinueMount_ = kNoEntry;
+        QMessageBox::warning(
+            this,
+            tr("Scan Failed"),
+            tr("Unable to scan \"%1\".").arg(lastScanPath_));
         return;
     }
 
@@ -741,6 +847,8 @@ void MainWindow::onScanFinished(EntryRef root) {
     dirListView_->setRoot(entryStore_, nameStore_, root);
     graphWidget_->setStores(&entryStore_, &nameStore_);
     syncGraphSelection();
+    activeScanMode_ = ScanMode::FullRootScan;
+    pendingContinueMount_ = kNoEntry;
 }
 
 void MainWindow::onDirSelected(EntryRef ref) {

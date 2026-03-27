@@ -24,6 +24,9 @@ public:
     // Blocks until scan completes or stop() is called.
     // Returns the EntryRef of the root directory.
     EntryRef scan(const std::string& rootPath, int workerCount);
+    bool continueScan(EntryRef root, int workerCount);
+    void commitContinueScan(EntryRef root);
+    void revertContinueScan(EntryRef root);
 
     // Signals all workers to stop. Can be called from any thread.
     void stop();
@@ -34,13 +37,18 @@ public:
 
     // Single-threaded post-scan pass. Propagates fileCount, dirCount,
     // size from child directories up to their parents.
-    void propagate(EntryRef root);
+    void propagate(EntryRef root, bool includeAncestors = true);
 
     // Sort each directory's children by size (descending).
     // Workers take batches from dirQueue_.
     void sortBySize(int workerCount);
 
 private:
+    struct SortEntry {
+        uint64_t size;
+        EntryRef ref;
+    };
+
     struct WorkerCtx {
         std::vector<char> getdentsBuf;
         std::vector<EntryRef> subdirBatch;
@@ -53,7 +61,10 @@ private:
     void returnWork(std::vector<EntryRef>& subdirs);
     void workerLoop(WorkerCtx& ctx);
     void scanDir(EntryRef dirRef, WorkerCtx& ctx);
-    void buildPath(EntryRef ref, WorkerCtx& ctx);
+    void buildPath(EntryRef ref, std::vector<char>& pathBuf);
+    void resetRuntimeState();
+    void runScanWorkers(int workerCount);
+    void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry>& scratch);
 
     static constexpr size_t kSortBatchSize = 10;
     size_t takeSortBatch();
