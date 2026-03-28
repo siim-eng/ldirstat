@@ -39,6 +39,11 @@ uint16_t clampHardLinks(nlink_t links) {
     return static_cast<uint16_t>(links);
 }
 
+bool isExecutableByMode(const struct stat& st) {
+    return S_ISREG(st.st_mode) &&
+           (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+}
+
 } // namespace
 
 Scanner::Scanner(DirEntryStore& entryStore, NameStore& nameStore)
@@ -379,7 +384,10 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
             }
 
             if (entry.isFile()) {
-                entry.fileCategory = FileCategorizer::categorize(d->d_name);
+                FileCategory category = FileCategorizer::categorize(d->d_name);
+                if (category == FileCategory::Unknown && haveStat && isExecutableByMode(st))
+                    category = FileCategory::Executable;
+                entry.fileCategory = category;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
             }
 

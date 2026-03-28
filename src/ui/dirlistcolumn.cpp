@@ -510,7 +510,7 @@ void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
         focusColor.setAlpha(170);
         painter.setPen(QPen(focusColor, 2));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRect(rect().adjusted(1, 1, -2, -2));
+        painter.drawRect(rect().adjusted(1, 1, -1, -2));
     }
 
     paintRows(painter, listRect());

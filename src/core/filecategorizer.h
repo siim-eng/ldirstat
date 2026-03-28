@@ -347,6 +347,9 @@ private:
         case 't':
             if (v == lit("ts")) return FileCategory::Source;
             break;
+        case 'u':
+            if (v == lit("ui")) return FileCategory::Source;
+            break;
         case 'x':
             if (v == lit("xz")) return FileCategory::Compressed;
             break;
@@ -564,6 +567,9 @@ private:
         case 'f':
             if (v == lit("flatpak")) return FileCategory::Package;
             break;
+        case 'j':
+            if (v == lit("journal")) return FileCategory::Log;
+            break;
         case 's':
             if (v == lit("sqlite3")) return FileCategory::Database;
             break;
@@ -578,6 +584,9 @@ private:
         switch (c0) {
         case 'a':
             if (v == lit("appimage")) return FileCategory::Package;
+            break;
+        case 'j':
+            if (v == lit("journal~")) return FileCategory::Log;
             break;
         default:
             break;

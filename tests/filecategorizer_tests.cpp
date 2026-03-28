@@ -1,19 +1,70 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
+#include <cstdlib>
+#include <filesystem>
 #include <string_view>
+#include <vector>
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "filecategorizer.h"
+#include "scanner.h"
 
 namespace {
 
 using ldirstat::FileCategorizer;
 using ldirstat::FileCategory;
+namespace fs = std::filesystem;
 
 struct CategoryCase {
     std::string_view path;
     FileCategory expected;
 };
+
+struct TempDir {
+    fs::path path;
+
+    TempDir() {
+        std::string templ = (fs::temp_directory_path() / "ldirstat-scanner-XXXXXX").string();
+        std::vector<char> buffer(templ.begin(), templ.end());
+        buffer.push_back('\0');
+        char* created = ::mkdtemp(buffer.data());
+        REQUIRE(created != nullptr);
+        path = created;
+    }
+
+    ~TempDir() {
+        if (path.empty())
+            return;
+        std::error_code ec;
+        fs::remove_all(path, ec);
+    }
+};
+
+void writeFileWithMode(const fs::path& path, mode_t mode) {
+    const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, mode);
+    REQUIRE(fd >= 0);
+    const char payload[] = "x";
+    REQUIRE(::write(fd, payload, sizeof(payload) - 1) == static_cast<ssize_t>(sizeof(payload) - 1));
+    REQUIRE(::fchmod(fd, mode) == 0);
+    REQUIRE(::close(fd) == 0);
+}
+
+ldirstat::EntryRef findChildByName(const ldirstat::DirEntryStore& entries,
+                                   const ldirstat::NameStore& names,
+                                   ldirstat::EntryRef dirRef,
+                                   std::string_view name) {
+    ldirstat::EntryRef child = entries[dirRef].firstChild;
+    while (child.valid()) {
+        if (names.get(entries[child].name) == name)
+            return child;
+        child = entries[child].nextSibling;
+    }
+    return ldirstat::kNoEntry;
+}
 
 TEST_CASE("categorizes supported extensions") {
     constexpr CategoryCase cases[] = {
@@ -74,6 +125,8 @@ TEST_CASE("categorizes supported extensions") {
         {"plugin.dll", FileCategory::Library},
         {"plugin.dylib", FileCategory::Library},
         {"stderr.err", FileCategory::Log},
+        {"system.journal", FileCategory::Log},
+        {"system.journal~", FileCategory::Log},
         {"stdout.OUT", FileCategory::Log},
         {"service.pid", FileCategory::Log},
         {"song.mp3", FileCategory::Music},
@@ -115,6 +168,7 @@ TEST_CASE("categorizes supported extensions") {
         {"script.rs", FileCategory::Source},
         {"script.sh", FileCategory::Source},
         {"script.ts", FileCategory::Source},
+        {"dialog.ui", FileCategory::Source},
         {"component.tsx", FileCategory::Source},
         {"page.jsx", FileCategory::Source},
         {"program.java", FileCategory::Source},
@@ -285,6 +339,48 @@ TEST_CASE("counts file categories across a direntry tree") {
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Unknown)].totalSize == 30);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].count == 0);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].totalSize == 0);
+}
+
+TEST_CASE("scanner detects extensionless executables from mode bits") {
+    TempDir tempDir;
+    writeFileWithMode(tempDir.path / "tool", 0755);
+    writeFileWithMode(tempDir.path / "script.sh", 0755);
+    writeFileWithMode(tempDir.path / "libdemo.so.1", 0755);
+    writeFileWithMode(tempDir.path / "README", 0644);
+    REQUIRE(::symlink("tool", (tempDir.path / "tool-link").c_str()) == 0);
+
+    ldirstat::DirEntryStore entryStore;
+    ldirstat::NameStore nameStore;
+    ldirstat::Scanner scanner(entryStore, nameStore);
+
+    const ldirstat::EntryRef root = scanner.scan(tempDir.path.string(), 1);
+    REQUIRE(root.valid());
+
+    const ldirstat::EntryRef tool = findChildByName(entryStore, nameStore, root, "tool");
+    const ldirstat::EntryRef script = findChildByName(entryStore, nameStore, root, "script.sh");
+    const ldirstat::EntryRef library = findChildByName(entryStore, nameStore, root, "libdemo.so.1");
+    const ldirstat::EntryRef readme = findChildByName(entryStore, nameStore, root, "README");
+    const ldirstat::EntryRef toolLink = findChildByName(entryStore, nameStore, root, "tool-link");
+
+    REQUIRE(tool.valid());
+    REQUIRE(script.valid());
+    REQUIRE(library.valid());
+    REQUIRE(readme.valid());
+    REQUIRE(toolLink.valid());
+
+    CHECK(entryStore[tool].type == ldirstat::EntryType::File);
+    CHECK(entryStore[tool].fileCategory == FileCategory::Executable);
+
+    CHECK(entryStore[script].type == ldirstat::EntryType::File);
+    CHECK(entryStore[script].fileCategory == FileCategory::Source);
+
+    CHECK(entryStore[library].type == ldirstat::EntryType::File);
+    CHECK(entryStore[library].fileCategory == FileCategory::Library);
+
+    CHECK(entryStore[readme].type == ldirstat::EntryType::File);
+    CHECK(entryStore[readme].fileCategory == FileCategory::Unknown);
+
+    CHECK(entryStore[toolLink].type == ldirstat::EntryType::Symlink);
 }
 
 } // namespace
