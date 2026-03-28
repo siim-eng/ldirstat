@@ -74,6 +74,13 @@ struct DirEntry {
     bool isFile() const { return type == EntryType::File; }
 };
 
+inline uint64_t layoutSizeOf(const DirEntry& entry) {
+    if (!entry.isFile() || entry.hardLinks <= 1)
+        return entry.size;
+
+    return entry.size / static_cast<uint64_t>(entry.hardLinks);
+}
+
 static_assert(sizeof(EntryRef) == 8);
 static_assert(offsetof(DirEntry, fileCount) == offsetof(DirEntry, fileCategory));
 static_assert(offsetof(DirEntry, hardLinks) == offsetof(DirEntry, fileCategory) + sizeof(FileCategory));

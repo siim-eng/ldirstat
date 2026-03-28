@@ -51,10 +51,11 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
 
         int row = rowOffset + depth;
         const DirEntry& entry = store[f.child];
+        const uint64_t entrySize = layoutSizeOf(entry);
 
         // Compute rect x range.
         float width = (f.parentSize > 0)
-            ? static_cast<float>(static_cast<double>(entry.size) / f.parentSize) * f.parentWidth
+            ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth
             : 0.0f;
         float x1 = f.x1;
         float x2 = x1 + width;

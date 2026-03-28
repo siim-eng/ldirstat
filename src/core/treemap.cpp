@@ -45,6 +45,13 @@ TreeMapRect clampRect(const TreeMapRect& rect) {
     };
 }
 
+uint64_t totalTreemapSizeOfChildren(const DirEntryStore& store, EntryRef firstChild) {
+    uint64_t totalSize = 0;
+    for (EntryRef childRef = firstChild; childRef.valid(); childRef = store[childRef].nextSibling)
+        totalSize += layoutSizeOf(store[childRef]);
+    return totalSize;
+}
+
 } // namespace
 
 void TreeMap::build(const DirEntryStore& store, EntryRef focus, const TreeMapOptions& options) {
@@ -57,7 +64,10 @@ void TreeMap::build(const DirEntryStore& store, EntryRef focus, const TreeMapOpt
         return;
 
     const DirEntry& rootEntry = store[focus];
-    if (rootEntry.size == 0)
+    const uint64_t rootTreemapSize =
+        rootEntry.firstChild.valid() ? totalTreemapSizeOfChildren(store, rootEntry.firstChild)
+                                     : layoutSizeOf(rootEntry);
+    if (rootTreemapSize == 0)
         return;
 
     const size_t reserveCount = std::max(
@@ -85,7 +95,7 @@ void TreeMap::build(const DirEntryStore& store, EntryRef focus, const TreeMapOpt
         return;
     }
 
-    stack_.push_back({0, nodes_[0].contentRect, rootEntry.firstChild, rootEntry.size});
+    stack_.push_back({0, nodes_[0].contentRect, rootEntry.firstChild, rootTreemapSize});
     while (!stack_.empty()) {
         const Frame frame = stack_.back();
         stack_.pop_back();
@@ -149,12 +159,13 @@ TreeMap::RowState TreeMap::collectRow(const DirEntryStore& store,
 
     while (row.nextChild.valid()) {
         const DirEntry& candidate = store[row.nextChild];
-        if (candidate.size == 0) {
+        const uint64_t candidateSize = layoutSizeOf(candidate);
+        if (candidateSize == 0) {
             row.nextChild = candidate.nextSibling;
             continue;
         }
 
-        const double candidateArea = static_cast<double>(candidate.size) * scale;
+        const double candidateArea = static_cast<double>(candidateSize) * scale;
         if (candidateArea < options.minNodeArea)
             break;
 
@@ -168,9 +179,9 @@ TreeMap::RowState TreeMap::collectRow(const DirEntryStore& store,
             break;
         }
 
-        rowEntries_.push_back({row.nextChild, candidateArea, candidate.size});
+        rowEntries_.push_back({row.nextChild, candidateArea, candidateSize});
         row.area = trialArea;
-        row.size += candidate.size;
+        row.size += candidateSize;
         rowMinArea = trialMinArea;
         rowMaxArea = trialMaxArea;
         row.nextChild = candidate.nextSibling;
@@ -294,7 +305,12 @@ void TreeMap::appendNode(const DirEntryStore& store,
         return;
     }
 
-    pendingChildren_.push_back({nodeIndex, nodes_[nodeIndex].contentRect, entry.firstChild, entry.size});
+    const uint64_t childTreemapSize = totalTreemapSizeOfChildren(store, entry.firstChild);
+    if (childTreemapSize == 0)
+        return;
+
+    pendingChildren_.push_back(
+        {nodeIndex, nodes_[nodeIndex].contentRect, entry.firstChild, childTreemapSize});
 }
 
 void TreeMap::pushPendingChildren() {
@@ -309,7 +325,7 @@ void TreeMap::finalizeFrame(const DirEntryStore& store, uint32_t parentNode, Ent
 }
 
 void TreeMap::trimZeroSized(const DirEntryStore& store, EntryRef& childRef) {
-    while (childRef.valid() && store[childRef].size == 0)
+    while (childRef.valid() && layoutSizeOf(store[childRef]) == 0)
         childRef = store[childRef].nextSibling;
 }
 
@@ -325,7 +341,7 @@ double TreeMap::areaScale(const TreeMapRect& rect, uint64_t remainingSize) {
 bool TreeMap::isTooSmall(const DirEntry& entry,
                          double scale,
                          const TreeMapOptions& options) {
-    return static_cast<double>(entry.size) * scale < options.minNodeArea;
+    return static_cast<double>(layoutSizeOf(entry)) * scale < options.minNodeArea;
 }
 
 EntryRef TreeMap::lookup(float x, float y) const {
