@@ -4,6 +4,7 @@
 
 #include "direntry.h"
 #include "direntrystore.h"
+#include "filecategorizer.h"
 #include "namestore.h"
 
 namespace ldirstat {
@@ -43,6 +44,10 @@ inline QString entryTooltip(const DirEntryStore& store, const NameStore& names,
     const DirEntry& entry = store[ref];
     QString tip = entryFullPath(store, names, ref);
     tip += '\n' + formatSizePrecise(entry.size);
+    if (entry.isFile()) {
+        tip += '\n' + QStringLiteral("Category: ")
+             + QString::fromUtf8(FileCategorizer::displayCategoryName(entry.fileCategory));
+    }
     if (entry.isDir()) {
         tip += '\n' + QString::number(entry.dirCount) + " dirs, "
              + QString::number(entry.fileCount) + " files";

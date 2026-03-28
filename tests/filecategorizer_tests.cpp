@@ -83,7 +83,9 @@ TEST_CASE("categorizes supported extensions") {
         {"track.m4a", FileCategory::Music},
         {"track.wma", FileCategory::Music},
         {"build.o", FileCategory::ObjectGenerated},
+        {"build.file", FileCategory::ObjectGenerated},
         {"bytecode.CLASS", FileCategory::ObjectGenerated},
+        {"snapshot.commitmeta", FileCategory::ObjectGenerated},
         {"module.wasm", FileCategory::ObjectGenerated},
         {"font.woff2", FileCategory::ObjectGenerated},
         {"main.c", FileCategory::Source},
@@ -146,6 +148,25 @@ TEST_CASE("handles full paths and extension views without copying") {
     CHECK(std::string_view(result.extensionPtr, result.extensionLen) == "PDF");
 }
 
+TEST_CASE("returns friendly display names for categories") {
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Unknown)) == "Unknown");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Archive)) == "Archive");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Compressed)) == "Compressed");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Database)) == "Database");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::DiskImage)) == "Disk image");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Document)) == "Document");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Package)) == "Package");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Image)) == "Image");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::BackupTemp)) == "Backup/temp");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Library)) == "Library");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Log)) == "Log");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Music)) == "Music");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::ObjectGenerated)) == "Object/generated");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Source)) == "Source");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Video)) == "Video");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Executable)) == "Executable");
+}
+
 TEST_CASE("ignores trailing separators and leading-dot names") {
     CHECK(FileCategorizer::categorize("/tmp/folder/") == FileCategory::Unknown);
     CHECK(FileCategorizer::categorize(".gitignore") == FileCategory::Unknown);
@@ -176,6 +197,17 @@ TEST_CASE("returns unknown for missing unsupported or deferred cases") {
 
     CHECK(FileCategorizer::categorize("archive.tar.gz") == FileCategory::Compressed);
     CHECK(FileCategorizer::categorize("archive.pkg.tar.zst") == FileCategory::Compressed);
+}
+
+TEST_CASE("detects versioned shared libraries with a case-sensitive fallback") {
+    CHECK(FileCategorizer::categorize("libfoo.so.1") == FileCategory::Library);
+    CHECK(FileCategorizer::categorize("/usr/lib/libbar.so.1.2") == FileCategory::Library);
+    CHECK(FileCategorizer::categorize("libc++.so.debug") == FileCategory::Library);
+    CHECK(FileCategorizer::categorize("libwidget.so.debugsymbols") == FileCategory::Library);
+
+    CHECK(FileCategorizer::categorize("Libfoo.so.1") == FileCategory::Unknown);
+    CHECK(FileCategorizer::categorize("libfoo.SO.1") == FileCategory::Unknown);
+    CHECK(FileCategorizer::categorize("plugin.so.1") == FileCategory::Unknown);
 }
 
 TEST_CASE("returns null extension info when no supported extension is present") {

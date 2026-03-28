@@ -62,12 +62,33 @@ public:
         return "unknown";
     }
 
-    [[nodiscard]] static inline FileCategory categorize(std::string_view utf8Path) noexcept {
-        const ExtensionView ext = findExtension(utf8Path);
-        if (ext.ptr == nullptr)
-            return FileCategory::Unknown;
+    [[nodiscard]] static constexpr const char* displayCategoryName(FileCategory category) noexcept {
+        switch (category) {
+        case FileCategory::Unknown: return "Unknown";
+        case FileCategory::Archive: return "Archive";
+        case FileCategory::Compressed: return "Compressed";
+        case FileCategory::Database: return "Database";
+        case FileCategory::DiskImage: return "Disk image";
+        case FileCategory::Document: return "Document";
+        case FileCategory::Package: return "Package";
+        case FileCategory::Image: return "Image";
+        case FileCategory::BackupTemp: return "Backup/temp";
+        case FileCategory::Library: return "Library";
+        case FileCategory::Log: return "Log";
+        case FileCategory::Music: return "Music";
+        case FileCategory::ObjectGenerated: return "Object/generated";
+        case FileCategory::Source: return "Source";
+        case FileCategory::Video: return "Video";
+        case FileCategory::Executable: return "Executable";
+        }
 
-        return categorizeExtension(ext.ptr, ext.len);
+        return "Unknown";
+    }
+
+    [[nodiscard]] static inline FileCategory categorize(std::string_view utf8Path) noexcept {
+        const BasenameView base = findBasename(utf8Path);
+        const ExtensionView ext = findExtension(base);
+        return categorizeResolved(base, ext);
     }
 
     struct Result {
@@ -77,14 +98,17 @@ public:
     };
 
     [[nodiscard]] static inline Result categorizeWithExtension(std::string_view utf8Path) noexcept {
-        const ExtensionView ext = findExtension(utf8Path);
-        if (ext.ptr == nullptr)
-            return {FileCategory::Unknown, nullptr, 0};
-
-        return {categorizeExtension(ext.ptr, ext.len), ext.ptr, ext.len};
+        const BasenameView base = findBasename(utf8Path);
+        const ExtensionView ext = findExtension(base);
+        return {categorizeResolved(base, ext), ext.ptr, ext.len};
     }
 
 private:
+    struct BasenameView {
+        const char* ptr;
+        std::size_t len;
+    };
+
     struct ExtensionView {
         const char* ptr;
         std::uint8_t len;
@@ -149,7 +173,7 @@ private:
         return value;
     }
 
-    [[nodiscard]] static inline ExtensionView findExtension(std::string_view path) noexcept {
+    [[nodiscard]] static inline BasenameView findBasename(std::string_view path) noexcept {
         const char* s = path.data();
         std::size_t end = path.size();
 
@@ -162,12 +186,22 @@ private:
         while (base > 0 && !isSlash(s[base - 1]))
             --base;
 
-        for (std::size_t i = end; i > base; --i) {
+        return {s + base, end - base};
+    }
+
+    [[nodiscard]] static inline ExtensionView findExtension(BasenameView base) noexcept {
+        if (base.ptr == nullptr || base.len == 0)
+            return {nullptr, 0};
+
+        const char* s = base.ptr;
+        const std::size_t end = base.len;
+
+        for (std::size_t i = end; i > 0; --i) {
             if (s[i - 1] != '.')
                 continue;
 
             const std::size_t dot = i - 1;
-            if (dot == base)
+            if (dot == 0)
                 return {nullptr, 0};
 
             const std::size_t extLen = end - (dot + 1);
@@ -178,6 +212,34 @@ private:
         }
 
         return {nullptr, 0};
+    }
+
+    [[nodiscard]] static inline FileCategory categorizeCaseSensitive(BasenameView base) noexcept {
+        if (base.ptr == nullptr || base.len < 7)
+            return FileCategory::Unknown;
+
+        // check if it is lib*.so.*
+        const char* s = base.ptr;
+        if (s[0] != 'l' || s[1] != 'i' || s[2] != 'b')
+            return FileCategory::Unknown;
+
+        for (std::size_t i = 3; i + 3 < base.len; ++i) {
+            if (s[i] == '.' && s[i + 1] == 's' && s[i + 2] == 'o' && s[i + 3] == '.')
+                return FileCategory::Library;
+        }
+
+        return FileCategory::Unknown;
+    }
+
+    [[nodiscard]] static inline FileCategory categorizeResolved(BasenameView base,
+                                                                ExtensionView ext) noexcept {
+        if (ext.ptr != nullptr) {
+            const FileCategory category = categorizeExtension(ext.ptr, ext.len);
+            if (category != FileCategory::Unknown)
+                return category;
+        }
+
+        return categorizeCaseSensitive(base);
     }
 
     [[nodiscard]] static inline FileCategory categorizeExtension(const char* ext,
@@ -417,6 +479,7 @@ private:
             if (v == lit("docx")) return FileCategory::Document;
             break;
         case 'f':
+            if (v == lit("file")) return FileCategory::ObjectGenerated;
             if (v == lit("flac")) return FileCategory::Music;
             break;
         case 'h':
@@ -528,6 +591,8 @@ private:
                                                              char c0) noexcept {
         switch (c0) {
         case 'c':
+            if (equalsLiteralIgnoreCase(ext, len, "commitmeta"))
+                return FileCategory::ObjectGenerated;
             if (equalsLiteralIgnoreCase(ext, len, "crdownload"))
                 return FileCategory::BackupTemp;
             break;

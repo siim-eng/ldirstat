@@ -39,6 +39,8 @@ struct GridPointHash {
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
     if (entry.isDir())
         return colors.primaryBackground;
+    if (entry.isFile())
+        return colors.colorForFileCategory(entry.fileCategory);
     return colors.secondaryBackground;
 }
 

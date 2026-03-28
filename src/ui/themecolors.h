@@ -1,7 +1,11 @@
 #pragma once
 
+#include <array>
+
 #include <QColor>
 #include <QPalette>
+
+#include "filecategorizer.h"
 
 namespace ldirstat {
 
@@ -12,6 +16,11 @@ struct ThemeColors {
     QColor secondaryBackground;
     QColor mountForeground;
     QColor selectionBorder;
+    std::array<QColor, FileCategorizer::kCategoryCount> fileCategoryBackgrounds;
+
+    [[nodiscard]] const QColor& colorForFileCategory(FileCategory category) const {
+        return fileCategoryBackgrounds[FileCategorizer::categoryIndex(category)];
+    }
 
     static ThemeColors fromPalette(const QPalette& pal) {
         bool dark = pal.color(QPalette::Window).lightness() < 128;
@@ -22,6 +31,24 @@ struct ThemeColors {
             dark ? QColor(0x9A, 0x70, 0x38) : QColor(0x6A, 0x46, 0x00),
             dark ? QColor(0xFF, 0x7B, 0x72) : QColor(0xC0, 0x36, 0x45),
             dark ? QColor(0xFF, 0x6B, 0x6B) : QColor(0xC4, 0x2B, 0x2B),
+            {
+                QColor(0x7A, 0x7A, 0x7A),
+                QColor(0x8C, 0x62, 0x39),
+                QColor(0xC9, 0x8A, 0x00),
+                QColor(0x2C, 0x7A, 0x7B),
+                QColor(0x51, 0x66, 0xB5),
+                QColor(0x2F, 0x6D, 0xB3),
+                QColor(0xA3, 0x5A, 0x3A),
+                QColor(0x2F, 0x9D, 0x73),
+                QColor(0xB2, 0x8A, 0x3A),
+                QColor(0x60, 0x7D, 0x8B),
+                QColor(0xC7, 0x6B, 0x29),
+                QColor(0xC4, 0x4E, 0x7A),
+                QColor(0x6E, 0x7F, 0x91),
+                QColor(0x2F, 0x8F, 0xA3),
+                QColor(0xB3, 0x4A, 0x4A),
+                QColor(0x4C, 0x9A, 0x2A),
+            },
         };
     }
 };

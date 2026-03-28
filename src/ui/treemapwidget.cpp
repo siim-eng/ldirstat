@@ -14,7 +14,11 @@ constexpr qreal kSelectionBorderWidth = 2.0;
 constexpr qreal kSelectionBorderInset = kSelectionBorderWidth * 0.5;
 
 QColor colorForEntry(const DirEntry& entry, const ThemeColors& colors) {
-    return entry.isDir() ? colors.primaryBackground : colors.secondaryBackground;
+    if (entry.isDir())
+        return colors.primaryBackground;
+    if (entry.isFile())
+        return colors.colorForFileCategory(entry.fileCategory);
+    return colors.secondaryBackground;
 }
 
 QColor headerColorForFill(const QColor& fill) {
