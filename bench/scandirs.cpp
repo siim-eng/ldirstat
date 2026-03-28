@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "direntrystore.h"
+#include "filecategorizer.h"
 #include "namestore.h"
 #include "scanner.h"
 
@@ -31,14 +32,18 @@ int main(int argc, char* argv[]) {
     auto t1 = std::chrono::steady_clock::now();
     scanner.propagate(rootRef);
     auto t2 = std::chrono::steady_clock::now();
-    scanner.sortBySize(workerCount);
+    ldirstat::FileCategoryCounter categoryCounter(entryStore);
+    categoryCounter.countTree(rootRef);
     auto t3 = std::chrono::steady_clock::now();
+    scanner.sortBySize(workerCount);
+    auto t4 = std::chrono::steady_clock::now();
 
     const ldirstat::DirEntry& root = entryStore[rootRef];
 
     double scanMs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
     double propagateMs = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
-    double sortMs = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() / 1000.0;
+    double categorizeMs = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() / 1000.0;
+    double sortMs = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count() / 1000.0;
 
     // Memory usage.
     uint16_t entryPages = entryStore.pageCount();
@@ -53,6 +58,7 @@ int main(int argc, char* argv[]) {
     std::printf("disk_used: %lu bytes\n", root.size);
     std::printf("scan:      %.3f ms\n", scanMs);
     std::printf("propagate: %.3f ms\n", propagateMs);
+    std::printf("categorize: %.3f ms\n", categorizeMs);
     std::printf("sort:      %.3f ms\n", sortMs);
     std::printf("memory:    %.1f MB (entries: %u pages / %.1f MB, names: %u pages / %.1f MB)\n",
                 totalBytes / (1024.0 * 1024.0),
@@ -70,6 +76,16 @@ int main(int argc, char* argv[]) {
         }
     }
     std::printf("rss:       %.1f MB\n", rssKb / 1024.0);
+
+    for (const auto& item : categoryCounter.items()) {
+        if (item.count == 0)
+            continue;
+
+        std::printf("category:  %-16s count=%lu size=%lu bytes\n",
+                    ldirstat::FileCategorizer::categoryName(item.category),
+                    item.count,
+                    item.totalSize);
+    }
 
     return 0;
 }

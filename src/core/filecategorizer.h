@@ -1,8 +1,13 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
+#include <vector>
+
+#include "direntrystore.h"
 
 namespace ldirstat {
 
@@ -27,6 +32,36 @@ enum class FileCategory : std::uint16_t {
 
 class FileCategorizer final {
 public:
+    static constexpr std::size_t kCategoryCount =
+        static_cast<std::size_t>(FileCategory::Executable) + 1;
+
+    [[nodiscard]] static constexpr std::size_t categoryIndex(FileCategory category) noexcept {
+        return static_cast<std::size_t>(category);
+    }
+
+    [[nodiscard]] static constexpr const char* categoryName(FileCategory category) noexcept {
+        switch (category) {
+        case FileCategory::Unknown: return "unknown";
+        case FileCategory::Archive: return "archive";
+        case FileCategory::Compressed: return "compressed";
+        case FileCategory::Database: return "database";
+        case FileCategory::DiskImage: return "disk_image";
+        case FileCategory::Document: return "document";
+        case FileCategory::Package: return "package";
+        case FileCategory::Image: return "image";
+        case FileCategory::BackupTemp: return "backup_temp";
+        case FileCategory::Library: return "library";
+        case FileCategory::Log: return "log";
+        case FileCategory::Music: return "music";
+        case FileCategory::ObjectGenerated: return "object_generated";
+        case FileCategory::Source: return "source";
+        case FileCategory::Video: return "video";
+        case FileCategory::Executable: return "executable";
+        }
+
+        return "unknown";
+    }
+
     [[nodiscard]] static inline FileCategory categorize(std::string_view utf8Path) noexcept {
         const ExtensionView ext = findExtension(utf8Path);
         if (ext.ptr == nullptr)
@@ -502,6 +537,80 @@ private:
 
         return FileCategory::Unknown;
     }
+};
+
+class FileCategoryCounter final {
+public:
+    struct Item {
+        FileCategory category = FileCategory::Unknown;
+        std::uint64_t count = 0;
+        std::uint64_t totalSize = 0;
+    };
+
+    using Items = std::array<Item, FileCategorizer::kCategoryCount>;
+
+    explicit FileCategoryCounter(const DirEntryStore& entryStore)
+        : entryStore_(entryStore) {
+        reset();
+    }
+
+    void reset() noexcept {
+        for (std::size_t i = 0; i < items_.size(); ++i) {
+            items_[i].category = static_cast<FileCategory>(i);
+            items_[i].count = 0;
+            items_[i].totalSize = 0;
+        }
+    }
+
+    void countTree(EntryRef root) {
+        reset();
+        if (!root.valid())
+            return;
+
+        const DirEntry& rootEntry = entryStore_[root];
+        if (rootEntry.isFile()) {
+            countFile(rootEntry);
+            return;
+        }
+
+        std::vector<EntryRef> stack;
+        stack.reserve(256);
+        stack.push_back(root);
+
+        EntryRef child = rootEntry.firstChild;
+        bool dirPopped = false;
+        while (!stack.empty() && child.valid()) {
+            const DirEntry& entry = entryStore_[child];
+            if (entry.isDir() && entry.childCount > 0 && !dirPopped) {
+                stack.push_back(child);
+                child = entry.firstChild;
+                continue;
+            }
+
+            if (entry.isFile())
+                countFile(entry);
+
+            dirPopped = false;
+            child = entry.nextSibling;
+            if (!child.valid()) {
+                child = stack.back();
+                stack.pop_back();
+                dirPopped = true;
+            }
+        }
+    }
+
+    [[nodiscard]] const Items& items() const noexcept { return items_; }
+
+private:
+    void countFile(const DirEntry& entry) noexcept {
+        Item& item = items_[FileCategorizer::categoryIndex(entry.fileCategory)];
+        ++item.count;
+        item.totalSize += layoutSizeOf(entry);
+    }
+
+    const DirEntryStore& entryStore_;
+    Items items_{};
 };
 
 } // namespace ldirstat

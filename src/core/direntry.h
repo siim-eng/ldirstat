@@ -3,13 +3,14 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "filecategorizer.h"
 #include "namestore.h"
 
 // Arena-friendly directory entry. Fixed-size, no heap allocations.
 // Names live in a NameStore; entries live in a page-based DirEntryStore.
 
 namespace ldirstat {
+
+enum class FileCategory : uint16_t;
 
 enum class EntryType : uint8_t {
     File,

@@ -186,4 +186,73 @@ TEST_CASE("returns null extension info when no supported extension is present") 
     CHECK(result.extensionLen == 0);
 }
 
+TEST_CASE("counts file categories across a direntry tree") {
+    ldirstat::DirEntryStore entryStore;
+    std::uint32_t entryPage = entryStore.allocatePage();
+
+    const ldirstat::EntryRef rootRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef docRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef musicRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef subdirRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef sourceRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef unknownRef = entryStore.add(entryPage);
+
+    auto& root = entryStore[rootRef];
+    root.type = ldirstat::EntryType::Directory;
+    root.firstChild = docRef;
+    root.childCount = 3;
+
+    auto& doc = entryStore[docRef];
+    doc.parent = rootRef;
+    doc.type = ldirstat::EntryType::File;
+    doc.fileCategory = FileCategory::Document;
+    doc.hardLinks = 1;
+    doc.size = 100;
+    doc.nextSibling = musicRef;
+
+    auto& music = entryStore[musicRef];
+    music.parent = rootRef;
+    music.type = ldirstat::EntryType::File;
+    music.fileCategory = FileCategory::Music;
+    music.hardLinks = 2;
+    music.size = 200;
+    music.nextSibling = subdirRef;
+
+    auto& subdir = entryStore[subdirRef];
+    subdir.parent = rootRef;
+    subdir.type = ldirstat::EntryType::Directory;
+    subdir.firstChild = sourceRef;
+    subdir.childCount = 2;
+
+    auto& source = entryStore[sourceRef];
+    source.parent = subdirRef;
+    source.type = ldirstat::EntryType::File;
+    source.fileCategory = FileCategory::Source;
+    source.hardLinks = 1;
+    source.size = 50;
+    source.nextSibling = unknownRef;
+
+    auto& unknown = entryStore[unknownRef];
+    unknown.parent = subdirRef;
+    unknown.type = ldirstat::EntryType::File;
+    unknown.fileCategory = FileCategory::Unknown;
+    unknown.hardLinks = 1;
+    unknown.size = 30;
+
+    ldirstat::FileCategoryCounter counter(entryStore);
+    counter.countTree(rootRef);
+
+    const auto& items = counter.items();
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Document)].count == 1);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Document)].totalSize == 100);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Music)].count == 1);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Music)].totalSize == 100);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Source)].count == 1);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Source)].totalSize == 50);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Unknown)].count == 1);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Unknown)].totalSize == 30);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].count == 0);
+    CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].totalSize == 0);
+}
+
 } // namespace
