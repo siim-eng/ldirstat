@@ -1,13 +1,3 @@
----
-# High-signal clang-tidy profile for this C++20 / Qt6 codebase.
-# Goal: catch likely bugs and worthwhile modernizations without drowning the project in style churn.
-#
-# Run on a file:
-#   clang-tidy -p build src/core/scanner.cpp --config-file=.clang-tidy
-#
-# Run on changed files:
-#   git diff --name-only -- '*.cpp' '*.h' | xargs -r clang-tidy -p build --config-file=.clang-tidy
-
 Checks: >
   -*,
   clang-analyzer-core.*,
