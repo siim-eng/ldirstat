@@ -58,7 +58,7 @@ private:
     };
 
     std::optional<EntryRef> takeWork();
-    void returnWork(std::vector<EntryRef> &subdirs);
+    void returnWork(const std::vector<EntryRef> &subdirs);
     void workerLoop(WorkerCtx &ctx);
     void scanDir(EntryRef dirRef, WorkerCtx &ctx);
     void buildPath(EntryRef ref, std::vector<char> &pathBuf);

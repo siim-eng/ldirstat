@@ -10,7 +10,7 @@
 #include "namestore.h"
 #include "scanner.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, const char *argv[]) {
     if (argc != 3) {
         std::fprintf(stderr, "Usage: %s <rootdir> <worker_count>\n", argv[0]);
         return 1;

@@ -214,10 +214,9 @@ std::optional<EntryRef> Scanner::takeWork() {
     }
 }
 
-void Scanner::returnWork(std::vector<EntryRef> &subdirs) {
+void Scanner::returnWork(const std::vector<EntryRef> &subdirs) {
     std::lock_guard lock(mutex_);
-    for (auto ref : subdirs)
-        dirQueue_.push_back(ref);
+    dirQueue_.insert(dirQueue_.end(), subdirs.begin(), subdirs.end());
     --activeWorkers_;
     cv_.notify_all();
 }
@@ -301,7 +300,6 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
     EntryRef prevChild;
     uint32_t files = 0;
     uint32_t dirs = 0;
-    uint32_t links = 0;
     uint64_t totalAllocatedBytes = 0;
     uint64_t allocatedBytes = 0;
 

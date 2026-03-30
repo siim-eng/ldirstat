@@ -75,7 +75,7 @@ bool DirListView::handleArrowKey(int key, Qt::KeyboardModifiers modifiers) {
     if (rootFocused_) {
         if (key == Qt::Key_Left) return true;
 
-        DirListColumn *rootColumn = columns_.front();
+        const DirListColumn *rootColumn = columns_.front();
         if (rootColumn->rowCount() == 0) return true;
 
         const int targetRow = key == Qt::Key_Up ? rootColumn->rowCount() - 1 : 0;
@@ -86,7 +86,7 @@ bool DirListView::handleArrowKey(int key, Qt::KeyboardModifiers modifiers) {
         return true;
     }
 
-    DirListColumn *column = columns_[activeColumnIndex_];
+    const DirListColumn *column = columns_[activeColumnIndex_];
     if (!column) return true;
 
     if (key == Qt::Key_Left) {
@@ -121,7 +121,7 @@ bool DirListView::handleArrowKey(int key, Qt::KeyboardModifiers modifiers) {
         if (focusedRow < 0 || !column->rowIsDir(focusedRow)) return true;
         if (activeColumnIndex_ + 1 >= static_cast<int>(columns_.size())) return true;
 
-        DirListColumn *nextColumn = columns_[activeColumnIndex_ + 1];
+        const DirListColumn *nextColumn = columns_[activeColumnIndex_ + 1];
         if (nextColumn->rowCount() > 0)
             applyFocusInColumn(activeColumnIndex_ + 1, 0);
         else {
@@ -281,11 +281,8 @@ void DirListView::onColumnFocusChanged(EntryRef ref, bool isDir) {
     if (ref.valid()) {
         emit entrySelected(ref);
 
-        EntryRef focusDir = col->dirRef();
-        if (const EntryRef parent = (*store_)[ref].parent; parent.valid())
-            focusDir = parent;
-        else
-            focusDir = ref;
+        const EntryRef parent = (*store_)[ref].parent;
+        const EntryRef focusDir = parent.valid() ? parent : ref;
 
         emit directorySelected(focusDir);
         return;

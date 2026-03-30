@@ -1,0 +1,30 @@
+# ── Qt / MOC noise ──────────────────────────────────────────────
+# MOC-generated code triggers various warnings we can't control.
+*:*moc_*
+*:*moc/*
+
+# Qt keywords/signals that cppcheck does not model well.
+unknownMacro:src/ui/*.h
+shadowFunction:src/ui/dirlistcolumn.cpp
+
+# ── Intentional patterns ───────────────────────────────────────
+# We use C arrays on the stack for fixed-depth stacks (scanner, flamegraph).
+cArrayUsed:src/core/scanner.cpp
+cArrayUsed:src/core/flamegraph.cpp
+
+# linux_dirent64 mirrors the kernel ABI; some fields are intentionally unused.
+unusedStructMember:src/core/scanner.cpp
+
+# Qt parent-child ownership — raw new is the intended pattern.
+ownershipTransferred
+
+# cppcheck can't see through Qt's parent-child delete chain.
+memleak:src/ui/*
+
+# Third-party code should not drive project warning noise.
+*:third_party/*
+
+# Style checks that conflict with our conventions.
+passedByValue
+postfixOperator
+useStlAlgorithm

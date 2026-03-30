@@ -94,6 +94,31 @@ target_link_libraries(scanmounts PRIVATE ldirstat_core)
 add_executable(gentree bench/gentree.cpp)
 target_link_libraries(gentree PRIVATE ldirstat_core)
 
+# Static analysis: cmake -B build -DENABLE_CPPCHECK=ON
+option(ENABLE_CPPCHECK "Run cppcheck during build" OFF)
+if(ENABLE_CPPCHECK)
+    find_program(CPPCHECK_EXE NAMES cppcheck)
+    if(CPPCHECK_EXE)
+        set(CMAKE_CXX_CPPCHECK
+            ${CPPCHECK_EXE}
+            --std=c++20
+            --enable=warning,style,performance,portability
+            --suppressions-list=${CMAKE_SOURCE_DIR}/.cppcheck-suppressions
+            --library=qt
+            -Dslots=
+            -Dsignals=public
+            -Demit=
+            -DQ_OBJECT=
+            --inline-suppr
+            --quiet
+            --error-exitcode=0
+        )
+        message(STATUS "cppcheck enabled: ${CPPCHECK_EXE}")
+    else()
+        message(WARNING "ENABLE_CPPCHECK is ON but cppcheck not found")
+    endif()
+endif()
+
 if(BUILD_TESTING)
     add_executable(filecategorizer_tests tests/filecategorizer_tests.cpp)
     target_include_directories(filecategorizer_tests PRIVATE third_party)

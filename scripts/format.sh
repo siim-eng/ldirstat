@@ -22,7 +22,8 @@ elif [[ $# -ne 0 ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$script_dir"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
 
 if ! command -v clang-format >/dev/null 2>&1; then
     echo "clang-format not found in PATH" >&2

@@ -19,8 +19,8 @@ void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGr
     std::reverse(ancestry.begin(), ancestry.end());
 
     rows_.resize(ancestry.size());
-    for (size_t row = 0; row < ancestry.size(); ++row)
-        rows_[row].push_back({0.0f, 1.0f, ancestry[row]});
+    for (size_t rowIndex = 0; rowIndex < ancestry.size(); ++rowIndex)
+        rows_[rowIndex].push_back({0.0f, 1.0f, ancestry[rowIndex]});
 
     struct Frame {
         EntryRef child; // next child to process
@@ -49,7 +49,7 @@ void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGr
             continue;
         }
 
-        int row = rowOffset + depth;
+        int rowIndex = rowOffset + depth;
         const DirEntry &entry = store[f.child];
         const uint64_t entrySize = layoutSizeOf(entry);
         assert(entrySize <= f.previousSize && "FlameGraph requires children sorted by size");
@@ -77,8 +77,8 @@ void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGr
         }
 
         // Emit rect.
-        if (row >= static_cast<int>(rows_.size())) rows_.resize(row + 1);
-        rows_[row].push_back({x1, x2, current});
+        if (rowIndex >= static_cast<int>(rows_.size())) rows_.resize(rowIndex + 1);
+        rows_[rowIndex].push_back({x1, x2, current});
 
         // Descend into directories with children.
         if (entry.isDir() && entry.firstChild.valid() && depth + 1 < maxDepth) {

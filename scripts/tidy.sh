@@ -44,7 +44,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$script_dir"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
 
 if ! command -v clang-tidy >/dev/null 2>&1; then
     echo "clang-tidy not found in PATH" >&2

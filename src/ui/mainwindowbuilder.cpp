@@ -229,15 +229,15 @@ void MainWindowBuilder::buildHelpMenu(MainWindow *w) {
     helpButton->setFocusPolicy(Qt::NoFocus);
 
     auto *helpMenu = new QMenu(helpButton);
-    auto *helpAction = helpMenu->addAction(MainWindow::tr("Help"));
+    const QAction *helpAction = helpMenu->addAction(MainWindow::tr("Help"));
     QObject::connect(helpAction, &QAction::triggered, w, &MainWindow::openHelpPage);
 
-    auto *reportIssueAction = helpMenu->addAction(MainWindow::tr("Report an Issue"));
+    const QAction *reportIssueAction = helpMenu->addAction(MainWindow::tr("Report an Issue"));
     QObject::connect(reportIssueAction, &QAction::triggered, w, &MainWindow::reportIssue);
 
     helpMenu->addSeparator();
 
-    auto *aboutAction = helpMenu->addAction(MainWindow::tr("About"));
+    const QAction *aboutAction = helpMenu->addAction(MainWindow::tr("About"));
     QObject::connect(aboutAction, &QAction::triggered, w, &MainWindow::showAboutDialog);
 
     helpButton->setMenu(helpMenu);
