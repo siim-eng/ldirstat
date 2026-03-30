@@ -276,7 +276,7 @@ void FlameGraphWidget::rebuildSelectionContour() {
     const int gridHeight = static_cast<int>(yCoords.size()) - 1;
     std::vector<uint8_t> occupied(static_cast<size_t>(gridWidth * gridHeight), 0);
     const auto cellIndex = [gridWidth](int x, int y) {
-        return static_cast<size_t>(y * gridWidth + x);
+        return static_cast<size_t>(y) * static_cast<size_t>(gridWidth) + static_cast<size_t>(x);
     };
 
     for (const QRect &rect : rects) {

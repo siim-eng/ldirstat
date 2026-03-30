@@ -263,15 +263,15 @@ void MainWindowBuilder::connectCoreSignals(MainWindow *w) {
 
 void MainWindowBuilder::connectGraphTypeSignals(MainWindow *w, const GraphTypeActions &actions) {
     QObject::connect(actions.flameGraph, &QAction::triggered, w, [w]() {
-        activateGraphWidget(w, w->flameGraphWidget_, w->tr("Flame Graph"));
+        activateGraphWidget(w, w->flameGraphWidget_, MainWindow::tr("Flame Graph"));
     });
     QObject::connect(actions.treeMapHeaders, &QAction::triggered, w, [w]() {
         w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::DirectoryHeaders);
-        activateGraphWidget(w, w->treeMapWidget_, w->tr("Tree Map - Directory Headers"));
+        activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map - Directory Headers"));
     });
     QObject::connect(actions.treeMapPacked, &QAction::triggered, w, [w]() {
         w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::Packed);
-        activateGraphWidget(w, w->treeMapWidget_, w->tr("Tree Map no headers"));
+        activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map no headers"));
     });
 }
 

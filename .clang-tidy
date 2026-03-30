@@ -1,0 +1,62 @@
+---
+# High-signal clang-tidy profile for this C++20 / Qt6 codebase.
+# Goal: catch likely bugs and worthwhile modernizations without drowning the project in style churn.
+#
+# Run on a file:
+#   clang-tidy -p build src/core/scanner.cpp --config-file=.clang-tidy
+#
+# Run on changed files:
+#   git diff --name-only -- '*.cpp' '*.h' | xargs -r clang-tidy -p build --config-file=.clang-tidy
+
+Checks: >
+  -*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.*,
+  clang-analyzer-nullability.*,
+  clang-analyzer-optin.cplusplus.*,
+  clang-analyzer-security.*,
+  clang-analyzer-unix.*,
+  bugprone-*,
+  -bugprone-branch-clone,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-narrowing-conversions,
+  concurrency-*,
+  cppcoreguidelines-slicing,
+  cppcoreguidelines-virtual-class-destructor,
+  misc-redundant-expression,
+  misc-unused-using-decls,
+  misc-use-internal-linkage,
+  modernize-use-default-member-init,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-starts-ends-with,
+  modernize-use-using,
+  performance-faster-string-find,
+  performance-for-range-copy,
+  performance-inefficient-string-concatenation,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization,
+  performance-unnecessary-value-param,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-inconsistent-declaration-parameter-name,
+  readability-misleading-indentation,
+  readability-redundant-smartptr-get,
+  readability-redundant-string-cstr,
+  readability-simplify-boolean-expr,
+  readability-static-accessed-through-instance,
+  readability-string-compare,
+
+CheckOptions:
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: false
+  - key: misc-use-internal-linkage.FixModeForFunctions
+    value: None
+  - key: misc-use-internal-linkage.FixModeForVariables
+    value: None
+
+HeaderFilterRegex: 'src/(core|ui|app)/.*\.(h|hpp)$'
+
+WarningsAsErrors: ''

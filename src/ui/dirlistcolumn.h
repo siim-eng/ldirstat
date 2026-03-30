@@ -105,7 +105,7 @@ private:
     QRect listRect() const;
     QRect footerRect() const;
     void updateScrollBar();
-    void paintRows(QPainter &painter, const QRect &listRect);
+    void paintRows(QPainter &painter, const QRect &rowsRect);
     void paintFooter(QPainter &painter, const QRect &footerRect);
 
     static constexpr int kFooterHeight = 28;

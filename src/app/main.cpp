@@ -6,13 +6,13 @@
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    app.setApplicationName("LDirStat");
-    app.setDesktopFileName("ldirstat");
-    app.setApplicationVersion(QString::fromLatin1(LDIRSTAT_APP_VERSION));
-    app.setWindowIcon(QIcon(":/icons/app.svg"));
+    QApplication::setApplicationName("LDirStat");
+    QApplication::setDesktopFileName("ldirstat");
+    QApplication::setApplicationVersion(QString::fromLatin1(LDIRSTAT_APP_VERSION));
+    QApplication::setWindowIcon(QIcon(":/icons/app.svg"));
 
     ldirstat::MainWindow window;
     window.show();
 
-    return app.exec();
+    return QApplication::exec();
 }

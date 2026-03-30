@@ -67,7 +67,7 @@ QColor makePathHighlightColor(const QPalette &palette, const ThemeColors &themeC
 
 DirListColumn::SizeTier DirListColumn::sizeTierFor(uint64_t bytes) {
     if (bytes < 1024) return SizeTier::Bytes;
-    if (bytes < 1024 * 1024) return SizeTier::KB;
+    if (bytes < 1024ULL * 1024) return SizeTier::KB;
     if (bytes < 1024ULL * 1024 * 1024) return SizeTier::MB;
     return SizeTier::GB;
 }
