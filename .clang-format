@@ -1,0 +1,76 @@
+---
+# Qt/KDE-inspired style for this Qt 6 / C++20 codebase except for braces which we always attach
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+ColumnLimit: 120
+UseTab: Never
+
+# Indentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+NamespaceIndentation: None
+IndentPPDirectives: AfterHash
+PPIndentWidth: 2
+
+# Braces: always attach opening braces to the declaration/control line.
+BreakBeforeBraces: Attach
+
+# Pointers/references: QString *value, const QString &value
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+SpaceAfterTemplateKeyword: false
+SpaceBeforeParens: ControlStatements
+
+# Wrapped calls and declarations
+AlignAfterOpenBracket: Align
+BinPackArguments: false
+BinPackParameters: OnePerLine
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Constructor initializers
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: Never
+ConstructorInitializerIndentWidth: 4
+
+# Short forms
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: Inline
+AllowShortEnumsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: false
+
+# Line breaking
+BreakBeforeBinaryOperators: NonAssignment
+BreakTemplateDeclarations: MultiLine
+AlwaysBreakBeforeMultilineStrings: true
+
+# Includes
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# Comments and whitespace
+FixNamespaceComments: true
+ReflowComments: false
+ShortNamespaceLines: 1
+MaxEmptyLinesToKeep: 1
+InsertNewlineAtEOF: true
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: true
+
+# Braced lists and lambdas
+Cpp11BracedListStyle: true
+SpaceBeforeCpp11BracedList: false
+LambdaBodyIndentation: OuterScope
+
+# Qt/KDE macros
+ForEachMacros: [foreach, Q_FOREACH, BOOST_FOREACH, forever, Q_FOREVER, QBENCHMARK, QBENCHMARK_ONCE]
+WhitespaceSensitiveMacros: [SIGNAL, SLOT]
