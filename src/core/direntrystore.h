@@ -113,7 +113,9 @@ public:
     uint32_t pageUsed(uint32_t pageId) const { return pageFor(pageId)->used; }
 
 private:
-    struct Page {
+    static constexpr std::size_t kPageAlignment = 64;
+
+    struct alignas(kPageAlignment) Page {
         std::array<DirEntry, kEntriesPerPage> entries{};
         uint32_t used = 0;
     };
