@@ -26,6 +26,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
@@ -34,7 +35,9 @@ private:
     static constexpr int kRowHeight = 20;
 
     QRect graphRect() const;
-    EntryRef hitTest(const QPoint& pos) const;
+    void ensureLayout();
+    void rebuildLayout();
+    EntryRef hitTest(const QPoint& pos);
     void ensureSelectionContour();
     void rebuildSelectionContour();
     std::vector<QRect> collectSelectedSubtreeRects(const QRect& graphArea) const;
@@ -44,10 +47,13 @@ private:
     const DirEntryStore* store_ = nullptr;
     const NameStore* names_ = nullptr;
     ThemeColors themeColors_;
+    EntryRef currentDir_;
     EntryRef selectedEntry_ = kNoEntry;
     QPainterPath selectionContourPath_;
     QRect cachedContourGraphRect_;
     EntryRef cachedContourEntry_ = kNoEntry;
+    QSize lastLayoutSize_;
+    bool layoutDirty_ = true;
     bool selectionContourDirty_ = true;
 };
 

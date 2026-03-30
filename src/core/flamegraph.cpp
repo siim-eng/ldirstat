@@ -1,13 +1,16 @@
 #include "flamegraph.h"
 
 #include <algorithm>
+#include <cassert>
 #include <vector>
 
 namespace ldirstat {
 
-void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
+void FlameGraph::build(const DirEntryStore& store,
+                       EntryRef focus,
+                       const FlameGraphOptions& options) {
     rows_.clear();
-    if (!focus.valid())
+    if (!focus.valid() || options.width <= 0.0f)
         return;
 
     const DirEntry& focusEntry = store[focus];
@@ -28,14 +31,16 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
         float x1;        // current x offset within parent
         float parentWidth;
         uint64_t parentSize;
+        uint64_t previousSize = UINT64_MAX;
     };
 
-    Frame stack[kMaxDepth];
+    Frame stack[kMaxDepthLimit];
     int depth = 0;
 
     // Seed with the focused entry's children above the ancestry rows.
     EntryRef firstChild = focusEntry.firstChild;
-    if (!firstChild.valid())
+    const uint16_t maxDepth = std::min(options.maxDepth, kMaxDepthLimit);
+    if (!firstChild.valid() || maxDepth == 0)
         return;
 
     stack[0] = {firstChild, 0.0f, 1.0f, focusEntry.size};
@@ -52,22 +57,30 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
         int row = rowOffset + depth;
         const DirEntry& entry = store[f.child];
         const uint64_t entrySize = layoutSizeOf(entry);
+        assert(entrySize <= f.previousSize && "FlameGraph requires children sorted by size");
+        f.previousSize = entrySize;
 
         // Compute rect x range.
-        float width = (f.parentSize > 0)
+        const float width = (f.parentSize > 0)
             ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth
             : 0.0f;
-        float x1 = f.x1;
-        float x2 = x1 + width;
+        const float x1 = f.x1;
+        const float x2 = x1 + width;
 
         // Advance to next sibling before potential descent.
         EntryRef current = f.child;
         f.child = entry.nextSibling;
         f.x1 = x2;
 
-        // Cull tiny rects.
-        if (width < kMinWidth)
+        if (entrySize == 0)
             continue;
+
+        // Children are sorted descending, so once one misses the pixel cutoff
+        // there is no point in scanning the remaining siblings in this row.
+        if (options.minNodeWidth > 0.0f && width * options.width < options.minNodeWidth) {
+            f.child = kNoEntry;
+            continue;
+        }
 
         // Emit rect.
         if (row >= static_cast<int>(rows_.size()))
@@ -75,7 +88,7 @@ void FlameGraph::build(const DirEntryStore& store, EntryRef focus) {
         rows_[row].push_back({x1, x2, current});
 
         // Descend into directories with children.
-        if (entry.isDir() && entry.firstChild.valid() && depth + 1 < kMaxDepth) {
+        if (entry.isDir() && entry.firstChild.valid() && depth + 1 < maxDepth) {
             ++depth;
             stack[depth] = {entry.firstChild, x1, width, entry.size};
         }

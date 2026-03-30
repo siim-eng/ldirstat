@@ -3,6 +3,7 @@
 
 #include <QMouseEvent>
 #include <QPainter>
+#include <QResizeEvent>
 #include <QToolTip>
 
 #include <algorithm>
@@ -15,7 +16,6 @@ namespace ldirstat {
 namespace {
 
 constexpr qreal kSelectionBorderWidth = 2.0;
-constexpr int kMinVisibleRectWidth = 2;
 
 struct GridPoint {
     int x;
@@ -97,23 +97,42 @@ FlameGraphWidget::FlameGraphWidget(QWidget* parent)
 void FlameGraphWidget::setStores(const DirEntryStore* store, const NameStore* names) {
     store_ = store;
     names_ = names;
+    layoutDirty_ = true;
     selectionContourDirty_ = true;
+    update();
 }
 
 void FlameGraphWidget::setDirectory(EntryRef dir) {
-    if (!store_ || !dir.valid()) {
-        flameGraph_ = FlameGraph();
-        selectionContourDirty_ = true;
-        update();
-        return;
-    }
-    flameGraph_.build(*store_, dir);
+    currentDir_ = dir;
+    layoutDirty_ = true;
     selectionContourDirty_ = true;
     update();
 }
 
 QRect FlameGraphWidget::graphRect() const {
     return rect().adjusted(kGraphInset, kGraphInset, -kGraphInset, -kGraphInset);
+}
+
+void FlameGraphWidget::ensureLayout() {
+    const QRect area = graphRect();
+    if (!layoutDirty_ && area.size() == lastLayoutSize_)
+        return;
+
+    rebuildLayout();
+    lastLayoutSize_ = area.size();
+    layoutDirty_ = false;
+}
+
+void FlameGraphWidget::rebuildLayout() {
+    if (!store_ || !currentDir_.valid()) {
+        flameGraph_ = FlameGraph();
+        return;
+    }
+
+    FlameGraphOptions options;
+    options.width = static_cast<float>(graphRect().width());
+    options.maxDepth = FlameGraph::kMaxDepthLimit;
+    flameGraph_.build(*store_, currentDir_, options);
 }
 
 void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
@@ -123,11 +142,15 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     const QColor borderColor = widgetPalette.color(QPalette::Text);
     painter.fillRect(rect(), backgroundColor);
 
-    if (!store_ || !names_ || flameGraph_.rowCount() == 0)
+    if (!store_ || !names_ || !currentDir_.valid())
         return;
 
     const QRect graphArea = graphRect();
     if (graphArea.width() <= 0 || graphArea.height() <= 0)
+        return;
+
+    ensureLayout();
+    if (flameGraph_.rowCount() == 0)
         return;
 
     painter.save();
@@ -146,8 +169,6 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
         for (const auto& fr : rects) {
             int x1 = xOffset + static_cast<int>(fr.x1 * w);
             int x2 = xOffset + static_cast<int>(fr.x2 * w);
-            if (x2 - x1 < kMinVisibleRectWidth)
-                continue;
 
             const DirEntry& entry = (*store_)[fr.ref];
             QRect rect(x1, y, x2 - x1, kRowHeight);
@@ -179,6 +200,12 @@ void FlameGraphWidget::paintEvent(QPaintEvent* /*event*/) {
     painter.restore();
 }
 
+void FlameGraphWidget::resizeEvent(QResizeEvent* event) {
+    layoutDirty_ = true;
+    selectionContourDirty_ = true;
+    QWidget::resizeEvent(event);
+}
+
 void FlameGraphWidget::mousePressEvent(QMouseEvent* event) {
     EntryRef ref = hitTest(event->pos());
     if (!ref.valid())
@@ -200,12 +227,16 @@ void FlameGraphWidget::mouseMoveEvent(QMouseEvent* event) {
     }
 }
 
-EntryRef FlameGraphWidget::hitTest(const QPoint& pos) const {
-    if (flameGraph_.rowCount() == 0)
+EntryRef FlameGraphWidget::hitTest(const QPoint& pos) {
+    if (!store_ || !currentDir_.valid())
         return kNoEntry;
 
     const QRect graphArea = graphRect();
     if (!graphArea.contains(pos) || graphArea.width() <= 0)
+        return kNoEntry;
+
+    ensureLayout();
+    if (flameGraph_.rowCount() == 0)
         return kNoEntry;
 
     int yBase = graphArea.y() + graphArea.height();
@@ -385,9 +416,6 @@ std::vector<QRect> FlameGraphWidget::collectSelectedSubtreeRects(const QRect& gr
 
             const int x1 = xOffset + static_cast<int>(fr.x1 * width);
             const int x2 = xOffset + static_cast<int>(fr.x2 * width);
-            if (x2 - x1 < kMinVisibleRectWidth)
-                continue;
-
             rects.emplace_back(x1, y, x2 - x1, kRowHeight);
         }
     }
