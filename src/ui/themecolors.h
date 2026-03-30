@@ -18,11 +18,11 @@ struct ThemeColors {
     QColor selectionBorder;
     std::array<QColor, FileCategorizer::kCategoryCount> fileCategoryBackgrounds;
 
-    [[nodiscard]] const QColor& colorForFileCategory(FileCategory category) const {
+    [[nodiscard]] const QColor &colorForFileCategory(FileCategory category) const {
         return fileCategoryBackgrounds[FileCategorizer::categoryIndex(category)];
     }
 
-    static ThemeColors fromPalette(const QPalette& pal) {
+    static ThemeColors fromPalette(const QPalette &pal) {
         bool dark = pal.color(QPalette::Window).lightness() < 128;
         return {
             dark ? QColor(0x7A, 0x9C, 0xFF) : QColor(0x3E, 0x6F, 0xD1),

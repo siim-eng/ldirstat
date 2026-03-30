@@ -21,10 +21,13 @@ class DirListColumn : public QWidget {
     Q_OBJECT
 
 public:
-    explicit DirListColumn(const DirEntryStore& store, const NameStore& names,
-                           EntryRef dirRef, uint64_t rootSize,
-                           const ThemeColors& themeColors, int columnWidth,
-                           QWidget* parent = nullptr);
+    explicit DirListColumn(const DirEntryStore &store,
+                           const NameStore &names,
+                           EntryRef dirRef,
+                           uint64_t rootSize,
+                           const ThemeColors &themeColors,
+                           int columnWidth,
+                           QWidget *parent = nullptr);
 
     EntryRef dirRef() const { return dirRef_; }
     int rowCount() const { return static_cast<int>(visibleRows_.size()); }
@@ -35,13 +38,12 @@ public:
     bool hasSelection() const { return selectedCount_ > 0; }
     EntryRef refAtRow(int row) const;
     bool rowIsDir(int row) const;
-    void applySelectionAtRow(int row, Qt::KeyboardModifiers modifiers,
-                             bool preserveSelection = false);
+    void applySelectionAtRow(int row, Qt::KeyboardModifiers modifiers, bool preserveSelection = false);
     void setFocusedIndex(int row, bool selectFocused = true);
     void setFocusedRef(EntryRef ref, bool selectFocused = true);
     void setPathRef(EntryRef ref);
     void setKeyboardActive(bool active);
-    void setThemeColors(const ThemeColors& colors);
+    void setThemeColors(const ThemeColors &colors);
     void clearSelection();
     void clearFocus();
     void selectAllVisible();
@@ -62,14 +64,19 @@ signals:
     void contextMenuRequested(ldirstat::EntryRef ref, QPoint globalPos);
 
 protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
-    void paintEvent(QPaintEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
-    void wheelEvent(QWheelEvent* event) override;
-    void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
-    enum class SizeTier : uint8_t { Bytes, KB, MB, GB };
+    enum class SizeTier : uint8_t {
+        Bytes,
+        KB,
+        MB,
+        GB
+    };
 
     struct ChildEntry {
         EntryRef ref;
@@ -88,10 +95,9 @@ private:
     void applyFilter();
     int childIndexAtRow(int row) const;
     int childIndexForRef(EntryRef ref) const;
-    int hitTestRow(const QPoint& pos) const;
+    int hitTestRow(const QPoint &pos) const;
     void layoutChildWidgets();
-    void applyMouseSelection(int childIndex, Qt::KeyboardModifiers modifiers,
-                             bool preserveSelection);
+    void applyMouseSelection(int childIndex, Qt::KeyboardModifiers modifiers, bool preserveSelection);
     void setSingleSelection(int childIndex);
     void setSelectionState(int childIndex, bool selected);
     void selectVisibleRange(int firstChildIndex, int lastChildIndex);
@@ -99,8 +105,8 @@ private:
     QRect listRect() const;
     QRect footerRect() const;
     void updateScrollBar();
-    void paintRows(QPainter& painter, const QRect& listRect);
-    void paintFooter(QPainter& painter, const QRect& footerRect);
+    void paintRows(QPainter &painter, const QRect &listRect);
+    void paintFooter(QPainter &painter, const QRect &footerRect);
 
     static constexpr int kFooterHeight = 28;
     static constexpr int kFooterGap = 2;
@@ -108,8 +114,8 @@ private:
     static constexpr int kFilterBottomPadding = 6;
     static constexpr int kFilterButtonGap = 4;
 
-    const DirEntryStore& store_;
-    const NameStore& names_;
+    const DirEntryStore &store_;
+    const NameStore &names_;
     EntryRef dirRef_;
     uint64_t rootSize_;
     ThemeColors themeColors_;
@@ -122,11 +128,11 @@ private:
     int pathChildIndex_ = -1;
     int selectedCount_ = 0;
     bool keyboardActive_ = false;
-    QScrollBar* scrollBar_;
-    QLineEdit* filterEdit_;
-    QToolButton* filterMenuButton_;
-    QMenu* filterMenu_;
-    QTimer* filterTimer_;
+    QScrollBar *scrollBar_;
+    QLineEdit *filterEdit_;
+    QToolButton *filterMenuButton_;
+    QMenu *filterMenu_;
+    QTimer *filterTimer_;
     QByteArray appliedFilterUtf8_;
     QColor pathHighlightColor_;
 

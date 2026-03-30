@@ -18,12 +18,12 @@ namespace ldirstat {
 // and push discovered subdirs back as a batch.
 class Scanner {
 public:
-    Scanner(DirEntryStore& entryStore, NameStore& nameStore);
+    Scanner(DirEntryStore &entryStore, NameStore &nameStore);
     ~Scanner();
 
     // Blocks until scan completes or stop() is called.
     // Returns the EntryRef of the root directory.
-    EntryRef scan(const std::string& rootPath, int workerCount);
+    EntryRef scan(const std::string &rootPath, int workerCount);
     bool continueScan(EntryRef root, int workerCount);
     void commitContinueScan(EntryRef root);
     void revertContinueScan(EntryRef root);
@@ -58,19 +58,19 @@ private:
     };
 
     std::optional<EntryRef> takeWork();
-    void returnWork(std::vector<EntryRef>& subdirs);
-    void workerLoop(WorkerCtx& ctx);
-    void scanDir(EntryRef dirRef, WorkerCtx& ctx);
-    void buildPath(EntryRef ref, std::vector<char>& pathBuf);
+    void returnWork(std::vector<EntryRef> &subdirs);
+    void workerLoop(WorkerCtx &ctx);
+    void scanDir(EntryRef dirRef, WorkerCtx &ctx);
+    void buildPath(EntryRef ref, std::vector<char> &pathBuf);
     void resetRuntimeState();
     void runScanWorkers(int workerCount);
-    void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry>& scratch);
+    void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scratch);
 
     static constexpr size_t kSortBatchSize = 10;
     size_t takeSortBatch();
 
-    DirEntryStore& entryStore_;
-    NameStore& nameStore_;
+    DirEntryStore &entryStore_;
+    NameStore &nameStore_;
 
     dev_t rootDev_ = 0;
 

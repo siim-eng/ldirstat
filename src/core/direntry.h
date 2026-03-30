@@ -23,14 +23,12 @@ enum class EntryType : uint8_t {
 // Reference to a DirEntry in the page-based store.
 struct EntryRef {
     uint32_t pageId = UINT32_MAX;
-    uint16_t index  = UINT16_MAX;
+    uint16_t index = UINT16_MAX;
 
     bool valid() const { return pageId != UINT32_MAX; }
 
-    bool operator==(const EntryRef& other) const {
-        return pageId == other.pageId && index == other.index;
-    }
-    bool operator!=(const EntryRef& other) const { return !(*this == other); }
+    bool operator==(const EntryRef &other) const { return pageId == other.pageId && index == other.index; }
+    bool operator!=(const EntryRef &other) const { return !(*this == other); }
 };
 
 inline constexpr EntryRef kNoEntry{};
@@ -65,19 +63,16 @@ struct DirEntry {
     // Tree links (EntryRef into DirEntryStore).
     EntryRef parent;
     EntryRef firstChild;
-    uint32_t childCount = 0;         // number of direct children
+    uint32_t childCount = 0; // number of direct children
     EntryRef nextSibling;
 
-    bool isDir() const {
-        return type == EntryType::Directory || type == EntryType::MountPoint;
-    }
+    bool isDir() const { return type == EntryType::Directory || type == EntryType::MountPoint; }
     bool isMountPoint() const { return type == EntryType::MountPoint; }
     bool isFile() const { return type == EntryType::File; }
 };
 
-inline uint64_t layoutSizeOf(const DirEntry& entry) {
-    if (!entry.isFile() || entry.hardLinks <= 1)
-        return entry.size;
+inline uint64_t layoutSizeOf(const DirEntry &entry) {
+    if (!entry.isFile() || entry.hardLinks <= 1) return entry.size;
 
     return entry.size / static_cast<uint64_t>(entry.hardLinks);
 }

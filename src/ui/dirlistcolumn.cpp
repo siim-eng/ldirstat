@@ -21,7 +21,7 @@ namespace ldirstat {
 namespace {
 
 QString formatSize(uint64_t bytes) {
-    auto formatUnit = [](double value, const char* suffix) {
+    auto formatUnit = [](double value, const char *suffix) {
         if (value < 10.0) {
             const double truncated = std::floor(value * 10.0) / 10.0;
             return QString::number(truncated, 'f', 1) + " " + suffix;
@@ -29,43 +29,35 @@ QString formatSize(uint64_t bytes) {
         return QString::number(static_cast<uint64_t>(value)) + " " + suffix;
     };
 
-    if (bytes < 1024)
-        return QString::number(bytes) + " B";
+    if (bytes < 1024) return QString::number(bytes) + " B";
 
     const double kb = bytes / 1024.0;
-    if (kb < 1024.0)
-        return formatUnit(kb, "KB");
+    if (kb < 1024.0) return formatUnit(kb, "KB");
 
     const double mb = bytes / (1024.0 * 1024.0);
-    if (mb < 1024.0)
-        return formatUnit(mb, "MB");
+    if (mb < 1024.0) return formatUnit(mb, "MB");
 
     const double gb = bytes / (1024.0 * 1024.0 * 1024.0);
     return formatUnit(gb, "GB");
 }
 
 QString formatPercent(uint64_t entrySize, uint64_t rootSize) {
-    if (rootSize == 0)
-        return {};
+    if (rootSize == 0) return {};
     double pct = 100.0 * entrySize / rootSize;
-    if (pct < 0.05)
-        return {};
-    if (pct < 10.0)
-        return QString::number(pct, 'f', 1) + "%";
+    if (pct < 0.05) return {};
+    if (pct < 10.0) return QString::number(pct, 'f', 1) + "%";
     return QString::number(static_cast<int>(std::round(pct))) + "%";
 }
 
-bool matchesFilter(std::string_view haystack, const QByteArray& needle) {
-    if (needle.isEmpty())
-        return true;
+bool matchesFilter(std::string_view haystack, const QByteArray &needle) {
+    if (needle.isEmpty()) return true;
 
     // TODO: Replace this raw UTF-8 byte search with StringZilla / faster UTF handling later.
-    const std::string_view needleView(needle.constData(),
-                                      static_cast<size_t>(needle.size()));
+    const std::string_view needleView(needle.constData(), static_cast<size_t>(needle.size()));
     return haystack.find(needleView) != std::string_view::npos;
 }
 
-QColor makePathHighlightColor(const QPalette& palette, const ThemeColors& themeColors) {
+QColor makePathHighlightColor(const QPalette &palette, const ThemeColors &themeColors) {
     QColor color = themeColors.primaryForeground;
     color.setAlpha(palette.color(QPalette::Window).lightness() < 128 ? 48 : 28);
     return color;
@@ -80,17 +72,20 @@ DirListColumn::SizeTier DirListColumn::sizeTierFor(uint64_t bytes) {
     return SizeTier::GB;
 }
 
-DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
-                             EntryRef dirRef, uint64_t rootSize,
-                             const ThemeColors& themeColors, int columnWidth,
-                             QWidget* parent)
-    : QWidget(parent)
-    , store_(store)
-    , names_(names)
-    , dirRef_(dirRef)
-    , rootSize_(rootSize)
-    , themeColors_(themeColors)
-    , pathHighlightColor_(makePathHighlightColor(palette(), themeColors_)) {
+DirListColumn::DirListColumn(const DirEntryStore &store,
+                             const NameStore &names,
+                             EntryRef dirRef,
+                             uint64_t rootSize,
+                             const ThemeColors &themeColors,
+                             int columnWidth,
+                             QWidget *parent)
+    : QWidget(parent),
+      store_(store),
+      names_(names),
+      dirRef_(dirRef),
+      rootSize_(rootSize),
+      themeColors_(themeColors),
+      pathHighlightColor_(makePathHighlightColor(palette(), themeColors_)) {
     setFixedWidth(columnWidth);
 
     scrollBar_ = new QScrollBar(Qt::Vertical, this);
@@ -105,17 +100,16 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     filterMenuButton_->setFocusPolicy(Qt::NoFocus);
     filterMenuButton_->setPopupMode(QToolButton::InstantPopup);
     filterMenuButton_->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    filterMenuButton_->setIcon(
-        themedIcon(this, QStringLiteral("open-menu-symbolic"), QStyle::SP_ArrowDown));
+    filterMenuButton_->setIcon(themedIcon(this, QStringLiteral("open-menu-symbolic"), QStyle::SP_ArrowDown));
     filterMenuButton_->setToolTip(tr("Filter/Selection Actions"));
     filterMenuButton_->installEventFilter(this);
 
     filterMenu_ = new QMenu(filterMenuButton_);
     filterMenuButton_->setMenu(filterMenu_);
 
-    QAction* selectAllAction = filterMenu_->addAction(tr("Select All"));
-    QAction* clearFilterAction = filterMenu_->addAction(tr("Clear Filter"));
-    QAction* invertSelectionAction = filterMenu_->addAction(tr("Invert Selection"));
+    QAction *selectAllAction = filterMenu_->addAction(tr("Select All"));
+    QAction *clearFilterAction = filterMenu_->addAction(tr("Clear Filter"));
+    QAction *invertSelectionAction = filterMenu_->addAction(tr("Invert Selection"));
 
     connect(selectAllAction, &QAction::triggered, this, [this]() {
         emit activated();
@@ -134,9 +128,7 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     filterTimer_->setSingleShot(true);
     filterTimer_->setInterval(250);
     connect(filterTimer_, &QTimer::timeout, this, &DirListColumn::applyFilter);
-    connect(filterEdit_, &QLineEdit::textChanged, this, [this]() {
-        filterTimer_->start();
-    });
+    connect(filterEdit_, &QLineEdit::textChanged, this, [this]() { filterTimer_->start(); });
 
     QFontMetrics fm(font());
     sizeFieldWidth_ = fm.horizontalAdvance("9999 MB");
@@ -148,15 +140,12 @@ DirListColumn::DirListColumn(const DirEntryStore& store, const NameStore& names,
     layoutChildWidgets();
 }
 
-bool DirListColumn::eventFilter(QObject* watched, QEvent* event) {
+bool DirListColumn::eventFilter(QObject *watched, QEvent *event) {
     if (watched == filterEdit_ || watched == filterMenuButton_) {
         switch (event->type()) {
         case QEvent::FocusIn:
-        case QEvent::MouseButtonPress:
-            emit activated();
-            break;
-        default:
-            break;
+        case QEvent::MouseButtonPress: emit activated(); break;
+        default: break;
         }
     }
 
@@ -164,14 +153,14 @@ bool DirListColumn::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void DirListColumn::buildChildList() {
-    const DirEntry& dir = store_[dirRef_];
+    const DirEntry &dir = store_[dirRef_];
 
     children_.clear();
     children_.reserve(dir.childCount);
 
     EntryRef childRef = dir.firstChild;
     while (childRef.valid()) {
-        const DirEntry& child = store_[childRef];
+        const DirEntry &child = store_[childRef];
         auto sv = names_.get(child.name);
 
         ChildEntry ce;
@@ -207,7 +196,7 @@ void DirListColumn::rebuildVisibleRows() {
         footerFiles_ = 0;
         footerBytes_ = 0;
     } else {
-        const DirEntry& dir = store_[dirRef_];
+        const DirEntry &dir = store_[dirRef_];
         footerDirs_ = dir.dirCount;
         footerFiles_ = dir.fileCount;
         footerBytes_ = dir.size;
@@ -215,16 +204,14 @@ void DirListColumn::rebuildVisibleRows() {
 
     for (int childIndex = 0; childIndex < static_cast<int>(children_.size()); ++childIndex) {
         const EntryRef ref = children_[childIndex].ref;
-        if (!matchesFilter(names_.get(store_[ref].name), appliedFilterUtf8_))
-            continue;
+        if (!matchesFilter(names_.get(store_[ref].name), appliedFilterUtf8_)) continue;
 
         visibleRowByChild_[childIndex] = static_cast<int>(visibleRows_.size());
         visibleRows_.push_back(childIndex);
 
-        if (!filtering)
-            continue;
+        if (!filtering) continue;
 
-        const DirEntry& child = store_[ref];
+        const DirEntry &child = store_[ref];
         if (child.isDir()) {
             footerDirs_ += child.dirCount + 1;
             footerFiles_ += child.fileCount;
@@ -246,8 +233,7 @@ void DirListColumn::applyFilter() {
             setSelectionState(childIndex, false);
     }
 
-    if (focusedChildIndex_ >= 0 && visibleRowByChild_[focusedChildIndex_] < 0)
-        focusedChildIndex_ = -1;
+    if (focusedChildIndex_ >= 0 && visibleRowByChild_[focusedChildIndex_] < 0) focusedChildIndex_ = -1;
 
     if (focusedChildIndex_ < 0) {
         for (int childIndex : visibleRows_) {
@@ -261,26 +247,21 @@ void DirListColumn::applyFilter() {
     if (focusedChildIndex_ < 0 && !visibleRows_.empty() && previousFocus.valid())
         focusedChildIndex_ = visibleRows_.front();
 
-    if (anchorChildIndex_ >= 0 && visibleRowByChild_[anchorChildIndex_] < 0)
-        anchorChildIndex_ = focusedChildIndex_;
-    if (pathChildIndex_ >= 0 && visibleRowByChild_[pathChildIndex_] < 0)
-        pathChildIndex_ = -1;
+    if (anchorChildIndex_ >= 0 && visibleRowByChild_[anchorChildIndex_] < 0) anchorChildIndex_ = focusedChildIndex_;
+    if (pathChildIndex_ >= 0 && visibleRowByChild_[pathChildIndex_] < 0) pathChildIndex_ = -1;
 
     updateScrollBar();
     layoutChildWidgets();
-    if (focusedIndex() >= 0)
-        ensureRowVisible(focusedIndex());
+    if (focusedIndex() >= 0) ensureRowVisible(focusedIndex());
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 void DirListColumn::rebuild(uint64_t rootSize) {
     const EntryRef previousFocus = focusedRef();
     const std::vector<EntryRef> previousSelection = selectedRefs();
-    const EntryRef previousPath =
-        pathChildIndex_ >= 0 ? children_[pathChildIndex_].ref : kNoEntry;
+    const EntryRef previousPath = pathChildIndex_ >= 0 ? children_[pathChildIndex_].ref : kNoEntry;
 
     rootSize_ = rootSize;
     buildChildList();
@@ -289,8 +270,7 @@ void DirListColumn::rebuild(uint64_t rootSize) {
 
     for (EntryRef ref : previousSelection) {
         const int childIndex = childIndexForRef(ref);
-        if (childIndex >= 0 && visibleRowByChild_[childIndex] >= 0)
-            setSelectionState(childIndex, true);
+        if (childIndex >= 0 && visibleRowByChild_[childIndex] >= 0) setSelectionState(childIndex, true);
     }
 
     const int focusChildIndex = childIndexForRef(previousFocus);
@@ -303,17 +283,14 @@ void DirListColumn::rebuild(uint64_t rootSize) {
     setPathRef(previousPath);
     updateScrollBar();
     layoutChildWidgets();
-    if (focusedIndex() >= 0)
-        ensureRowVisible(focusedIndex());
+    if (focusedIndex() >= 0) ensureRowVisible(focusedIndex());
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 int DirListColumn::focusedIndex() const {
-    if (focusedChildIndex_ < 0 || focusedChildIndex_ >= static_cast<int>(visibleRowByChild_.size()))
-        return -1;
+    if (focusedChildIndex_ < 0 || focusedChildIndex_ >= static_cast<int>(visibleRowByChild_.size())) return -1;
     return visibleRowByChild_[focusedChildIndex_];
 }
 
@@ -327,8 +304,7 @@ std::vector<EntryRef> DirListColumn::selectedRefs() const {
     std::vector<EntryRef> refs;
     refs.reserve(selectedCount_);
     for (int childIndex = 0; childIndex < static_cast<int>(children_.size()); ++childIndex) {
-        if (selectionFlags_[childIndex] != 0)
-            refs.push_back(children_[childIndex].ref);
+        if (selectionFlags_[childIndex] != 0) refs.push_back(children_[childIndex].ref);
     }
     return refs;
 }
@@ -343,8 +319,7 @@ bool DirListColumn::rowIsDir(int row) const {
     return childIndex >= 0 && children_[childIndex].isDir;
 }
 
-void DirListColumn::applySelectionAtRow(int row, Qt::KeyboardModifiers modifiers,
-                                        bool preserveSelection) {
+void DirListColumn::applySelectionAtRow(int row, Qt::KeyboardModifiers modifiers, bool preserveSelection) {
     applyMouseSelection(childIndexAtRow(row), modifiers, preserveSelection);
 }
 
@@ -352,29 +327,25 @@ void DirListColumn::setFocusedIndex(int row, bool selectFocused) {
     const EntryRef previousFocus = focusedRef();
     const int childIndex = childIndexAtRow(row);
     if (childIndex < 0) {
-        if (selectFocused)
-            clearSelection();
+        if (selectFocused) clearSelection();
         clearFocus();
         return;
     }
 
     focusedChildIndex_ = childIndex;
     anchorChildIndex_ = childIndex;
-    if (selectFocused)
-        setSingleSelection(childIndex);
+    if (selectFocused) setSingleSelection(childIndex);
 
     ensureRowVisible(row);
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 void DirListColumn::setFocusedRef(EntryRef ref, bool selectFocused) {
     const int childIndex = childIndexForRef(ref);
     if (childIndex < 0 || visibleRowByChild_[childIndex] < 0) {
-        if (selectFocused)
-            clearSelection();
+        if (selectFocused) clearSelection();
         clearFocus();
         return;
     }
@@ -385,29 +356,25 @@ void DirListColumn::setFocusedRef(EntryRef ref, bool selectFocused) {
 void DirListColumn::setPathRef(EntryRef ref) {
     const int previousPath = pathChildIndex_;
     const int childIndex = childIndexForRef(ref);
-    pathChildIndex_ =
-        (childIndex >= 0 && visibleRowByChild_[childIndex] >= 0) ? childIndex : -1;
+    pathChildIndex_ = (childIndex >= 0 && visibleRowByChild_[childIndex] >= 0) ? childIndex : -1;
 
-    if (pathChildIndex_ != previousPath)
-        update();
+    if (pathChildIndex_ != previousPath) update();
 }
 
 void DirListColumn::setKeyboardActive(bool active) {
-    if (keyboardActive_ == active)
-        return;
+    if (keyboardActive_ == active) return;
     keyboardActive_ = active;
     update();
 }
 
-void DirListColumn::setThemeColors(const ThemeColors& colors) {
+void DirListColumn::setThemeColors(const ThemeColors &colors) {
     themeColors_ = colors;
     pathHighlightColor_ = makePathHighlightColor(palette(), themeColors_);
     update();
 }
 
 void DirListColumn::clearSelection() {
-    if (selectedCount_ == 0)
-        return;
+    if (selectedCount_ == 0) return;
 
     std::fill(selectionFlags_.begin(), selectionFlags_.end(), 0);
     selectedCount_ = 0;
@@ -416,8 +383,7 @@ void DirListColumn::clearSelection() {
 
 void DirListColumn::clearFocus() {
     const EntryRef previousFocus = focusedRef();
-    if (!previousFocus.valid())
-        return;
+    if (!previousFocus.valid()) return;
 
     focusedChildIndex_ = -1;
     anchorChildIndex_ = -1;
@@ -433,18 +399,15 @@ void DirListColumn::selectAllVisible() {
     for (int childIndex : visibleRows_)
         setSelectionState(childIndex, true);
 
-    if (focusedChildIndex_ < 0 && !visibleRows_.empty())
-        focusedChildIndex_ = visibleRows_.front();
+    if (focusedChildIndex_ < 0 && !visibleRows_.empty()) focusedChildIndex_ = visibleRows_.front();
     if (focusedChildIndex_ >= 0 && visibleRowByChild_[focusedChildIndex_] < 0)
         focusedChildIndex_ = visibleRows_.empty() ? -1 : visibleRows_.front();
     anchorChildIndex_ = focusedChildIndex_;
 
-    if (focusedIndex() >= 0)
-        ensureRowVisible(focusedIndex());
+    if (focusedIndex() >= 0) ensureRowVisible(focusedIndex());
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 void DirListColumn::invertVisibleSelection() {
@@ -456,27 +419,22 @@ void DirListColumn::invertVisibleSelection() {
             continue;
         }
 
-        if (selectionFlags_[childIndex] != 0)
-            setSelectionState(childIndex, false);
+        if (selectionFlags_[childIndex] != 0) setSelectionState(childIndex, false);
     }
 
-    if (focusedChildIndex_ < 0 && !visibleRows_.empty())
-        focusedChildIndex_ = visibleRows_.front();
+    if (focusedChildIndex_ < 0 && !visibleRows_.empty()) focusedChildIndex_ = visibleRows_.front();
     if (focusedChildIndex_ >= 0 && visibleRowByChild_[focusedChildIndex_] < 0)
         focusedChildIndex_ = visibleRows_.empty() ? -1 : visibleRows_.front();
     anchorChildIndex_ = focusedChildIndex_;
 
-    if (focusedIndex() >= 0)
-        ensureRowVisible(focusedIndex());
+    if (focusedIndex() >= 0) ensureRowVisible(focusedIndex());
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 void DirListColumn::clearFilter() {
-    if (filterEdit_->text().isEmpty())
-        return;
+    if (filterEdit_->text().isEmpty()) return;
 
     filterTimer_->stop();
     filterEdit_->clear();
@@ -484,8 +442,7 @@ void DirListColumn::clearFilter() {
 }
 
 void DirListColumn::ensureRowVisible(int row) {
-    if (row < 0 || row >= static_cast<int>(visibleRows_.size()))
-        return;
+    if (row < 0 || row >= static_cast<int>(visibleRows_.size())) return;
 
     const int listHeight = listRect().height();
     const int rowTop = row * kRowHeight;
@@ -498,7 +455,7 @@ void DirListColumn::ensureRowVisible(int row) {
         scrollBar_->setValue(rowBottom - listHeight);
 }
 
-void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
+void DirListColumn::paintEvent(QPaintEvent * /*event*/) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::TextAntialiasing);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -520,21 +477,19 @@ void DirListColumn::paintEvent(QPaintEvent* /*event*/) {
     painter.drawLine(width() - 1, 0, width() - 1, height());
 }
 
-void DirListColumn::mousePressEvent(QMouseEvent* event) {
+void DirListColumn::mousePressEvent(QMouseEvent *event) {
     emit activated();
 
     const int row = hitTestRow(event->pos());
     const int childIndex = childIndexAtRow(row);
-    if (childIndex < 0)
-        return;
+    if (childIndex < 0) return;
 
     if (event->button() == Qt::RightButton) {
         if (selectionFlags_[childIndex] == 0) {
             setSelectionState(childIndex, true);
             update();
         }
-        emit contextMenuRequested(children_[childIndex].ref,
-                                  event->globalPosition().toPoint());
+        emit contextMenuRequested(children_[childIndex].ref, event->globalPosition().toPoint());
         return;
     }
 
@@ -542,7 +497,7 @@ void DirListColumn::mousePressEvent(QMouseEvent* event) {
     applyMouseSelection(childIndex, event->modifiers(), keepCurrentSelection);
 }
 
-void DirListColumn::wheelEvent(QWheelEvent* event) {
+void DirListColumn::wheelEvent(QWheelEvent *event) {
     if (!scrollBar_->isVisible() || scrollBar_->maximum() <= 0) {
         event->accept();
         return;
@@ -556,30 +511,27 @@ void DirListColumn::wheelEvent(QWheelEvent* event) {
     event->accept();
 }
 
-void DirListColumn::resizeEvent(QResizeEvent* event) {
+void DirListColumn::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
     updateScrollBar();
     layoutChildWidgets();
 }
 
 int DirListColumn::childIndexAtRow(int row) const {
-    if (row < 0 || row >= static_cast<int>(visibleRows_.size()))
-        return -1;
+    if (row < 0 || row >= static_cast<int>(visibleRows_.size())) return -1;
     return visibleRows_[row];
 }
 
 int DirListColumn::childIndexForRef(EntryRef ref) const {
     for (int childIndex = 0; childIndex < static_cast<int>(children_.size()); ++childIndex) {
-        if (children_[childIndex].ref == ref)
-            return childIndex;
+        if (children_[childIndex].ref == ref) return childIndex;
     }
     return -1;
 }
 
-int DirListColumn::hitTestRow(const QPoint& pos) const {
+int DirListColumn::hitTestRow(const QPoint &pos) const {
     const QRect rowsRect = listRect();
-    if (!rowsRect.contains(pos))
-        return -1;
+    if (!rowsRect.contains(pos)) return -1;
     return (pos.y() + scrollBar_->value() - rowsRect.y()) / kRowHeight;
 }
 
@@ -596,10 +548,8 @@ void DirListColumn::layoutChildWidgets() {
     filterMenuButton_->setGeometry(buttonX, filterY, buttonWidth, filterHeight);
 }
 
-void DirListColumn::applyMouseSelection(int childIndex, Qt::KeyboardModifiers modifiers,
-                                        bool preserveSelection) {
-    if (childIndex < 0 || visibleRowByChild_[childIndex] < 0)
-        return;
+void DirListColumn::applyMouseSelection(int childIndex, Qt::KeyboardModifiers modifiers, bool preserveSelection) {
+    if (childIndex < 0 || visibleRowByChild_[childIndex] < 0) return;
 
     const EntryRef previousFocus = focusedRef();
 
@@ -607,14 +557,12 @@ void DirListColumn::applyMouseSelection(int childIndex, Qt::KeyboardModifiers mo
     const bool ctrl = modifiers.testFlag(Qt::ControlModifier);
 
     focusedChildIndex_ = childIndex;
-    if (!shift)
-        anchorChildIndex_ = childIndex;
+    if (!shift) anchorChildIndex_ = childIndex;
 
     if (shift && anchorChildIndex_ >= 0 && visibleRowByChild_[anchorChildIndex_] >= 0) {
         selectVisibleRange(anchorChildIndex_, childIndex);
     } else if (ctrl) {
-        if (!preserveSelection)
-            setSelectionState(childIndex, selectionFlags_[childIndex] == 0);
+        if (!preserveSelection) setSelectionState(childIndex, selectionFlags_[childIndex] == 0);
     } else if (!preserveSelection || selectedCount_ != 1 || selectionFlags_[childIndex] == 0) {
         setSingleSelection(childIndex);
     }
@@ -622,25 +570,21 @@ void DirListColumn::applyMouseSelection(int childIndex, Qt::KeyboardModifiers mo
     ensureRowVisible(visibleRowByChild_[childIndex]);
     update();
 
-    if (focusedRef() != previousFocus)
-        emitFocusChanged();
+    if (focusedRef() != previousFocus) emitFocusChanged();
 }
 
 void DirListColumn::setSingleSelection(int childIndex) {
     std::fill(selectionFlags_.begin(), selectionFlags_.end(), 0);
     selectedCount_ = 0;
 
-    if (childIndex >= 0)
-        setSelectionState(childIndex, true);
+    if (childIndex >= 0) setSelectionState(childIndex, true);
 }
 
 void DirListColumn::setSelectionState(int childIndex, bool selected) {
-    if (childIndex < 0 || childIndex >= static_cast<int>(selectionFlags_.size()))
-        return;
+    if (childIndex < 0 || childIndex >= static_cast<int>(selectionFlags_.size())) return;
 
     const uint8_t newValue = selected ? 1U : 0U;
-    if (selectionFlags_[childIndex] == newValue)
-        return;
+    if (selectionFlags_[childIndex] == newValue) return;
 
     selectionFlags_[childIndex] = newValue;
     selectedCount_ += selected ? 1 : -1;
@@ -701,40 +645,38 @@ void DirListColumn::updateScrollBar() {
         scrollBar_->setSingleStep(kRowHeight);
     }
 
-    scrollBar_->setGeometry(width() - scrollBar_->sizeHint().width(), 0,
-                            scrollBar_->sizeHint().width(), rowsRect.height());
+    scrollBar_->setGeometry(width() - scrollBar_->sizeHint().width(),
+                            0,
+                            scrollBar_->sizeHint().width(),
+                            rowsRect.height());
 }
 
-void DirListColumn::paintRows(QPainter& painter, const QRect& rowsRect) {
-    if (visibleRows_.empty() || rowsRect.height() <= 0)
-        return;
+void DirListColumn::paintRows(QPainter &painter, const QRect &rowsRect) {
+    if (visibleRows_.empty() || rowsRect.height() <= 0) return;
 
     painter.save();
     painter.setClipRect(rowsRect);
 
-    const QPalette& pal = palette();
+    const QPalette &pal = palette();
     const QFontMetrics fm = painter.fontMetrics();
     const int scrollOffset = scrollBar_->value();
     const int firstRow = scrollOffset / kRowHeight;
-    const int lastRow = std::min(static_cast<int>(visibleRows_.size()) - 1,
-                                 (scrollOffset + rowsRect.height() - 1) / kRowHeight);
+    const int lastRow =
+        std::min(static_cast<int>(visibleRows_.size()) - 1, (scrollOffset + rowsRect.height() - 1) / kRowHeight);
     const int arrowSpace = kArrowSize * 2 + kPadding;
 
     for (int row = firstRow; row <= lastRow; ++row) {
         const int childIndex = visibleRows_[row];
-        const ChildEntry& child = children_[childIndex];
+        const ChildEntry &child = children_[childIndex];
         const int rowY = rowsRect.y() + row * kRowHeight - scrollOffset;
         const bool selected = selectionFlags_[childIndex] != 0;
         const bool focused = childIndex == focusedChildIndex_;
         const bool pathRow = childIndex == pathChildIndex_ && childIndex != focusedChildIndex_;
 
-        if (pathRow && !selected)
-            painter.fillRect(0, rowY, rowsRect.width(), kRowHeight, pathHighlightColor_);
-        if (selected)
-            painter.fillRect(0, rowY, rowsRect.width(), kRowHeight, pal.highlight());
+        if (pathRow && !selected) painter.fillRect(0, rowY, rowsRect.width(), kRowHeight, pathHighlightColor_);
+        if (selected) painter.fillRect(0, rowY, rowsRect.width(), kRowHeight, pal.highlight());
 
-        QColor textColor = selected ? pal.color(QPalette::HighlightedText)
-                                    : pal.color(QPalette::Text);
+        QColor textColor = selected ? pal.color(QPalette::HighlightedText) : pal.color(QPalette::Text);
         QColor sizeColor = textColor;
         if (!selected) {
             if (child.isMountPoint)
@@ -747,27 +689,22 @@ void DirListColumn::paintRows(QPainter& painter, const QRect& rowsRect) {
 
         int x = kLeftPadding;
         painter.setPen(sizeColor);
-        painter.drawText(x, rowY, sizeFieldWidth_, kRowHeight,
-                         Qt::AlignRight | Qt::AlignVCenter, child.sizeStr);
+        painter.drawText(x, rowY, sizeFieldWidth_, kRowHeight, Qt::AlignRight | Qt::AlignVCenter, child.sizeStr);
         x += sizeFieldWidth_ + kPadding;
 
-        painter.drawText(x, rowY, pctFieldWidth_, kRowHeight,
-                         Qt::AlignRight | Qt::AlignVCenter, child.pctStr);
+        painter.drawText(x, rowY, pctFieldWidth_, kRowHeight, Qt::AlignRight | Qt::AlignVCenter, child.pctStr);
         x += pctFieldWidth_ + kPadding;
 
         painter.setPen(textColor);
-        const int nameAvail =
-            std::max(0, rowsRect.width() - x - (child.isDir ? arrowSpace : 0) - kPadding);
+        const int nameAvail = std::max(0, rowsRect.width() - x - (child.isDir ? arrowSpace : 0) - kPadding);
         const QString elidedName = fm.elidedText(child.name, Qt::ElideRight, nameAvail);
-        painter.drawText(x, rowY, nameAvail, kRowHeight,
-                         Qt::AlignLeft | Qt::AlignVCenter, elidedName);
+        painter.drawText(x, rowY, nameAvail, kRowHeight, Qt::AlignLeft | Qt::AlignVCenter, elidedName);
 
         if (child.isDir) {
             const int arrowX = rowsRect.width() - kArrowSize - kPadding;
             const int arrowY = rowY + (kRowHeight - kArrowSize * 2) / 2;
             QPolygon triangle;
-            triangle << QPoint(arrowX, arrowY)
-                     << QPoint(arrowX + kArrowSize, arrowY + kArrowSize)
+            triangle << QPoint(arrowX, arrowY) << QPoint(arrowX + kArrowSize, arrowY + kArrowSize)
                      << QPoint(arrowX, arrowY + kArrowSize * 2);
             painter.setBrush(textColor);
             painter.setPen(Qt::NoPen);
@@ -787,17 +724,21 @@ void DirListColumn::paintRows(QPainter& painter, const QRect& rowsRect) {
     painter.restore();
 }
 
-void DirListColumn::paintFooter(QPainter& painter, const QRect& footerRect) {
-    const QPalette& pal = palette();
+void DirListColumn::paintFooter(QPainter &painter, const QRect &footerRect) {
+    const QPalette &pal = palette();
 
     painter.setPen(pal.mid().color());
     painter.drawLine(0, footerRect.y(), footerRect.width(), footerRect.y());
 
     painter.setPen(pal.text().color());
-    const QString footerText = QString("%1 dirs, %2 files, %3")
-        .arg(footerDirs_).arg(footerFiles_).arg(formatSize(footerBytes_));
-    painter.drawText(kLeftPadding, footerRect.y(), footerRect.width() - kLeftPadding - kPadding,
-                     footerRect.height(), Qt::AlignLeft | Qt::AlignVCenter, footerText);
+    const QString footerText =
+        QString("%1 dirs, %2 files, %3").arg(footerDirs_).arg(footerFiles_).arg(formatSize(footerBytes_));
+    painter.drawText(kLeftPadding,
+                     footerRect.y(),
+                     footerRect.width() - kLeftPadding - kPadding,
+                     footerRect.height(),
+                     Qt::AlignLeft | Qt::AlignVCenter,
+                     footerText);
 }
 
 } // namespace ldirstat

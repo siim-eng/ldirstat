@@ -7,12 +7,12 @@
 
 namespace ldirstat {
 
-ScanProgressWidget::ScanProgressWidget(QWidget* parent)
+ScanProgressWidget::ScanProgressWidget(QWidget *parent)
     : QWidget(parent) {
-    auto* layout = new QVBoxLayout(this);
+    auto *layout = new QVBoxLayout(this);
     layout->addStretch();
 
-    auto* title = new QLabel(tr("Scanning..."), this);
+    auto *title = new QLabel(tr("Scanning..."), this);
     auto titleFont = title->font();
     titleFont.setBold(true);
     titleFont.setPointSize(16);
@@ -20,7 +20,7 @@ ScanProgressWidget::ScanProgressWidget(QWidget* parent)
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
-    auto* progressBar = new QProgressBar(this);
+    auto *progressBar = new QProgressBar(this);
     progressBar->setMinimum(0);
     progressBar->setMaximum(0);
     layout->addWidget(progressBar);
@@ -35,9 +35,9 @@ ScanProgressWidget::ScanProgressWidget(QWidget* parent)
 
     layout->addSpacing(8);
 
-    auto* stopButton = new QPushButton(tr("Stop"), this);
+    auto *stopButton = new QPushButton(tr("Stop"), this);
     stopButton->setFixedWidth(120);
-    auto* buttonLayout = new QHBoxLayout();
+    auto *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
     buttonLayout->addWidget(stopButton);
     buttonLayout->addStretch();

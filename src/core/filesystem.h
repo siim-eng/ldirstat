@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <vector>
 #include <sys/types.h>
+#include <vector>
 
 namespace ldirstat {
 
@@ -53,12 +53,12 @@ public:
 
     // Returns the MountInfo for the mount point that contains the given device,
     // or nullptr if not found.
-    const MountInfo* findByDevice(dev_t dev) const;
+    const MountInfo *findByDevice(dev_t dev) const;
 
-    const VolumeInfo* findVolumeByDevice(std::string_view devicePath) const;
+    const VolumeInfo *findVolumeByDevice(std::string_view devicePath) const;
 
-    const std::vector<MountInfo>& mounts() const { return mounts_; }
-    const std::vector<VolumeInfo>& volumes() const { return volumes_; }
+    const std::vector<MountInfo> &mounts() const { return mounts_; }
+    const std::vector<VolumeInfo> &volumes() const { return volumes_; }
 
     static FileSystemType classifyFileSystem(std::string_view fsType);
 

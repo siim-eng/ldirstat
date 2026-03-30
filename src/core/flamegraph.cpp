@@ -6,16 +6,12 @@
 
 namespace ldirstat {
 
-void FlameGraph::build(const DirEntryStore& store,
-                       EntryRef focus,
-                       const FlameGraphOptions& options) {
+void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGraphOptions &options) {
     rows_.clear();
-    if (!focus.valid() || options.width <= 0.0f)
-        return;
+    if (!focus.valid() || options.width <= 0.0f) return;
 
-    const DirEntry& focusEntry = store[focus];
-    if (focusEntry.size == 0)
-        return;
+    const DirEntry &focusEntry = store[focus];
+    if (focusEntry.size == 0) return;
 
     std::vector<EntryRef> ancestry;
     for (EntryRef current = focus; current.valid(); current = store[current].parent)
@@ -27,8 +23,8 @@ void FlameGraph::build(const DirEntryStore& store,
         rows_[row].push_back({0.0f, 1.0f, ancestry[row]});
 
     struct Frame {
-        EntryRef child;  // next child to process
-        float x1;        // current x offset within parent
+        EntryRef child; // next child to process
+        float x1;       // current x offset within parent
         float parentWidth;
         uint64_t parentSize;
         uint64_t previousSize = UINT64_MAX;
@@ -40,14 +36,13 @@ void FlameGraph::build(const DirEntryStore& store,
     // Seed with the focused entry's children above the ancestry rows.
     EntryRef firstChild = focusEntry.firstChild;
     const uint16_t maxDepth = std::min(options.maxDepth, kMaxDepthLimit);
-    if (!firstChild.valid() || maxDepth == 0)
-        return;
+    if (!firstChild.valid() || maxDepth == 0) return;
 
     stack[0] = {firstChild, 0.0f, 1.0f, focusEntry.size};
     const int rowOffset = static_cast<int>(ancestry.size());
 
     while (depth >= 0) {
-        Frame& f = stack[depth];
+        Frame &f = stack[depth];
 
         if (!f.child.valid()) {
             --depth;
@@ -55,15 +50,15 @@ void FlameGraph::build(const DirEntryStore& store,
         }
 
         int row = rowOffset + depth;
-        const DirEntry& entry = store[f.child];
+        const DirEntry &entry = store[f.child];
         const uint64_t entrySize = layoutSizeOf(entry);
         assert(entrySize <= f.previousSize && "FlameGraph requires children sorted by size");
         f.previousSize = entrySize;
 
         // Compute rect x range.
         const float width = (f.parentSize > 0)
-            ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth
-            : 0.0f;
+                                ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth
+                                : 0.0f;
         const float x1 = f.x1;
         const float x2 = x1 + width;
 
@@ -72,8 +67,7 @@ void FlameGraph::build(const DirEntryStore& store,
         f.child = entry.nextSibling;
         f.x1 = x2;
 
-        if (entrySize == 0)
-            continue;
+        if (entrySize == 0) continue;
 
         // Children are sorted descending, so once one misses the pixel cutoff
         // there is no point in scanning the remaining siblings in this row.
@@ -83,8 +77,7 @@ void FlameGraph::build(const DirEntryStore& store,
         }
 
         // Emit rect.
-        if (row >= static_cast<int>(rows_.size()))
-            rows_.resize(row + 1);
+        if (row >= static_cast<int>(rows_.size())) rows_.resize(row + 1);
         rows_[row].push_back({x1, x2, current});
 
         // Descend into directories with children.
@@ -96,23 +89,18 @@ void FlameGraph::build(const DirEntryStore& store,
 }
 
 EntryRef FlameGraph::lookup(float x, int row) const {
-    if (row < 0 || row >= static_cast<int>(rows_.size()))
-        return kNoEntry;
+    if (row < 0 || row >= static_cast<int>(rows_.size())) return kNoEntry;
 
-    const auto& rects = rows_[row];
-    if (rects.empty())
-        return kNoEntry;
+    const auto &rects = rows_[row];
+    if (rects.empty()) return kNoEntry;
 
     // Binary search: find last rect with x1 <= x.
-    auto it = std::upper_bound(rects.begin(), rects.end(), x,
-        [](float val, const FlameRect& r) { return val < r.x1; });
+    auto it = std::upper_bound(rects.begin(), rects.end(), x, [](float val, const FlameRect &r) { return val < r.x1; });
 
-    if (it == rects.begin())
-        return kNoEntry;
+    if (it == rects.begin()) return kNoEntry;
 
     --it;
-    if (x >= it->x1 && x < it->x2)
-        return it->ref;
+    if (x >= it->x1 && x < it->x2) return it->ref;
 
     return kNoEntry;
 }

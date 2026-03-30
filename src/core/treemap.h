@@ -18,9 +18,7 @@ struct TreeMapRect {
     float bottom() const { return y + height; }
     float area() const { return width * height; }
 
-    bool contains(float px, float py) const {
-        return px >= x && py >= y && px < right() && py < bottom();
-    }
+    bool contains(float px, float py) const { return px >= x && py >= y && px < right() && py < bottom(); }
 };
 
 struct TreeMapOptions {
@@ -59,10 +57,10 @@ class TreeMap {
 public:
     static constexpr uint32_t kNoNode = UINT32_MAX;
 
-    void build(const DirEntryStore& store, EntryRef focus, const TreeMapOptions& options);
+    void build(const DirEntryStore &store, EntryRef focus, const TreeMapOptions &options);
     EntryRef lookup(float x, float y) const;
 
-    const std::vector<TreeMapNode>& nodes() const { return nodes_; }
+    const std::vector<TreeMapNode> &nodes() const { return nodes_; }
 
 private:
     struct RowEntry {
@@ -86,49 +84,47 @@ private:
         bool empty() const { return size == 0; }
     };
 
-    void processFrame(const DirEntryStore& store,
-                      const TreeMapOptions& options,
-                      const Frame& frame);
-    RowState collectRow(const DirEntryStore& store,
-                        const TreeMapOptions& options,
+    void processFrame(const DirEntryStore &store, const TreeMapOptions &options, const Frame &frame);
+    RowState collectRow(const DirEntryStore &store,
+                        const TreeMapOptions &options,
                         EntryRef firstChild,
-                        const TreeMapRect& remainingRect,
+                        const TreeMapRect &remainingRect,
                         uint64_t remainingSize);
-    void emitRow(const DirEntryStore& store,
-                 const TreeMapOptions& options,
+    void emitRow(const DirEntryStore &store,
+                 const TreeMapOptions &options,
                  uint32_t parentNode,
                  uint16_t childDepth,
-                 TreeMapRect& remainingRect,
-                 const RowState& row,
-                 uint32_t& prevVisibleChild);
-    void emitVerticalRow(const DirEntryStore& store,
-                         const TreeMapOptions& options,
+                 TreeMapRect &remainingRect,
+                 const RowState &row,
+                 uint32_t &prevVisibleChild);
+    void emitVerticalRow(const DirEntryStore &store,
+                         const TreeMapOptions &options,
                          uint32_t parentNode,
                          uint16_t childDepth,
-                         TreeMapRect& remainingRect,
-                         const RowState& row,
-                         uint32_t& prevVisibleChild);
-    void emitHorizontalRow(const DirEntryStore& store,
-                           const TreeMapOptions& options,
+                         TreeMapRect &remainingRect,
+                         const RowState &row,
+                         uint32_t &prevVisibleChild);
+    void emitHorizontalRow(const DirEntryStore &store,
+                           const TreeMapOptions &options,
                            uint32_t parentNode,
                            uint16_t childDepth,
-                           TreeMapRect& remainingRect,
-                           const RowState& row,
-                           uint32_t& prevVisibleChild);
-    void appendNode(const DirEntryStore& store,
-                    const TreeMapOptions& options,
+                           TreeMapRect &remainingRect,
+                           const RowState &row,
+                           uint32_t &prevVisibleChild);
+    void appendNode(const DirEntryStore &store,
+                    const TreeMapOptions &options,
                     uint32_t parentNode,
-                    uint32_t& prevVisibleChild,
+                    uint32_t &prevVisibleChild,
                     EntryRef ref,
                     uint16_t childDepth,
-                    const TreeMapRect& rect);
+                    const TreeMapRect &rect);
     void pushPendingChildren();
-    void finalizeFrame(const DirEntryStore& store, uint32_t parentNode, EntryRef childRef);
+    void finalizeFrame(const DirEntryStore &store, uint32_t parentNode, EntryRef childRef);
 
-    static void trimZeroSized(const DirEntryStore& store, EntryRef& childRef);
-    static bool hasRemainingRect(const TreeMapRect& rect);
-    static double areaScale(const TreeMapRect& rect, uint64_t remainingSize);
-    static bool isTooSmall(const DirEntry& entry, double scale, const TreeMapOptions& options);
+    static void trimZeroSized(const DirEntryStore &store, EntryRef &childRef);
+    static bool hasRemainingRect(const TreeMapRect &rect);
+    static double areaScale(const TreeMapRect &rect, uint64_t remainingSize);
+    static bool isTooSmall(const DirEntry &entry, double scale, const TreeMapOptions &options);
 
     std::vector<TreeMapNode> nodes_;
     std::vector<Frame> stack_;

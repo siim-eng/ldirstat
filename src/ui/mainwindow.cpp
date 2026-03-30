@@ -11,9 +11,9 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDesktopServices>
-#include <QDir>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -42,19 +42,18 @@ namespace ldirstat {
 
 namespace {
 
-bool permanentlyRemovePath(const QString& path) {
+bool permanentlyRemovePath(const QString &path) {
     const QFileInfo info(path);
     // Check symlinks before isDir(); following a directory symlink here would be dangerous.
-    if (info.isSymLink() || !info.isDir())
-        return QFile::remove(path);
+    if (info.isSymLink() || !info.isDir()) return QFile::remove(path);
     return QDir(path).removeRecursively();
 }
 
 } // namespace
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent)
-    , scanner_(entryStore_, nameStore_) {
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent),
+      scanner_(entryStore_, nameStore_) {
     MainWindowBuilder::build(this);
     qApp->installEventFilter(this);
 
@@ -62,22 +61,19 @@ MainWindow::MainWindow(QWidget* parent)
     dirListView_->setThemeColors(themeColors_);
     if (graphTypeStack_) {
         for (int i = 0; i < graphTypeStack_->count(); ++i) {
-            auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
-            if (widget)
-                widget->setThemeColors(themeColors_);
+            auto *widget = qobject_cast<GraphWidget *>(graphTypeStack_->widget(i));
+            if (widget) widget->setThemeColors(themeColors_);
         }
     }
 
     refreshWelcomeVolumes();
     updateBreadcrumbPath();
 
-    connect(this, &MainWindow::scanComplete,
-            this, &MainWindow::onScanFinished, Qt::QueuedConnection);
+    connect(this, &MainWindow::scanComplete, this, &MainWindow::onScanFinished, Qt::QueuedConnection);
 }
 
 MainWindow::~MainWindow() {
-    if (qApp)
-        qApp->removeEventFilter(this);
+    if (qApp) qApp->removeEventFilter(this);
 
     if (mountProcess_) {
         mountProcess_->kill();
@@ -91,15 +87,14 @@ MainWindow::~MainWindow() {
     }
 }
 
-void MainWindow::changeEvent(QEvent* event) {
+void MainWindow::changeEvent(QEvent *event) {
     if (event->type() == QEvent::PaletteChange) {
         themeColors_ = ThemeColors::fromPalette(palette());
         dirListView_->setThemeColors(themeColors_);
         if (graphTypeStack_) {
             for (int i = 0; i < graphTypeStack_->count(); ++i) {
-                auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
-                if (widget)
-                    widget->setThemeColors(themeColors_);
+                auto *widget = qobject_cast<GraphWidget *>(graphTypeStack_->widget(i));
+                if (widget) widget->setThemeColors(themeColors_);
             }
         }
     }
@@ -107,16 +102,13 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 bool MainWindow::isGraphPageVisible() const {
-    return viewStack_ && flameStack_ && graphTypeStack_ &&
-           viewStack_->currentWidget() != welcomeWidget_ &&
-           flameStack_->currentWidget() == graphTypeStack_;
+    return viewStack_ && flameStack_ && graphTypeStack_ && viewStack_->currentWidget() != welcomeWidget_
+           && flameStack_->currentWidget() == graphTypeStack_;
 }
 
 EntryRef MainWindow::graphFocusForEntry(EntryRef ref) const {
-    if (!currentRoot_.valid())
-        return kNoEntry;
-    if (!ref.valid())
-        return currentRoot_;
+    if (!currentRoot_.valid()) return kNoEntry;
+    if (!ref.valid()) return currentRoot_;
 
     const EntryRef parent = entryStore_[ref].parent;
     return parent.valid() ? parent : ref;
@@ -124,8 +116,7 @@ EntryRef MainWindow::graphFocusForEntry(EntryRef ref) const {
 
 bool MainWindow::isEntryInSubtree(EntryRef ref, EntryRef ancestor) const {
     while (ref.valid()) {
-        if (ref == ancestor)
-            return true;
+        if (ref == ancestor) return true;
         ref = entryStore_[ref].parent;
     }
     return false;
@@ -137,30 +128,25 @@ void MainWindow::setCurrentEntry(EntryRef ref) {
 }
 
 void MainWindow::openEntry(EntryRef ref) {
-    if (!ref.valid() || !isGraphPageVisible())
-        return;
+    if (!ref.valid() || !isGraphPageVisible()) return;
 
     const QString path = pathForEntry(ref);
-    if (path.isEmpty())
-        return;
+    if (path.isEmpty()) return;
 
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void MainWindow::openEntryTerminal(EntryRef ref) {
-    if (!ref.valid() || !isGraphPageVisible())
-        return;
+    if (!ref.valid() || !isGraphPageVisible()) return;
 
-    const DirEntry& entry = entryStore_[ref];
+    const DirEntry &entry = entryStore_[ref];
     const QString path = pathForEntry(ref);
-    if (path.isEmpty())
-        return;
+    if (path.isEmpty()) return;
 
     const QString dir = entry.isDir() ? path : QFileInfo(path).path();
     QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
     if (terminal.isEmpty()) {
-        for (const char* candidate : {"konsole", "gnome-terminal", "xfce4-terminal",
-                                      "xterm"}) {
+        for (const char *candidate : {"konsole", "gnome-terminal", "xfce4-terminal", "xterm"}) {
             if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
                 terminal = candidate;
                 break;
@@ -168,31 +154,26 @@ void MainWindow::openEntryTerminal(EntryRef ref) {
         }
     }
 
-    if (!terminal.isEmpty())
-        QProcess::startDetached(terminal, {"--workdir", dir});
+    if (!terminal.isEmpty()) QProcess::startDetached(terminal, {"--workdir", dir});
 }
 
 void MainWindow::copyEntryPath(EntryRef ref) {
-    if (!ref.valid() || !isGraphPageVisible())
-        return;
+    if (!ref.valid() || !isGraphPageVisible()) return;
 
     const QString path = pathForEntry(ref);
-    if (path.isEmpty())
-        return;
+    if (path.isEmpty()) return;
 
     QGuiApplication::clipboard()->setText(path);
 }
 
 void MainWindow::syncGraphHighlight() {
-    if (!graphWidget_)
-        return;
+    if (!graphWidget_) return;
 
     graphWidget_->setSelectedEntry(currentEntry_);
 }
 
 void MainWindow::syncGraphSelection() {
-    if (!graphWidget_)
-        return;
+    if (!graphWidget_) return;
 
     const EntryRef focusDir = graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_;
     graphWidget_->setDirectory(focusDir.valid() ? focusDir : kNoEntry);
@@ -202,48 +183,38 @@ void MainWindow::syncGraphSelection() {
 
 void MainWindow::updateEntryActions() {
     const bool enabled = isGraphPageVisible() && currentEntry_.valid();
-    if (openEntryAction_)
-        openEntryAction_->setEnabled(enabled);
-    if (openEntryTerminalAction_)
-        openEntryTerminalAction_->setEnabled(enabled);
-    if (copyEntryPathAction_)
-        copyEntryPathAction_->setEnabled(enabled);
-    if (trashEntryAction_)
-        trashEntryAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
+    if (openEntryAction_) openEntryAction_->setEnabled(enabled);
+    if (openEntryTerminalAction_) openEntryTerminalAction_->setEnabled(enabled);
+    if (copyEntryPathAction_) copyEntryPathAction_->setEnabled(enabled);
+    if (trashEntryAction_) trashEntryAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
     if (deleteEntryPermanentlyAction_)
         deleteEntryPermanentlyAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
 }
 
 bool MainWindow::dirListSelectionIsActive() const {
-    if (!dirListView_ || !isGraphPageVisible())
-        return false;
-    if (contextMenuFromDirList_)
-        return true;
+    if (!dirListView_ || !isGraphPageVisible()) return false;
+    if (contextMenuFromDirList_) return true;
 
-    QWidget* focusWidget = QApplication::focusWidget();
-    return focusWidget != nullptr &&
-           (focusWidget == dirListView_ || dirListView_->isAncestorOf(focusWidget));
+    QWidget *focusWidget = QApplication::focusWidget();
+    return focusWidget != nullptr && (focusWidget == dirListView_ || dirListView_->isAncestorOf(focusWidget));
 }
 
 std::vector<EntryRef> MainWindow::actionTargets() const {
-    if (dirListSelectionIsActive())
-        return collapseNestedTargets(dirListView_->selectedEntries());
+    if (dirListSelectionIsActive()) return collapseNestedTargets(dirListView_->selectedEntries());
 
     std::vector<EntryRef> refs;
 
-    if (currentEntry_.valid() && currentEntry_ != currentRoot_)
-        refs.push_back(currentEntry_);
+    if (currentEntry_.valid() && currentEntry_ != currentRoot_) refs.push_back(currentEntry_);
 
     return collapseNestedTargets(refs);
 }
 
-std::vector<EntryRef> MainWindow::collapseNestedTargets(const std::vector<EntryRef>& refs) const {
+std::vector<EntryRef> MainWindow::collapseNestedTargets(const std::vector<EntryRef> &refs) const {
     std::vector<EntryRef> collapsed;
     collapsed.reserve(refs.size());
 
     for (EntryRef ref : refs) {
-        if (!ref.valid() || ref == currentRoot_)
-            continue;
+        if (!ref.valid() || ref == currentRoot_) continue;
 
         bool containedByExisting = false;
         for (EntryRef existing : collapsed) {
@@ -252,51 +223,41 @@ std::vector<EntryRef> MainWindow::collapseNestedTargets(const std::vector<EntryR
                 break;
             }
         }
-        if (containedByExisting)
-            continue;
+        if (containedByExisting) continue;
 
-        collapsed.erase(
-            std::remove_if(collapsed.begin(), collapsed.end(),
-                           [this, ref](EntryRef existing) {
-                               return isEntryInSubtree(existing, ref);
-                           }),
-            collapsed.end());
+        collapsed.erase(std::remove_if(collapsed.begin(),
+                                       collapsed.end(),
+                                       [this, ref](EntryRef existing) { return isEntryInSubtree(existing, ref); }),
+                        collapsed.end());
         collapsed.push_back(ref);
     }
 
     return collapsed;
 }
 
-void MainWindow::applyPostRemovalState(const std::vector<EntryRef>& removedRefs) {
-    if (!currentRoot_.valid())
-        return;
+void MainWindow::applyPostRemovalState(const std::vector<EntryRef> &removedRefs) {
+    if (!currentRoot_.valid()) return;
 
     bool currentEntryRemoved = false;
     bool graphFocusRemoved = false;
     EntryRef fallbackDir = currentRoot_;
 
     for (EntryRef ref : removedRefs) {
-        if (!ref.valid())
-            continue;
+        if (!ref.valid()) continue;
 
         const EntryRef parentDir = entryStore_[ref].parent;
-        if (parentDir.valid())
-            fallbackDir = parentDir;
+        if (parentDir.valid()) fallbackDir = parentDir;
 
-        currentEntryRemoved = currentEntryRemoved ||
-            (currentEntry_.valid() && isEntryInSubtree(currentEntry_, ref));
-        graphFocusRemoved = graphFocusRemoved ||
-            (graphFocusDir_.valid() && isEntryInSubtree(graphFocusDir_, ref));
+        currentEntryRemoved = currentEntryRemoved || (currentEntry_.valid() && isEntryInSubtree(currentEntry_, ref));
+        graphFocusRemoved = graphFocusRemoved || (graphFocusDir_.valid() && isEntryInSubtree(graphFocusDir_, ref));
     }
 
     for (EntryRef ref : removedRefs) {
-        if (!isEntryInSubtree(ref, currentRoot_))
-            continue;
+        if (!isEntryInSubtree(ref, currentRoot_)) continue;
         entryStore_.remove(ref);
     }
 
-    if (currentEntryRemoved)
-        setCurrentEntry(kNoEntry);
+    if (currentEntryRemoved) setCurrentEntry(kNoEntry);
 
     if (currentEntry_.valid())
         graphFocusDir_ = graphFocusForEntry(currentEntry_);
@@ -305,44 +266,38 @@ void MainWindow::applyPostRemovalState(const std::vector<EntryRef>& removedRefs)
 
     if (dirListView_) {
         const EntryRef target =
-            currentEntry_.valid() ? currentEntry_
-                                  : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
+            currentEntry_.valid() ? currentEntry_ : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
         dirListView_->selectEntry(target);
     }
 
     syncGraphSelection();
 }
 
-void MainWindow::showBatchFailureDialog(const QString& title,
-                                        const QString& actionDescription,
-                                        const QStringList& failedPaths) {
-    if (failedPaths.isEmpty())
-        return;
+void MainWindow::showBatchFailureDialog(const QString &title,
+                                        const QString &actionDescription,
+                                        const QStringList &failedPaths) {
+    if (failedPaths.isEmpty()) return;
 
     QStringList lines;
     const int limit = 8;
     const int shownCount = std::min(limit, static_cast<int>(failedPaths.size()));
     for (int i = 0; i < shownCount; ++i)
         lines.push_back(failedPaths[i]);
-    if (failedPaths.size() > shownCount)
-        lines.push_back(tr("...and %1 more").arg(failedPaths.size() - shownCount));
+    if (failedPaths.size() > shownCount) lines.push_back(tr("...and %1 more").arg(failedPaths.size() - shownCount));
 
-    QMessageBox::warning(
-        this, title,
-        tr("Failed to %1 %2 entr%3:\n%4")
-            .arg(actionDescription)
-            .arg(failedPaths.size())
-            .arg(failedPaths.size() == 1 ? tr("y") : tr("ies"))
-            .arg(lines.join('\n')));
+    QMessageBox::warning(this,
+                         title,
+                         tr("Failed to %1 %2 entr%3:\n%4")
+                             .arg(actionDescription)
+                             .arg(failedPaths.size())
+                             .arg(failedPaths.size() == 1 ? tr("y") : tr("ies"))
+                             .arg(lines.join('\n')));
 }
 
 void MainWindow::startContinueScan(EntryRef ref) {
-    if (!ref.valid() || !currentRoot_.valid())
-        return;
-    if (mountProcess_ || (scanThread_ && scanThread_->isRunning()))
-        return;
-    if (!entryStore_[ref].isMountPoint())
-        return;
+    if (!ref.valid() || !currentRoot_.valid()) return;
+    if (mountProcess_ || (scanThread_ && scanThread_->isRunning())) return;
+    if (!entryStore_[ref].isMountPoint()) return;
 
     toolbar_->setVisible(true);
     viewStack_->setCurrentIndex(1);
@@ -368,19 +323,19 @@ void MainWindow::startContinueScan(EntryRef ref) {
 }
 
 void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList) {
-    if (!ref.valid())
-        return;
+    if (!ref.valid()) return;
 
     contextMenuFromDirList_ = fromDirList;
 
     QMenu menu(this);
     if (fromDirList) {
-        menu.addAction(openEntryAction_->icon(), openEntryAction_->text(),
-                       this, [this, ref]() { openEntry(ref); });
-        menu.addAction(openEntryTerminalAction_->icon(), openEntryTerminalAction_->text(),
-                       this, [this, ref]() { openEntryTerminal(ref); });
-        menu.addAction(copyEntryPathAction_->icon(), copyEntryPathAction_->text(),
-                       this, [this, ref]() { copyEntryPath(ref); });
+        menu.addAction(openEntryAction_->icon(), openEntryAction_->text(), this, [this, ref]() { openEntry(ref); });
+        menu.addAction(openEntryTerminalAction_->icon(), openEntryTerminalAction_->text(), this, [this, ref]() {
+            openEntryTerminal(ref);
+        });
+        menu.addAction(copyEntryPathAction_->icon(), copyEntryPathAction_->text(), this, [this, ref]() {
+            copyEntryPath(ref);
+        });
     } else {
         setCurrentEntry(ref);
         syncGraphHighlight();
@@ -389,8 +344,7 @@ void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bo
         menu.addAction(copyEntryPathAction_);
     }
     if (entryStore_[ref].isMountPoint()) {
-        menu.addAction(tr("Continue Scanning at Mount Point"),
-                       this, [this, ref]() { startContinueScan(ref); });
+        menu.addAction(tr("Continue Scanning at Mount Point"), this, [this, ref]() { startContinueScan(ref); });
     }
     menu.addSeparator();
     menu.addAction(trashEntryAction_);
@@ -401,27 +355,23 @@ void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bo
 }
 
 QString MainWindow::pathForEntry(EntryRef ref) const {
-    if (!ref.valid())
-        return {};
+    if (!ref.valid()) return {};
     return entryFullPath(entryStore_, nameStore_, ref);
 }
 
 EntryRef MainWindow::breadcrumbDirectory() const {
     if (currentEntry_.valid()) {
-        const DirEntry& entry = entryStore_[currentEntry_];
-        if (entry.isDir())
-            return currentEntry_;
+        const DirEntry &entry = entryStore_[currentEntry_];
+        if (entry.isDir()) return currentEntry_;
     }
 
-    if (graphFocusDir_.valid())
-        return graphFocusDir_;
+    if (graphFocusDir_.valid()) return graphFocusDir_;
 
     return currentRoot_;
 }
 
 void MainWindow::navigateToDirectory(EntryRef ref) {
-    if (!ref.valid())
-        return;
+    if (!ref.valid()) return;
 
     setCurrentEntry(ref);
     graphFocusDir_ = graphFocusForEntry(ref);
@@ -430,13 +380,10 @@ void MainWindow::navigateToDirectory(EntryRef ref) {
 }
 
 void MainWindow::updateBreadcrumbPath() {
-    if (!breadcrumbPathWidget_ || !breadcrumbPathLayout_ ||
-        !breadcrumbCopyButton_ || !breadcrumbClearButton_)
-        return;
+    if (!breadcrumbPathWidget_ || !breadcrumbPathLayout_ || !breadcrumbCopyButton_ || !breadcrumbClearButton_) return;
 
-    while (QLayoutItem* item = breadcrumbPathLayout_->takeAt(0)) {
-        if (QWidget* widget = item->widget())
-            widget->deleteLater();
+    while (QLayoutItem *item = breadcrumbPathLayout_->takeAt(0)) {
+        if (QWidget *widget = item->widget()) widget->deleteLater();
         delete item;
     }
 
@@ -446,11 +393,10 @@ void MainWindow::updateBreadcrumbPath() {
 
     breadcrumbPathWidget_->setToolTip(path);
     breadcrumbCopyButton_->setEnabled(!path.isEmpty());
-    breadcrumbClearButton_->setEnabled(currentRoot_.valid() && focusDir.valid() &&
-                                       focusDir != currentRoot_);
+    breadcrumbClearButton_->setEnabled(currentRoot_.valid() && focusDir.valid() && focusDir != currentRoot_);
 
     if (path.isEmpty()) {
-        auto* placeholder = new QLabel(tr("Directory path"), breadcrumbPathWidget_);
+        auto *placeholder = new QLabel(tr("Directory path"), breadcrumbPathWidget_);
         placeholder->setEnabled(false);
         breadcrumbPathLayout_->addWidget(placeholder);
         breadcrumbPathLayout_->addStretch();
@@ -465,13 +411,11 @@ void MainWindow::updateBreadcrumbPath() {
     }
     std::reverse(dirChain.begin(), dirChain.end());
 
-    auto splitPath = [](const QString& value) {
+    auto splitPath = [](const QString &value) {
         const QString normalized = QDir::cleanPath(value);
         QStringList parts = normalized.split(QDir::separator(), Qt::SkipEmptyParts);
-        if (normalized.startsWith(QDir::separator()))
-            parts.prepend(QString(1, QDir::separator()));
-        if (parts.isEmpty())
-            parts.append(QString(1, QDir::separator()));
+        if (normalized.startsWith(QDir::separator())) parts.prepend(QString(1, QDir::separator()));
+        if (parts.isEmpty()) parts.append(QString(1, QDir::separator()));
         return parts;
     };
 
@@ -481,12 +425,12 @@ void MainWindow::updateBreadcrumbPath() {
 
     for (int i = 0; i < pathParts.size(); ++i) {
         if (i > 0) {
-            auto* separator = new QLabel(QStringLiteral(">"), breadcrumbPathWidget_);
+            auto *separator = new QLabel(QStringLiteral(">"), breadcrumbPathWidget_);
             separator->setEnabled(false);
             breadcrumbPathLayout_->addWidget(separator);
         }
 
-        auto* button = new QToolButton(breadcrumbPathWidget_);
+        auto *button = new QToolButton(breadcrumbPathWidget_);
         button->setText(pathParts[i]);
         button->setAutoRaise(true);
         button->setToolButtonStyle(Qt::ToolButtonTextOnly);
@@ -496,9 +440,7 @@ void MainWindow::updateBreadcrumbPath() {
         const bool isClickable = chainIndex > 0 && chainIndex < static_cast<int>(dirChain.size());
         if (isClickable) {
             const EntryRef targetDir = dirChain[chainIndex];
-            connect(button, &QToolButton::clicked, this, [this, targetDir]() {
-                navigateToDirectory(targetDir);
-            });
+            connect(button, &QToolButton::clicked, this, [this, targetDir]() { navigateToDirectory(targetDir); });
         } else {
             button->setEnabled(false);
         }
@@ -509,11 +451,10 @@ void MainWindow::updateBreadcrumbPath() {
     breadcrumbPathLayout_->addStretch();
 }
 
-bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     if (shouldForwardDirListArrowKey(watched, event)) {
-        auto* keyEvent = static_cast<QKeyEvent*>(event);
-        if (dirListView_->handleArrowKey(keyEvent->key(), keyEvent->modifiers()))
-            return true;
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (dirListView_->handleArrowKey(keyEvent->key(), keyEvent->modifiers())) return true;
     }
 
     return QMainWindow::eventFilter(watched, event);
@@ -524,56 +465,41 @@ void MainWindow::refreshWelcomeVolumes() {
     welcomeWidget_->populate(fileSystems_);
 }
 
-void MainWindow::setMountInProgress(bool inProgress, const QString& status) {
-    if (welcomeWidget_)
-        welcomeWidget_->setBusy(inProgress, status);
-    if (toolbar_)
-        toolbar_->setEnabled(!inProgress);
+void MainWindow::setMountInProgress(bool inProgress, const QString &status) {
+    if (welcomeWidget_) welcomeWidget_->setBusy(inProgress, status);
+    if (toolbar_) toolbar_->setEnabled(!inProgress);
 
     if (inProgress) {
-        if (!QApplication::overrideCursor())
-            QApplication::setOverrideCursor(Qt::BusyCursor);
+        if (!QApplication::overrideCursor()) QApplication::setOverrideCursor(Qt::BusyCursor);
         return;
     }
 
-    if (QApplication::overrideCursor())
-        QApplication::restoreOverrideCursor();
+    if (QApplication::overrideCursor()) QApplication::restoreOverrideCursor();
 }
 
-bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const {
-    if (!dirListView_ || event->type() != QEvent::KeyPress)
-        return false;
+bool MainWindow::shouldForwardDirListArrowKey(QObject *watched, QEvent *event) const {
+    if (!dirListView_ || event->type() != QEvent::KeyPress) return false;
 
-    auto* keyEvent = static_cast<QKeyEvent*>(event);
-    const Qt::KeyboardModifiers supportedModifiers =
-        Qt::ShiftModifier | Qt::ControlModifier;
-    if ((keyEvent->modifiers() & ~supportedModifiers) != Qt::NoModifier)
-        return false;
+    auto *keyEvent = static_cast<QKeyEvent *>(event);
+    const Qt::KeyboardModifiers supportedModifiers = Qt::ShiftModifier | Qt::ControlModifier;
+    if ((keyEvent->modifiers() & ~supportedModifiers) != Qt::NoModifier) return false;
 
     switch (keyEvent->key()) {
     case Qt::Key_Up:
     case Qt::Key_Down:
     case Qt::Key_Left:
-    case Qt::Key_Right:
-        break;
-    default:
-        return false;
+    case Qt::Key_Right: break;
+    default: return false;
     }
 
-    if (!isGraphPageVisible())
-        return false;
-    if (!dirListView_->isEnabled() || !dirListView_->isVisible())
-        return false;
-    if (QApplication::activePopupWidget())
-        return false;
+    if (!isGraphPageVisible()) return false;
+    if (!dirListView_->isEnabled() || !dirListView_->isVisible()) return false;
+    if (QApplication::activePopupWidget()) return false;
 
-    auto* widget = qobject_cast<QWidget*>(watched);
-    if (!widget)
-        return false;
-    if (qobject_cast<QLineEdit*>(widget))
-        return false;
-    if (widget->inherits("QTextEdit") || widget->inherits("QPlainTextEdit") ||
-        widget->inherits("QAbstractSpinBox")) {
+    auto *widget = qobject_cast<QWidget *>(watched);
+    if (!widget) return false;
+    if (qobject_cast<QLineEdit *>(widget)) return false;
+    if (widget->inherits("QTextEdit") || widget->inherits("QPlainTextEdit") || widget->inherits("QAbstractSpinBox")) {
         return false;
     }
 
@@ -581,12 +507,10 @@ bool MainWindow::shouldForwardDirListArrowKey(QObject* watched, QEvent* event) c
 }
 
 void MainWindow::onOverview() {
-    if (mountProcess_)
-        return;
+    if (mountProcess_) return;
 
     if (viewStack_->currentIndex() == 1) {
-        if (currentRoot_.valid())
-            graphFocusDir_ = currentRoot_;
+        if (currentRoot_.valid()) graphFocusDir_ = currentRoot_;
         setCurrentEntry(kNoEntry);
         syncGraphSelection();
         refreshWelcomeVolumes();
@@ -601,13 +525,11 @@ void MainWindow::onOverview() {
 }
 
 void MainWindow::onRescan() {
-    if (!lastScanPath_.isEmpty())
-        startScan(lastScanPath_);
+    if (!lastScanPath_.isEmpty()) startScan(lastScanPath_);
 }
 
-void MainWindow::startScan(const QString& path) {
-    if (mountProcess_ || (scanThread_ && scanThread_->isRunning()))
-        return;
+void MainWindow::startScan(const QString &path) {
+    if (mountProcess_ || (scanThread_ && scanThread_->isRunning())) return;
 
     activeScanMode_ = ScanMode::FullRootScan;
     pendingContinueMount_ = kNoEntry;
@@ -638,9 +560,8 @@ void MainWindow::startScan(const QString& path) {
     nameStore_.clear();
     if (graphTypeStack_) {
         for (int i = 0; i < graphTypeStack_->count(); ++i) {
-            auto* widget = qobject_cast<GraphWidget*>(graphTypeStack_->widget(i));
-            if (!widget)
-                continue;
+            auto *widget = qobject_cast<GraphWidget *>(graphTypeStack_->widget(i));
+            if (!widget) continue;
             widget->setStores(nullptr, nullptr);
             widget->setDirectory(kNoEntry);
             widget->setSelectedEntry(kNoEntry);
@@ -661,22 +582,20 @@ void MainWindow::startScan(const QString& path) {
     scanThread_->start();
 }
 
-void MainWindow::mountAndScan(const QString& devicePath) {
-    if (devicePath.isEmpty() || mountProcess_ || (scanThread_ && scanThread_->isRunning()))
-        return;
+void MainWindow::mountAndScan(const QString &devicePath) {
+    if (devicePath.isEmpty() || mountProcess_ || (scanThread_ && scanThread_->isRunning())) return;
 
     setCurrentEntry(kNoEntry);
     viewStack_->setCurrentIndex(0);
     setMountInProgress(true, tr("Mounting %1...").arg(devicePath));
 
-    auto* process = new QProcess(this);
+    auto *process = new QProcess(this);
     mountProcess_ = process;
     process->setProgram(QStringLiteral("udisksctl"));
     process->setArguments({QStringLiteral("mount"), QStringLiteral("-b"), devicePath});
 
-    const auto complete = [this, process, devicePath](bool success, const QString& message) {
-        if (process != mountProcess_)
-            return;
+    const auto complete = [this, process, devicePath](bool success, const QString &message) {
+        if (process != mountProcess_) return;
 
         mountProcess_ = nullptr;
         refreshWelcomeVolumes();
@@ -686,19 +605,15 @@ void MainWindow::mountAndScan(const QString& devicePath) {
         if (!success) {
             QMessageBox::warning(this,
                                  tr("Mount Failed"),
-                                 message.isEmpty()
-                                     ? tr("Unable to mount %1.").arg(devicePath)
-                                     : message);
+                                 message.isEmpty() ? tr("Unable to mount %1.").arg(devicePath) : message);
             return;
         }
 
-        const VolumeInfo* volume =
-            fileSystems_.findVolumeByDevice(devicePath.toStdString());
+        const VolumeInfo *volume = fileSystems_.findVolumeByDevice(devicePath.toStdString());
         if (!volume || !volume->mounted || volume->mountPoint.empty()) {
             QMessageBox::warning(this,
                                  tr("Mount Failed"),
-                                 tr("Mounted %1, but no mount point could be resolved.")
-                                     .arg(devicePath));
+                                 tr("Mounted %1, but no mount point could be resolved.").arg(devicePath));
             return;
         }
 
@@ -709,30 +624,22 @@ void MainWindow::mountAndScan(const QString& devicePath) {
             qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
             this,
             [process, complete](int exitCode, QProcess::ExitStatus exitStatus) {
-                const QString stdErr =
-                    QString::fromUtf8(process->readAllStandardError()).trimmed();
-                const QString stdOut =
-                    QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+        const QString stdErr = QString::fromUtf8(process->readAllStandardError()).trimmed();
+        const QString stdOut = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
 
-                if (exitStatus != QProcess::NormalExit || exitCode != 0) {
-                    const QString message =
-                        !stdErr.isEmpty() ? stdErr
-                                          : (!stdOut.isEmpty() ? stdOut : process->errorString());
-                    complete(false, message);
-                    return;
-                }
+        if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+            const QString message = !stdErr.isEmpty() ? stdErr : (!stdOut.isEmpty() ? stdOut : process->errorString());
+            complete(false, message);
+            return;
+        }
 
-                complete(true, {});
-            });
+        complete(true, {});
+    });
 
-    connect(process,
-            &QProcess::errorOccurred,
-            this,
-            [process, complete](QProcess::ProcessError) {
-                const QString message =
-                    QString::fromUtf8(process->readAllStandardError()).trimmed();
-                complete(false, message.isEmpty() ? process->errorString() : message);
-            });
+    connect(process, &QProcess::errorOccurred, this, [process, complete](QProcess::ProcessError) {
+        const QString message = QString::fromUtf8(process->readAllStandardError()).trimmed();
+        complete(false, message.isEmpty() ? process->errorString() : message);
+    });
 
     process->start();
 }
@@ -756,20 +663,17 @@ void MainWindow::onScanFinished(EntryRef root) {
 
     if (activeScanMode_ == ScanMode::ContinueMountPoint) {
         const EntryRef continuedMount = pendingContinueMount_;
-        const EntryRef fallbackTarget = currentEntry_.valid()
-            ? currentEntry_
-            : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
+        const EntryRef fallbackTarget =
+            currentEntry_.valid() ? currentEntry_ : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
         bool continueSucceeded = false;
 
         if (scanner_.stopped()) {
             scanner_.revertContinueScan(continuedMount);
         } else if (!root.valid()) {
             scanner_.revertContinueScan(continuedMount);
-            QMessageBox::warning(
-                this,
-                tr("Continue Scan Failed"),
-                tr("Unable to continue scanning \"%1\".")
-                    .arg(pathForEntry(continuedMount)));
+            QMessageBox::warning(this,
+                                 tr("Continue Scan Failed"),
+                                 tr("Unable to continue scanning \"%1\".").arg(pathForEntry(continuedMount)));
         } else {
             onScanPollTick();
             scanner_.commitContinueScan(continuedMount);
@@ -785,11 +689,9 @@ void MainWindow::onScanFinished(EntryRef root) {
             dirListView_->setRoot(entryStore_, nameStore_, currentRoot_);
             graphWidget_->setStores(&entryStore_, &nameStore_);
 
-            const EntryRef refreshTarget =
-                continueSucceeded ? continuedMount : fallbackTarget;
+            const EntryRef refreshTarget = continueSucceeded ? continuedMount : fallbackTarget;
             const EntryRef target = refreshTarget.valid() ? refreshTarget : currentRoot_;
-            if (target.valid() && target != currentRoot_)
-                dirListView_->selectEntry(target);
+            if (target.valid() && target != currentRoot_) dirListView_->selectEntry(target);
 
             syncGraphSelection();
         }
@@ -829,10 +731,7 @@ void MainWindow::onScanFinished(EntryRef root) {
         toolbar_->setVisible(false);
         activeScanMode_ = ScanMode::FullRootScan;
         pendingContinueMount_ = kNoEntry;
-        QMessageBox::warning(
-            this,
-            tr("Scan Failed"),
-            tr("Unable to scan \"%1\".").arg(lastScanPath_));
+        QMessageBox::warning(this, tr("Scan Failed"), tr("Unable to scan \"%1\".").arg(lastScanPath_));
         return;
     }
 
@@ -883,19 +782,16 @@ void MainWindow::copyCurrentEntryPath() {
 
 void MainWindow::copyCurrentDirectoryPath() {
     const EntryRef focusDir = breadcrumbDirectory();
-    if (!focusDir.valid())
-        return;
+    if (!focusDir.valid()) return;
 
     const QString path = pathForEntry(focusDir);
-    if (path.isEmpty())
-        return;
+    if (path.isEmpty()) return;
 
     QGuiApplication::clipboard()->setText(path);
 }
 
 void MainWindow::clearDirectoryBreadcrumb() {
-    if (!currentRoot_.valid() || breadcrumbDirectory() == currentRoot_)
-        return;
+    if (!currentRoot_.valid() || breadcrumbDirectory() == currentRoot_) return;
 
     setCurrentEntry(kNoEntry);
     graphFocusDir_ = currentRoot_;
@@ -904,13 +800,11 @@ void MainWindow::clearDirectoryBreadcrumb() {
 }
 
 void MainWindow::openHelpPage() {
-    QDesktopServices::openUrl(
-        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/blob/main/docs/HELP.md")));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/blob/main/docs/HELP.md")));
 }
 
 void MainWindow::reportIssue() {
-    QDesktopServices::openUrl(
-        QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/issues")));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/siim-eng/ldirstat/issues")));
 }
 
 void MainWindow::showAboutDialog() {
@@ -921,8 +815,8 @@ void MainWindow::showAboutDialog() {
     dialog.setWindowTitle(tr("About %1").arg(appName));
     dialog.setModal(true);
 
-    auto* layout = new QVBoxLayout(&dialog);
-    auto* text = new QLabel(
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *text = new QLabel(
         tr("<p><b>%1</b><br>Version %2</p>"
            "<p>LDirStat scans directories and helps you understand disk usage with flame graph and tree map views. "
            "It is built for fast, low-latency analysis with low memory usage for exploring large directory trees.</p>"
@@ -937,7 +831,7 @@ void MainWindow::showAboutDialog() {
     text->setOpenExternalLinks(true);
     layout->addWidget(text);
 
-    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     layout->addWidget(buttons);
 
@@ -945,34 +839,27 @@ void MainWindow::showAboutDialog() {
 }
 
 void MainWindow::trashCurrentEntry() {
-    if (!isGraphPageVisible())
-        return;
+    if (!isGraphPageVisible()) return;
     if (!contextMenuFromDirList_) {
-        QWidget* focusWidget = QApplication::focusWidget();
-        if (qobject_cast<QLineEdit*>(focusWidget))
-            return;
+        QWidget *focusWidget = QApplication::focusWidget();
+        if (qobject_cast<QLineEdit *>(focusWidget)) return;
     }
 
     const std::vector<EntryRef> refs = actionTargets();
-    if (refs.empty())
-        return;
+    if (refs.empty()) return;
 
-    const QString prompt = refs.size() == 1
-        ? tr("Move \"%1\" to trash?").arg(pathForEntry(refs.front()))
-        : tr("Move %1 selected entries to trash?").arg(refs.size());
-    const auto answer = QMessageBox::question(
-        this, tr("Move to Trash"), prompt,
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-    if (answer != QMessageBox::Yes)
-        return;
+    const QString prompt = refs.size() == 1 ? tr("Move \"%1\" to trash?").arg(pathForEntry(refs.front()))
+                                            : tr("Move %1 selected entries to trash?").arg(refs.size());
+    const auto answer =
+        QMessageBox::question(this, tr("Move to Trash"), prompt, QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (answer != QMessageBox::Yes) return;
 
     std::vector<EntryRef> removedRefs;
     removedRefs.reserve(refs.size());
     QStringList failedPaths;
     for (EntryRef ref : refs) {
         const QString path = pathForEntry(ref);
-        if (path.isEmpty())
-            continue;
+        if (path.isEmpty()) continue;
         if (!QFile::moveToTrash(path)) {
             failedPaths.push_back(path);
             continue;
@@ -980,26 +867,21 @@ void MainWindow::trashCurrentEntry() {
         removedRefs.push_back(ref);
     }
 
-    if (removedRefs.empty() && failedPaths.isEmpty())
-        return;
+    if (removedRefs.empty() && failedPaths.isEmpty()) return;
 
-    if (!removedRefs.empty())
-        applyPostRemovalState(removedRefs);
+    if (!removedRefs.empty()) applyPostRemovalState(removedRefs);
     showBatchFailureDialog(tr("Move to Trash"), tr("move to trash"), failedPaths);
 }
 
 void MainWindow::deleteCurrentEntryPermanently() {
-    if (!isGraphPageVisible())
-        return;
+    if (!isGraphPageVisible()) return;
     if (!contextMenuFromDirList_) {
-        QWidget* focusWidget = QApplication::focusWidget();
-        if (qobject_cast<QLineEdit*>(focusWidget))
-            return;
+        QWidget *focusWidget = QApplication::focusWidget();
+        if (qobject_cast<QLineEdit *>(focusWidget)) return;
     }
 
     const std::vector<EntryRef> refs = actionTargets();
-    if (refs.empty())
-        return;
+    if (refs.empty()) return;
 
     QString prompt;
     if (refs.size() == 1) {
@@ -1009,18 +891,16 @@ void MainWindow::deleteCurrentEntryPermanently() {
     }
 
     bool ok = false;
-    const QString confirmation = QInputDialog::getText(
-        this, tr("Delete Permanently"), prompt, QLineEdit::Normal, {}, &ok);
-    if (!ok || confirmation != QStringLiteral("yes"))
-        return;
+    const QString confirmation =
+        QInputDialog::getText(this, tr("Delete Permanently"), prompt, QLineEdit::Normal, {}, &ok);
+    if (!ok || confirmation != QStringLiteral("yes")) return;
 
     std::vector<EntryRef> removedRefs;
     removedRefs.reserve(refs.size());
     QStringList failedPaths;
     for (EntryRef ref : refs) {
         const QString path = pathForEntry(ref);
-        if (path.isEmpty())
-            continue;
+        if (path.isEmpty()) continue;
         if (!permanentlyRemovePath(path)) {
             failedPaths.push_back(path);
             continue;
@@ -1028,11 +908,9 @@ void MainWindow::deleteCurrentEntryPermanently() {
         removedRefs.push_back(ref);
     }
 
-    if (removedRefs.empty() && failedPaths.isEmpty())
-        return;
+    if (removedRefs.empty() && failedPaths.isEmpty()) return;
 
-    if (!removedRefs.empty())
-        applyPostRemovalState(removedRefs);
+    if (!removedRefs.empty()) applyPostRemovalState(removedRefs);
     showBatchFailureDialog(tr("Delete Permanently"), tr("delete permanently"), failedPaths);
 }
 

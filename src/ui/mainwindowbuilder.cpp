@@ -25,7 +25,7 @@
 
 namespace ldirstat {
 
-void MainWindowBuilder::build(MainWindow* w) {
+void MainWindowBuilder::build(MainWindow *w) {
     configureWindow(w);
     buildToolbar(w);
     buildAnalysisWidgets(w);
@@ -40,27 +40,27 @@ void MainWindowBuilder::build(MainWindow* w) {
     updateGraphTypeButtonVisibility(w);
 }
 
-void MainWindowBuilder::configureWindow(MainWindow* w) {
+void MainWindowBuilder::configureWindow(MainWindow *w) {
     w->setWindowTitle("LDirStat");
     w->resize(1200, 800);
 
-    auto* closeAction = new QAction(MainWindow::tr("Close"), w);
+    auto *closeAction = new QAction(MainWindow::tr("Close"), w);
     closeAction->setShortcut(QKeySequence(Qt::Key_Escape));
     closeAction->setShortcutContext(Qt::ApplicationShortcut);
     w->addAction(closeAction);
     QObject::connect(closeAction, &QAction::triggered, w, &QWidget::close);
 }
 
-void MainWindowBuilder::buildToolbar(MainWindow* w) {
+void MainWindowBuilder::buildToolbar(MainWindow *w) {
     w->toolbar_ = w->addToolBar(MainWindow::tr("Main"));
     w->toolbar_->setMovable(false);
     w->toolbar_->setFloatable(false);
     w->toolbar_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     w->toolbar_->setVisible(false);
 
-    auto* breadcrumbWidget = new QWidget(w->toolbar_);
+    auto *breadcrumbWidget = new QWidget(w->toolbar_);
     breadcrumbWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    auto* breadcrumbLayout = new QHBoxLayout(breadcrumbWidget);
+    auto *breadcrumbLayout = new QHBoxLayout(breadcrumbWidget);
     breadcrumbLayout->setContentsMargins(0, 0, 0, 0);
     breadcrumbLayout->setSpacing(4);
 
@@ -71,41 +71,38 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->breadcrumbPathLayout_->setSpacing(2);
 
     w->breadcrumbCopyButton_ = new QToolButton(breadcrumbWidget);
-    w->breadcrumbCopyButton_->setIcon(
-        themedIcon(w, QStringLiteral("edit-copy-symbolic"), QStyle::SP_FileIcon));
+    w->breadcrumbCopyButton_->setIcon(themedIcon(w, QStringLiteral("edit-copy-symbolic"), QStyle::SP_FileIcon));
     w->breadcrumbCopyButton_->setToolTip(MainWindow::tr("Copy directory path"));
     w->breadcrumbCopyButton_->setFocusPolicy(Qt::NoFocus);
-    QObject::connect(w->breadcrumbCopyButton_, &QToolButton::clicked,
-                     w, &MainWindow::copyCurrentDirectoryPath);
+    QObject::connect(w->breadcrumbCopyButton_, &QToolButton::clicked, w, &MainWindow::copyCurrentDirectoryPath);
 
     w->breadcrumbClearButton_ = new QToolButton(breadcrumbWidget);
     w->breadcrumbClearButton_->setIcon(
         themedIcon(w, QStringLiteral("edit-clear-symbolic"), QStyle::SP_DialogResetButton));
     w->breadcrumbClearButton_->setToolTip(MainWindow::tr("Clear to root directory"));
     w->breadcrumbClearButton_->setFocusPolicy(Qt::NoFocus);
-    QObject::connect(w->breadcrumbClearButton_, &QToolButton::clicked,
-                     w, &MainWindow::clearDirectoryBreadcrumb);
+    QObject::connect(w->breadcrumbClearButton_, &QToolButton::clicked, w, &MainWindow::clearDirectoryBreadcrumb);
 
     breadcrumbLayout->addWidget(w->breadcrumbPathWidget_);
     breadcrumbLayout->addWidget(w->breadcrumbCopyButton_);
     breadcrumbLayout->addWidget(w->breadcrumbClearButton_);
     w->toolbar_->addWidget(breadcrumbWidget);
 
-    w->overviewAction_ = w->toolbar_->addAction(
-        themedIcon(w, QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon),
-        MainWindow::tr("Overview"));
+    w->overviewAction_ =
+        w->toolbar_->addAction(themedIcon(w, QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon),
+                               MainWindow::tr("Overview"));
     QObject::connect(w->overviewAction_, &QAction::triggered, w, &MainWindow::onOverview);
 
-    w->rescanAction_ = w->toolbar_->addAction(
-        themedIcon(w, QStringLiteral("view-refresh-symbolic"), QStyle::SP_BrowserReload),
-        MainWindow::tr("Rescan"));
+    w->rescanAction_ =
+        w->toolbar_->addAction(themedIcon(w, QStringLiteral("view-refresh-symbolic"), QStyle::SP_BrowserReload),
+                               MainWindow::tr("Rescan"));
     QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
 
-    auto configureEntryAction = [w](QAction*& action,
-                                    const QString& iconName,
+    auto configureEntryAction = [w](QAction *&action,
+                                    const QString &iconName,
                                     QStyle::StandardPixmap fallback,
-                                    const QString& text,
-                                    const QKeySequence& shortcut,
+                                    const QString &text,
+                                    const QKeySequence &shortcut,
                                     auto slot) {
         action = new QAction(themedIcon(w, iconName, fallback), text, w);
         action->setShortcut(shortcut);
@@ -155,7 +152,7 @@ void MainWindowBuilder::buildToolbar(MainWindow* w) {
     w->graphTypeButton_->setFocusPolicy(Qt::NoFocus);
 }
 
-void MainWindowBuilder::buildAnalysisWidgets(MainWindow* w) {
+void MainWindowBuilder::buildAnalysisWidgets(MainWindow *w) {
     w->dirListView_ = new DirListView(w);
     w->flameGraphWidget_ = new FlameGraphWidget(w);
     w->treeMapWidget_ = new TreeMapWidget(w);
@@ -175,15 +172,14 @@ void MainWindowBuilder::buildAnalysisWidgets(MainWindow* w) {
     w->flameStack_->setCurrentIndex(1);
 }
 
-void MainWindowBuilder::buildScanPollTimer(MainWindow* w) {
+void MainWindowBuilder::buildScanPollTimer(MainWindow *w) {
     w->scanPollTimer_ = new QTimer(w);
     w->scanPollTimer_->setInterval(100);
-    QObject::connect(w->scanPollTimer_, &QTimer::timeout,
-                     w, &MainWindow::onScanPollTick);
+    QObject::connect(w->scanPollTimer_, &QTimer::timeout, w, &MainWindow::onScanPollTick);
 }
 
-void MainWindowBuilder::buildCentralView(MainWindow* w) {
-    auto* mainSplitter = new QSplitter(Qt::Vertical, w);
+void MainWindowBuilder::buildCentralView(MainWindow *w) {
+    auto *mainSplitter = new QSplitter(Qt::Vertical, w);
     mainSplitter->addWidget(w->dirListView_);
     mainSplitter->addWidget(w->flameStack_);
     int totalHeight = w->height();
@@ -196,9 +192,9 @@ void MainWindowBuilder::buildCentralView(MainWindow* w) {
     w->setCentralWidget(w->viewStack_);
 }
 
-MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWindow* w) {
-    auto* graphTypeMenu = new QMenu(w->graphTypeButton_);
-    auto* graphTypeGroup = new QActionGroup(graphTypeMenu);
+MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWindow *w) {
+    auto *graphTypeMenu = new QMenu(w->graphTypeButton_);
+    auto *graphTypeGroup = new QActionGroup(graphTypeMenu);
     graphTypeGroup->setExclusive(true);
 
     GraphTypeActions actions;
@@ -207,13 +203,11 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
     actions.flameGraph->setChecked(true);
     graphTypeGroup->addAction(actions.flameGraph);
 
-    actions.treeMapHeaders =
-        graphTypeMenu->addAction(MainWindow::tr("Tree Map - Directory Headers"));
+    actions.treeMapHeaders = graphTypeMenu->addAction(MainWindow::tr("Tree Map - Directory Headers"));
     actions.treeMapHeaders->setCheckable(true);
     graphTypeGroup->addAction(actions.treeMapHeaders);
 
-    actions.treeMapPacked =
-        graphTypeMenu->addAction(MainWindow::tr("Tree Map no headers"));
+    actions.treeMapPacked = graphTypeMenu->addAction(MainWindow::tr("Tree Map no headers"));
     actions.treeMapPacked->setCheckable(true);
     graphTypeGroup->addAction(actions.treeMapPacked);
 
@@ -224,64 +218,50 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
     return actions;
 }
 
-void MainWindowBuilder::buildHelpMenu(MainWindow* w) {
-    QIcon helpIcon =
-        themedIcon(w, QStringLiteral("help-contents-symbolic"), QStyle::SP_DialogHelpButton);
+void MainWindowBuilder::buildHelpMenu(MainWindow *w) {
+    QIcon helpIcon = themedIcon(w, QStringLiteral("help-contents-symbolic"), QStyle::SP_DialogHelpButton);
 
-    auto* helpButton = new QToolButton(w->toolbar_);
+    auto *helpButton = new QToolButton(w->toolbar_);
     helpButton->setIcon(helpIcon);
     helpButton->setToolTip(MainWindow::tr("Help"));
     helpButton->setPopupMode(QToolButton::InstantPopup);
     helpButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
     helpButton->setFocusPolicy(Qt::NoFocus);
 
-    auto* helpMenu = new QMenu(helpButton);
-    auto* helpAction = helpMenu->addAction(MainWindow::tr("Help"));
+    auto *helpMenu = new QMenu(helpButton);
+    auto *helpAction = helpMenu->addAction(MainWindow::tr("Help"));
     QObject::connect(helpAction, &QAction::triggered, w, &MainWindow::openHelpPage);
 
-    auto* reportIssueAction = helpMenu->addAction(MainWindow::tr("Report an Issue"));
+    auto *reportIssueAction = helpMenu->addAction(MainWindow::tr("Report an Issue"));
     QObject::connect(reportIssueAction, &QAction::triggered, w, &MainWindow::reportIssue);
 
     helpMenu->addSeparator();
 
-    auto* aboutAction = helpMenu->addAction(MainWindow::tr("About"));
+    auto *aboutAction = helpMenu->addAction(MainWindow::tr("About"));
     QObject::connect(aboutAction, &QAction::triggered, w, &MainWindow::showAboutDialog);
 
     helpButton->setMenu(helpMenu);
     w->toolbar_->addWidget(helpButton);
 }
 
-void MainWindowBuilder::connectCoreSignals(MainWindow* w) {
-    QObject::connect(w->dirListView_, &DirListView::directorySelected,
-                     w, &MainWindow::onDirSelected);
-    QObject::connect(w->dirListView_, &DirListView::entrySelected,
-                     w, &MainWindow::onEntrySelected);
-    QObject::connect(w->flameGraphWidget_, &GraphWidget::entrySelected,
-                     w, &MainWindow::onGraphEntrySelected);
-    QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected,
-                     w, &MainWindow::onGraphEntrySelected);
-    QObject::connect(w->dirListView_, &DirListView::contextMenuRequested,
-                     w, &MainWindow::showDirListContextMenu);
-    QObject::connect(w->flameGraphWidget_, &GraphWidget::contextMenuRequested,
-                     w, &MainWindow::showEntryContextMenu);
-    QObject::connect(w->treeMapWidget_, &GraphWidget::contextMenuRequested,
-                     w, &MainWindow::showEntryContextMenu);
-    QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested,
-                     w, &MainWindow::startScan);
-    QObject::connect(w->welcomeWidget_, &WelcomeWidget::mountAndScanRequested,
-                     w, &MainWindow::mountAndScan);
-    QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested,
-                     w, [w]() {
-        QString dir = QFileDialog::getExistingDirectory(
-            w, MainWindow::tr("Select Directory"), QDir::homePath());
-        if (!dir.isEmpty())
-            w->startScan(dir);
+void MainWindowBuilder::connectCoreSignals(MainWindow *w) {
+    QObject::connect(w->dirListView_, &DirListView::directorySelected, w, &MainWindow::onDirSelected);
+    QObject::connect(w->dirListView_, &DirListView::entrySelected, w, &MainWindow::onEntrySelected);
+    QObject::connect(w->flameGraphWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
+    QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
+    QObject::connect(w->dirListView_, &DirListView::contextMenuRequested, w, &MainWindow::showDirListContextMenu);
+    QObject::connect(w->flameGraphWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->treeMapWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested, w, &MainWindow::startScan);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::mountAndScanRequested, w, &MainWindow::mountAndScan);
+    QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested, w, [w]() {
+        QString dir = QFileDialog::getExistingDirectory(w, MainWindow::tr("Select Directory"), QDir::homePath());
+        if (!dir.isEmpty()) w->startScan(dir);
     });
-    QObject::connect(w->scanProgress_, &ScanProgressWidget::stopRequested,
-                     w, &MainWindow::onStopScan);
+    QObject::connect(w->scanProgress_, &ScanProgressWidget::stopRequested, w, &MainWindow::onStopScan);
 }
 
-void MainWindowBuilder::connectGraphTypeSignals(MainWindow* w, const GraphTypeActions& actions) {
+void MainWindowBuilder::connectGraphTypeSignals(MainWindow *w, const GraphTypeActions &actions) {
     QObject::connect(actions.flameGraph, &QAction::triggered, w, [w]() {
         activateGraphWidget(w, w->flameGraphWidget_, w->tr("Flame Graph"));
     });
@@ -295,34 +275,27 @@ void MainWindowBuilder::connectGraphTypeSignals(MainWindow* w, const GraphTypeAc
     });
 }
 
-void MainWindowBuilder::connectVisibilitySignals(MainWindow* w) {
-    QObject::connect(w->viewStack_, &QStackedWidget::currentChanged,
-                     w, [w](int) {
+void MainWindowBuilder::connectVisibilitySignals(MainWindow *w) {
+    QObject::connect(w->viewStack_, &QStackedWidget::currentChanged, w, [w](int) {
         updateGraphTypeButtonVisibility(w);
         w->updateEntryActions();
     });
-    QObject::connect(w->flameStack_, &QStackedWidget::currentChanged,
-                     w, [w](int) {
+    QObject::connect(w->flameStack_, &QStackedWidget::currentChanged, w, [w](int) {
         updateGraphTypeButtonVisibility(w);
         w->updateEntryActions();
     });
 }
 
-void MainWindowBuilder::updateGraphTypeButtonVisibility(MainWindow* w) {
-    if (!w->graphTypeAction_)
-        return;
+void MainWindowBuilder::updateGraphTypeButtonVisibility(MainWindow *w) {
+    if (!w->graphTypeAction_) return;
 
-    const bool graphVisible =
-        w->viewStack_ && w->flameStack_ &&
-        w->viewStack_->currentWidget() != w->welcomeWidget_ &&
-        w->flameStack_->currentWidget() == w->graphTypeStack_;
+    const bool graphVisible = w->viewStack_ && w->flameStack_ && w->viewStack_->currentWidget() != w->welcomeWidget_
+                              && w->flameStack_->currentWidget() == w->graphTypeStack_;
 
     w->graphTypeAction_->setVisible(graphVisible);
 }
 
-void MainWindowBuilder::activateGraphWidget(MainWindow* w,
-                                            GraphWidget* widget,
-                                            const QString& label) {
+void MainWindowBuilder::activateGraphWidget(MainWindow *w, GraphWidget *widget, const QString &label) {
     w->graphWidget_ = widget;
     w->graphTypeStack_->setCurrentWidget(widget);
     w->graphTypeButton_->setText(label);

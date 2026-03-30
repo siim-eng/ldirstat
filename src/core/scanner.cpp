@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
-#include <limits>
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -18,59 +18,55 @@ namespace {
 
 struct linux_dirent64 {
     uint64_t d_ino;
-    int64_t  d_off;
+    int64_t d_off;
     uint16_t d_reclen;
-    uint8_t  d_type;
-    char     d_name[];
+    uint8_t d_type;
+    char d_name[];
 };
 
 constexpr size_t kGetdentsBufSize = 32768;
 constexpr size_t kInitialPathBufSize = 4096;
 
-bool isDotOrDotdot(const char* name) {
-    return name[0] == '.' &&
-           (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
+bool isDotOrDotdot(const char *name) {
+    return name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
 }
 
 uint16_t clampHardLinks(nlink_t links) {
     constexpr nlink_t kMaxHardLinks = static_cast<nlink_t>(std::numeric_limits<uint16_t>::max());
-    if (links > kMaxHardLinks)
-        return std::numeric_limits<uint16_t>::max();
+    if (links > kMaxHardLinks) return std::numeric_limits<uint16_t>::max();
     return static_cast<uint16_t>(links);
 }
 
-bool isExecutableByMode(const struct stat& st) {
-    return S_ISREG(st.st_mode) &&
-           (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+bool isExecutableByMode(const struct stat &st) {
+    return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
 }
 
 } // namespace
 
-Scanner::Scanner(DirEntryStore& entryStore, NameStore& nameStore)
-    : entryStore_(entryStore)
-    , nameStore_(nameStore) {}
+Scanner::Scanner(DirEntryStore &entryStore, NameStore &nameStore)
+    : entryStore_(entryStore),
+      nameStore_(nameStore) {}
 
 Scanner::~Scanner() {
     stop();
-    for (auto& t : threads_)
+    for (auto &t : threads_)
         if (t.joinable()) t.join();
 }
 
-EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
+EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     assert(workerCount > 0);
     resetRuntimeState();
 
     // Stat root to get its device.
     struct stat rootSt{};
-    if (stat(rootPath.c_str(), &rootSt) != 0)
-        return kNoEntry;
+    if (stat(rootPath.c_str(), &rootSt) != 0) return kNoEntry;
     rootDev_ = rootSt.st_dev;
 
     // Create root entry.
     uint32_t entryPage = entryStore_.allocatePage();
     uint32_t namePage = nameStore_.allocatePage();
     EntryRef rootRef = entryStore_.add(entryPage);
-    DirEntry& root = entryStore_[rootRef];
+    DirEntry &root = entryStore_[rootRef];
     root.type = EntryType::Directory;
     root.name = nameStore_.add(namePage, rootPath);
 
@@ -86,12 +82,10 @@ EntryRef Scanner::scan(const std::string& rootPath, int workerCount) {
 
 bool Scanner::continueScan(EntryRef root, int workerCount) {
     assert(workerCount > 0);
-    if (!root.valid())
-        return false;
+    if (!root.valid()) return false;
 
-    const DirEntry& existing = entryStore_[root];
-    if (!existing.isMountPoint())
-        return false;
+    const DirEntry &existing = entryStore_[root];
+    if (!existing.isMountPoint()) return false;
 
     resetRuntimeState();
 
@@ -99,17 +93,15 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
     buildPath(root, pathBuf);
 
     struct stat rootSt{};
-    if (stat(pathBuf.data(), &rootSt) != 0 || !S_ISDIR(rootSt.st_mode))
-        return false;
+    if (stat(pathBuf.data(), &rootSt) != 0 || !S_ISDIR(rootSt.st_mode)) return false;
 
     int fd = open(pathBuf.data(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (fd < 0)
-        return false;
+    if (fd < 0) return false;
     close(fd);
 
     rootDev_ = rootSt.st_dev;
 
-    DirEntry& rootEntry = entryStore_[root];
+    DirEntry &rootEntry = entryStore_[root];
     rootEntry.type = EntryType::Directory;
     rootEntry.size = 0;
     rootEntry.fileCount = 0;
@@ -129,15 +121,14 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
 }
 
 void Scanner::commitContinueScan(EntryRef root) {
-    if (!root.valid())
-        return;
+    if (!root.valid()) return;
 
-    DirEntry& rootEntry = entryStore_[root];
+    DirEntry &rootEntry = entryStore_[root];
     rootEntry.type = EntryType::Directory;
 
     EntryRef ancestor = rootEntry.parent;
     while (ancestor.valid()) {
-        DirEntry& entry = entryStore_[ancestor];
+        DirEntry &entry = entryStore_[ancestor];
         entry.size += rootEntry.size;
         entry.fileCount += rootEntry.fileCount;
         entry.dirCount += rootEntry.dirCount;
@@ -150,10 +141,9 @@ void Scanner::commitContinueScan(EntryRef root) {
 }
 
 void Scanner::revertContinueScan(EntryRef root) {
-    if (!root.valid())
-        return;
+    if (!root.valid()) return;
 
-    DirEntry& rootEntry = entryStore_[root];
+    DirEntry &rootEntry = entryStore_[root];
     rootEntry.type = EntryType::MountPoint;
     rootEntry.size = 0;
     rootEntry.fileCount = 0;
@@ -168,15 +158,14 @@ void Scanner::stop() {
 }
 
 void Scanner::propagate(EntryRef root, bool includeAncestors) {
-    if (!root.valid())
-        return;
+    if (!root.valid()) return;
 
     std::vector<EntryRef> stack;
     stack.push_back(root);
     EntryRef child = entryStore_[root].firstChild;
     bool dirPopped = false;
     while (!stack.empty() && child.valid()) {
-        DirEntry& entry = entryStore_[child];
+        DirEntry &entry = entryStore_[child];
         if (entry.isDir() && entry.dirCount > 0 && !dirPopped) {
             stack.push_back(child);
             child = entry.firstChild;
@@ -184,7 +173,7 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
         }
 
         if (entry.isDir() && entry.parent.valid()) {
-            DirEntry& parent = entryStore_[entry.parent];
+            DirEntry &parent = entryStore_[entry.parent];
             parent.fileCount += entry.fileCount;
             parent.dirCount += entry.dirCount;
             parent.size += entry.size;
@@ -198,13 +187,12 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
         }
     }
 
-    if (!includeAncestors)
-        return;
+    if (!includeAncestors) return;
 
-    const DirEntry& rootEntry = entryStore_[root];
+    const DirEntry &rootEntry = entryStore_[root];
     EntryRef ancestor = rootEntry.parent;
     while (ancestor.valid()) {
-        DirEntry& entry = entryStore_[ancestor];
+        DirEntry &entry = entryStore_[ancestor];
         entry.fileCount += rootEntry.fileCount;
         entry.dirCount += rootEntry.dirCount;
         entry.size += rootEntry.size;
@@ -215,20 +203,18 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
 std::optional<EntryRef> Scanner::takeWork() {
     std::unique_lock lock(mutex_);
     while (true) {
-        if (stop_.load(std::memory_order_relaxed))
-            return std::nullopt;
+        if (stop_.load(std::memory_order_relaxed)) return std::nullopt;
         if (dirQueueNext_ < dirQueue_.size()) {
             EntryRef ref = dirQueue_[dirQueueNext_++];
             ++activeWorkers_;
             return ref;
         }
-        if (activeWorkers_ == 0)
-            return std::nullopt; // all done
+        if (activeWorkers_ == 0) return std::nullopt; // all done
         cv_.wait(lock);
     }
 }
 
-void Scanner::returnWork(std::vector<EntryRef>& subdirs) {
+void Scanner::returnWork(std::vector<EntryRef> &subdirs) {
     std::lock_guard lock(mutex_);
     for (auto ref : subdirs)
         dirQueue_.push_back(ref);
@@ -236,9 +222,9 @@ void Scanner::returnWork(std::vector<EntryRef>& subdirs) {
     cv_.notify_all();
 }
 
-void Scanner::buildPath(EntryRef ref, std::vector<char>& pathBuf) {
+void Scanner::buildPath(EntryRef ref, std::vector<char> &pathBuf) {
     // avoid memory allocation per directory path creation, use scratch buffer
-    // kind of useless optimization, but still worth around 2%-5%    
+    // kind of useless optimization, but still worth around 2%-5%
 
     // Walk parent chain, collecting refs.
     EntryRef chain[256];
@@ -258,11 +244,9 @@ void Scanner::buildPath(EntryRef ref, std::vector<char>& pathBuf) {
         std::string_view name = nameStore_.get(entryStore_[chain[i]].name);
 
         size_t needed = pos + 1 + name.size() + 1;
-        if (needed > pathBuf.size())
-            pathBuf.resize(needed * 2);
+        if (needed > pathBuf.size()) pathBuf.resize(needed * 2);
 
-        if (i < depth - 1)
-            pathBuf[pos++] = '/';
+        if (i < depth - 1) pathBuf[pos++] = '/';
 
         std::memcpy(pathBuf.data() + pos, name.data(), name.size());
         pos += name.size();
@@ -295,12 +279,12 @@ void Scanner::runScanWorkers(int workerCount) {
         });
     }
 
-    for (auto& t : threads_)
+    for (auto &t : threads_)
         t.join();
     threads_.clear();
 }
 
-void Scanner::workerLoop(WorkerCtx& ctx) {
+void Scanner::workerLoop(WorkerCtx &ctx) {
     while (auto ref = takeWork()) {
         scanDir(*ref, ctx);
         returnWork(ctx.subdirBatch);
@@ -308,12 +292,12 @@ void Scanner::workerLoop(WorkerCtx& ctx) {
     }
 }
 
-void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
+void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
     buildPath(dirRef, ctx.pathBuf);
     int fd = open(ctx.pathBuf.data(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (fd < 0) return;
 
-    DirEntry& parent = entryStore_[dirRef];
+    DirEntry &parent = entryStore_[dirRef];
     EntryRef prevChild;
     uint32_t files = 0;
     uint32_t dirs = 0;
@@ -322,23 +306,21 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
     uint64_t allocatedBytes = 0;
 
     for (;;) {
-        if (stop_.load(std::memory_order_relaxed))
-            break;
+        if (stop_.load(std::memory_order_relaxed)) break;
 
         // using syscall instead of readdir allows us to reuse buffer, readdir does malloc internally
         long nread = syscall(SYS_getdents64, fd, ctx.getdentsBuf.data(), ctx.getdentsBuf.size());
         if (nread <= 0) break;
 
         for (long pos = 0; pos < nread;) {
-            auto* d = reinterpret_cast<linux_dirent64*>(ctx.getdentsBuf.data() + pos);
+            auto *d = reinterpret_cast<linux_dirent64 *>(ctx.getdentsBuf.data() + pos);
             pos += d->d_reclen;
 
-            if (isDotOrDotdot(d->d_name))
-                continue;
+            if (isDotOrDotdot(d->d_name)) continue;
 
             // Create entry.
             EntryRef ref = entryStore_.add(ctx.entryPage);
-            DirEntry& entry = entryStore_[ref];
+            DirEntry &entry = entryStore_[ref];
             entry.name = nameStore_.add(ctx.namePage, d->d_name);
             entry.parent = dirRef;
 
@@ -352,16 +334,15 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx& ctx) {
                 allocatedBytes = static_cast<uint64_t>(st.st_blocks) * 512;
                 if (S_ISREG(st.st_mode)) {
                     const uint64_t linkCount = static_cast<uint64_t>(st.st_nlink);
-                    if (linkCount > 1)
-                        allocatedBytes /= linkCount;
+                    if (linkCount > 1) allocatedBytes /= linkCount;
                 }
             }
 
             // Determine type: prefer d_type, fall back to stat.
             switch (d->d_type) {
             case DT_DIR: entry.type = EntryType::Directory; break;
-            case DT_REG: entry.type = EntryType::File;      break;
-            case DT_LNK: entry.type = EntryType::Symlink;   break;
+            case DT_REG: entry.type = EntryType::File; break;
+            case DT_LNK: entry.type = EntryType::Symlink; break;
             default:
                 if (!haveStat) {
                     entry.type = EntryType::Other;
@@ -431,10 +412,9 @@ size_t Scanner::takeSortBatch() {
     return start;
 }
 
-void Scanner::sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry>& scratch) {
-    DirEntry& dir = entryStore_[dirRef];
-    if (dir.childCount < 2)
-        return;
+void Scanner::sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scratch) {
+    DirEntry &dir = entryStore_[dirRef];
+    if (dir.childCount < 2) return;
 
     scratch.clear();
     EntryRef child = dir.firstChild;
@@ -443,10 +423,7 @@ void Scanner::sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry>& scr
         child = entryStore_[child].nextSibling;
     }
 
-    std::sort(scratch.begin(), scratch.end(),
-              [](const SortEntry& a, const SortEntry& b) {
-                  return a.size > b.size;
-              });
+    std::sort(scratch.begin(), scratch.end(), [](const SortEntry &a, const SortEntry &b) { return a.size > b.size; });
 
     dir.firstChild = scratch[0].ref;
     for (size_t i = 0; i + 1 < scratch.size(); ++i)
@@ -462,12 +439,10 @@ void Scanner::sortBySize(int workerCount) {
         while (true) {
             size_t start = takeSortBatch();
             size_t end = std::min(start + kSortBatchSize, dirQueue_.size());
-            if (start >= dirQueue_.size())
-                break;
+            if (start >= dirQueue_.size()) break;
 
             for (size_t i = start; i < end; ++i) {
-                if (stop_.load(std::memory_order_relaxed))
-                    return;
+                if (stop_.load(std::memory_order_relaxed)) return;
                 sortDirectoryChildren(dirQueue_[i], scratch);
             }
         }
@@ -477,7 +452,7 @@ void Scanner::sortBySize(int workerCount) {
     for (int i = 0; i < workerCount; ++i)
         threads_.emplace_back(sortWorker);
 
-    for (auto& t : threads_)
+    for (auto &t : threads_)
         t.join();
     threads_.clear();
 }

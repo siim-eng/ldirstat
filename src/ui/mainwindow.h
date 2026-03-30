@@ -35,12 +35,12 @@ class MainWindow : public QMainWindow {
     friend class MainWindowBuilder;
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
 protected:
-    void changeEvent(QEvent* event) override;
-    bool eventFilter(QObject* watched, QEvent* event) override;
+    void changeEvent(QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 signals:
     void scanComplete(EntryRef root);
@@ -64,8 +64,8 @@ private slots:
     void showAboutDialog();
     void trashCurrentEntry();
     void deleteCurrentEntryPermanently();
-    void startScan(const QString& path);
-    void mountAndScan(const QString& devicePath);
+    void startScan(const QString &path);
+    void mountAndScan(const QString &devicePath);
     void showEntryContextMenu(EntryRef ref, QPoint globalPos);
     void showDirListContextMenu(EntryRef ref, QPoint globalPos);
 
@@ -76,9 +76,9 @@ private:
     };
 
     void refreshWelcomeVolumes();
-    void setMountInProgress(bool inProgress, const QString& status = {});
+    void setMountInProgress(bool inProgress, const QString &status = {});
     bool isGraphPageVisible() const;
-    bool shouldForwardDirListArrowKey(QObject* watched, QEvent* event) const;
+    bool shouldForwardDirListArrowKey(QObject *watched, QEvent *event) const;
     EntryRef graphFocusForEntry(EntryRef ref) const;
     bool isEntryInSubtree(EntryRef ref, EntryRef ancestor) const;
     void setCurrentEntry(EntryRef ref);
@@ -92,18 +92,16 @@ private:
     EntryRef breadcrumbDirectory() const;
     bool dirListSelectionIsActive() const;
     std::vector<EntryRef> actionTargets() const;
-    std::vector<EntryRef> collapseNestedTargets(const std::vector<EntryRef>& refs) const;
-    void applyPostRemovalState(const std::vector<EntryRef>& removedRefs);
-    void showBatchFailureDialog(const QString& title,
-                                const QString& actionDescription,
-                                const QStringList& failedPaths);
+    std::vector<EntryRef> collapseNestedTargets(const std::vector<EntryRef> &refs) const;
+    void applyPostRemovalState(const std::vector<EntryRef> &removedRefs);
+    void showBatchFailureDialog(const QString &title, const QString &actionDescription, const QStringList &failedPaths);
     void startContinueScan(EntryRef ref);
     void showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bool fromDirList);
     void navigateToDirectory(EntryRef ref);
     QString pathForEntry(EntryRef ref) const;
 
-    QThread* scanThread_ = nullptr;
-    QProcess* mountProcess_ = nullptr;
+    QThread *scanThread_ = nullptr;
+    QProcess *mountProcess_ = nullptr;
     QString lastScanPath_;
     ScanMode activeScanMode_ = ScanMode::FullRootScan;
     EntryRef pendingContinueMount_ = kNoEntry;
@@ -120,30 +118,30 @@ private:
     ThemeColors themeColors_;
 
     // UI widgets (created by builder, parented to this).
-    QToolBar* toolbar_ = nullptr;
-    QAction* overviewAction_ = nullptr;
-    QAction* rescanAction_ = nullptr;
-    QAction* openEntryAction_ = nullptr;
-    QAction* openEntryTerminalAction_ = nullptr;
-    QAction* copyEntryPathAction_ = nullptr;
-    QAction* trashEntryAction_ = nullptr;
-    QAction* deleteEntryPermanentlyAction_ = nullptr;
-    QWidget* breadcrumbPathWidget_ = nullptr;
-    QHBoxLayout* breadcrumbPathLayout_ = nullptr;
-    QToolButton* breadcrumbCopyButton_ = nullptr;
-    QToolButton* breadcrumbClearButton_ = nullptr;
-    QToolButton* graphTypeButton_ = nullptr;
-    QAction* graphTypeAction_ = nullptr;
-    QStackedWidget* viewStack_ = nullptr;
-    WelcomeWidget* welcomeWidget_ = nullptr;
-    DirListView* dirListView_ = nullptr;
-    QStackedWidget* flameStack_ = nullptr;
-    QStackedWidget* graphTypeStack_ = nullptr;
-    FlameGraphWidget* flameGraphWidget_ = nullptr;
-    TreeMapWidget* treeMapWidget_ = nullptr;
-    GraphWidget* graphWidget_ = nullptr;
-    ScanProgressWidget* scanProgress_ = nullptr;
-    QTimer* scanPollTimer_ = nullptr;
+    QToolBar *toolbar_ = nullptr;
+    QAction *overviewAction_ = nullptr;
+    QAction *rescanAction_ = nullptr;
+    QAction *openEntryAction_ = nullptr;
+    QAction *openEntryTerminalAction_ = nullptr;
+    QAction *copyEntryPathAction_ = nullptr;
+    QAction *trashEntryAction_ = nullptr;
+    QAction *deleteEntryPermanentlyAction_ = nullptr;
+    QWidget *breadcrumbPathWidget_ = nullptr;
+    QHBoxLayout *breadcrumbPathLayout_ = nullptr;
+    QToolButton *breadcrumbCopyButton_ = nullptr;
+    QToolButton *breadcrumbClearButton_ = nullptr;
+    QToolButton *graphTypeButton_ = nullptr;
+    QAction *graphTypeAction_ = nullptr;
+    QStackedWidget *viewStack_ = nullptr;
+    WelcomeWidget *welcomeWidget_ = nullptr;
+    DirListView *dirListView_ = nullptr;
+    QStackedWidget *flameStack_ = nullptr;
+    QStackedWidget *graphTypeStack_ = nullptr;
+    FlameGraphWidget *flameGraphWidget_ = nullptr;
+    TreeMapWidget *treeMapWidget_ = nullptr;
+    GraphWidget *graphWidget_ = nullptr;
+    ScanProgressWidget *scanProgress_ = nullptr;
+    QTimer *scanPollTimer_ = nullptr;
     bool contextMenuFromDirList_ = false;
 };
 

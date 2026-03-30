@@ -36,14 +36,14 @@ public:
 
     // Builds the layout from the given focused entry. Child lists are
     // expected to be sorted descending by layoutSizeOf(entry).
-    void build(const DirEntryStore& store, EntryRef focus, const FlameGraphOptions& options);
+    void build(const DirEntryStore &store, EntryRef focus, const FlameGraphOptions &options);
 
     // Returns the EntryRef at the given relative coordinates,
     // or kNoEntry if nothing is there.
     EntryRef lookup(float x, int row) const;
 
     int rowCount() const { return static_cast<int>(rows_.size()); }
-    const std::vector<FlameRect>& row(int r) const { return rows_[r]; }
+    const std::vector<FlameRect> &row(int r) const { return rows_[r]; }
 
 private:
     std::vector<std::vector<FlameRect>> rows_;

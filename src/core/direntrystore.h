@@ -39,8 +39,8 @@ public:
     // NOT thread-safe per page. Caller must have exclusive access to currentPage.
     // Returns an EntryRef to the claimed entry. If the page is full, allocates
     // a new page and updates currentPage.
-    EntryRef add(uint32_t& currentPage) {
-        auto* page = pageFor(currentPage);
+    EntryRef add(uint32_t &currentPage) {
+        auto *page = pageFor(currentPage);
 
         if (page->used >= kEntriesPerPage) {
             currentPage = allocatePage();
@@ -52,31 +52,26 @@ public:
         return ref;
     }
 
-    DirEntry& operator[](EntryRef ref) {
-        return pageFor(ref.pageId)->entries[ref.index];
-    }
+    DirEntry &operator[](EntryRef ref) { return pageFor(ref.pageId)->entries[ref.index]; }
 
-    const DirEntry& operator[](EntryRef ref) const {
-        return pageFor(ref.pageId)->entries[ref.index];
-    }
+    const DirEntry &operator[](EntryRef ref) const { return pageFor(ref.pageId)->entries[ref.index]; }
 
     // Unhook an entry from the tree and propagate size/count changes up.
     // The entry's storage is not freed (arena allocator), but it becomes
     // unreachable from the tree.
     void remove(EntryRef ref) {
-        DirEntry& entry = (*this)[ref];
+        DirEntry &entry = (*this)[ref];
         EntryRef parentRef = entry.parent;
-        if (!parentRef.valid())
-            return;
+        if (!parentRef.valid()) return;
 
         // Unlink from parent's child list.
-        DirEntry& parent = (*this)[parentRef];
+        DirEntry &parent = (*this)[parentRef];
         if (parent.firstChild == ref) {
             parent.firstChild = entry.nextSibling;
         } else {
             EntryRef prev = parent.firstChild;
             while (prev.valid()) {
-                DirEntry& prevEntry = (*this)[prev];
+                DirEntry &prevEntry = (*this)[prev];
                 if (prevEntry.nextSibling == ref) {
                     prevEntry.nextSibling = entry.nextSibling;
                     break;
@@ -93,7 +88,7 @@ public:
 
         EntryRef ancestor = parentRef;
         while (ancestor.valid()) {
-            DirEntry& a = (*this)[ancestor];
+            DirEntry &a = (*this)[ancestor];
             a.size -= removedSize;
             a.fileCount -= removedFiles;
             a.dirCount -= removedDirs;
@@ -120,12 +115,12 @@ private:
         uint32_t used = 0;
     };
 
-    Page* pageFor(uint32_t pageId) {
+    Page *pageFor(uint32_t pageId) {
         std::shared_lock lock(mutex_);
         return pages_[pageId].get();
     }
 
-    const Page* pageFor(uint32_t pageId) const {
+    const Page *pageFor(uint32_t pageId) const {
         std::shared_lock lock(mutex_);
         return pages_[pageId].get();
     }

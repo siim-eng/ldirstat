@@ -32,14 +32,13 @@ enum class FileCategory : std::uint16_t {
 
 class FileCategorizer final {
 public:
-    static constexpr std::size_t kCategoryCount =
-        static_cast<std::size_t>(FileCategory::Executable) + 1;
+    static constexpr std::size_t kCategoryCount = static_cast<std::size_t>(FileCategory::Executable) + 1;
 
     [[nodiscard]] static constexpr std::size_t categoryIndex(FileCategory category) noexcept {
         return static_cast<std::size_t>(category);
     }
 
-    [[nodiscard]] static constexpr const char* categoryName(FileCategory category) noexcept {
+    [[nodiscard]] static constexpr const char *categoryName(FileCategory category) noexcept {
         switch (category) {
         case FileCategory::Unknown: return "unknown";
         case FileCategory::Archive: return "archive";
@@ -62,7 +61,7 @@ public:
         return "unknown";
     }
 
-    [[nodiscard]] static constexpr const char* displayCategoryName(FileCategory category) noexcept {
+    [[nodiscard]] static constexpr const char *displayCategoryName(FileCategory category) noexcept {
         switch (category) {
         case FileCategory::Unknown: return "Unknown";
         case FileCategory::Archive: return "Archive";
@@ -93,7 +92,7 @@ public:
 
     struct Result {
         FileCategory category;
-        const char* extensionPtr;
+        const char *extensionPtr;
         std::uint8_t extensionLen;
     };
 
@@ -105,18 +104,16 @@ public:
 
 private:
     struct BasenameView {
-        const char* ptr;
+        const char *ptr;
         std::size_t len;
     };
 
     struct ExtensionView {
-        const char* ptr;
+        const char *ptr;
         std::uint8_t len;
     };
 
-    [[nodiscard]] static inline bool isSlash(char c) noexcept {
-        return c == '/';
-    }
+    [[nodiscard]] static inline bool isSlash(char c) noexcept { return c == '/'; }
 
     [[nodiscard]] static inline char asciiLower(char c) noexcept {
         const unsigned char uc = static_cast<unsigned char>(c);
@@ -130,43 +127,36 @@ private:
         return mask;
     }
 
-    [[nodiscard]] static constexpr std::uint64_t packLiteral(const char* s,
-                                                             std::uint8_t len) noexcept {
+    [[nodiscard]] static constexpr std::uint64_t packLiteral(const char *s, std::uint8_t len) noexcept {
         std::uint64_t value = 0;
         for (std::uint8_t i = 0; i < len; ++i) {
             const unsigned char c = static_cast<unsigned char>(s[i]);
-            const unsigned char lower =
-                (c >= 'A' && c <= 'Z') ? static_cast<unsigned char>(c | 0x20u) : c;
+            const unsigned char lower = (c >= 'A' && c <= 'Z') ? static_cast<unsigned char>(c | 0x20u) : c;
             value |= (std::uint64_t{lower} << (i * 8));
         }
         return value;
     }
 
-    template <std::size_t N>
-    [[nodiscard]] static constexpr std::uint64_t lit(const char (&s)[N]) noexcept {
+    template<std::size_t N> [[nodiscard]] static constexpr std::uint64_t lit(const char (&s)[N]) noexcept {
         static_assert(N >= 2, "literal must not be empty");
         static_assert(N - 1 <= 8, "only supports up to 8 chars");
         return packLiteral(s, static_cast<std::uint8_t>(N - 1));
     }
 
-    template <std::size_t N>
-    [[nodiscard]] static inline bool equalsLiteralIgnoreCase(const char* s,
-                                                             std::uint8_t len,
-                                                             const char (&literal)[N]) noexcept {
+    template<std::size_t N>
+    [[nodiscard]] static inline bool
+    equalsLiteralIgnoreCase(const char *s, std::uint8_t len, const char (&literal)[N]) noexcept {
         static_assert(N >= 2, "literal must not be empty");
-        if (len != N - 1)
-            return false;
+        if (len != N - 1) return false;
 
         for (std::uint8_t i = 0; i < len; ++i) {
-            if (asciiLower(s[i]) != literal[i])
-                return false;
+            if (asciiLower(s[i]) != literal[i]) return false;
         }
 
         return true;
     }
 
-    [[nodiscard]] static inline std::uint64_t loadLowerAsciiUpTo8(const char* s,
-                                                                  std::uint8_t len) noexcept {
+    [[nodiscard]] static inline std::uint64_t loadLowerAsciiUpTo8(const char *s, std::uint8_t len) noexcept {
         std::uint64_t value = 0;
         std::memcpy(&value, s, len);
         value |= lowerMaskForLen(len);
@@ -174,13 +164,12 @@ private:
     }
 
     [[nodiscard]] static inline BasenameView findBasename(std::string_view path) noexcept {
-        const char* s = path.data();
+        const char *s = path.data();
         std::size_t end = path.size();
 
         while (end > 0 && isSlash(s[end - 1]))
             --end;
-        if (end == 0)
-            return {nullptr, 0};
+        if (end == 0) return {nullptr, 0};
 
         std::size_t base = end;
         while (base > 0 && !isSlash(s[base - 1]))
@@ -190,23 +179,19 @@ private:
     }
 
     [[nodiscard]] static inline ExtensionView findExtension(BasenameView base) noexcept {
-        if (base.ptr == nullptr || base.len == 0)
-            return {nullptr, 0};
+        if (base.ptr == nullptr || base.len == 0) return {nullptr, 0};
 
-        const char* s = base.ptr;
+        const char *s = base.ptr;
         const std::size_t end = base.len;
 
         for (std::size_t i = end; i > 0; --i) {
-            if (s[i - 1] != '.')
-                continue;
+            if (s[i - 1] != '.') continue;
 
             const std::size_t dot = i - 1;
-            if (dot == 0)
-                return {nullptr, 0};
+            if (dot == 0) return {nullptr, 0};
 
             const std::size_t extLen = end - (dot + 1);
-            if (extLen == 0 || extLen > 10)
-                return {nullptr, 0};
+            if (extLen == 0 || extLen > 10) return {nullptr, 0};
 
             return {s + dot + 1, static_cast<std::uint8_t>(extLen)};
         }
@@ -215,37 +200,30 @@ private:
     }
 
     [[nodiscard]] static inline FileCategory categorizeCaseSensitive(BasenameView base) noexcept {
-        if (base.ptr == nullptr || base.len < 7)
-            return FileCategory::Unknown;
+        if (base.ptr == nullptr || base.len < 7) return FileCategory::Unknown;
 
         // check if it is lib*.so.*
-        const char* s = base.ptr;
-        if (s[0] != 'l' || s[1] != 'i' || s[2] != 'b')
-            return FileCategory::Unknown;
+        const char *s = base.ptr;
+        if (s[0] != 'l' || s[1] != 'i' || s[2] != 'b') return FileCategory::Unknown;
 
         for (std::size_t i = 3; i + 3 < base.len; ++i) {
-            if (s[i] == '.' && s[i + 1] == 's' && s[i + 2] == 'o' && s[i + 3] == '.')
-                return FileCategory::Library;
+            if (s[i] == '.' && s[i + 1] == 's' && s[i + 2] == 'o' && s[i + 3] == '.') return FileCategory::Library;
         }
 
         return FileCategory::Unknown;
     }
 
-    [[nodiscard]] static inline FileCategory categorizeResolved(BasenameView base,
-                                                                ExtensionView ext) noexcept {
+    [[nodiscard]] static inline FileCategory categorizeResolved(BasenameView base, ExtensionView ext) noexcept {
         if (ext.ptr != nullptr) {
             const FileCategory category = categorizeExtension(ext.ptr, ext.len);
-            if (category != FileCategory::Unknown)
-                return category;
+            if (category != FileCategory::Unknown) return category;
         }
 
         return categorizeCaseSensitive(base);
     }
 
-    [[nodiscard]] static inline FileCategory categorizeExtension(const char* ext,
-                                                                 std::uint8_t len) noexcept {
-        if (len == 0 || len > 10)
-            return FileCategory::Unknown;
+    [[nodiscard]] static inline FileCategory categorizeExtension(const char *ext, std::uint8_t len) noexcept {
+        if (len == 0 || len > 10) return FileCategory::Unknown;
 
         const char c0 = asciiLower(ext[0]);
 
@@ -291,8 +269,7 @@ private:
         case 's':
             if (v == lit("s")) return FileCategory::Source;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -353,8 +330,7 @@ private:
         case 'x':
             if (v == lit("xz")) return FileCategory::Compressed;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -469,8 +445,7 @@ private:
             if (v == lit("zip")) return FileCategory::Archive;
             if (v == lit("zst")) return FileCategory::Compressed;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -522,8 +497,7 @@ private:
         case 'z':
             if (v == lit("zstd")) return FileCategory::Compressed;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -543,8 +517,7 @@ private:
         case 'w':
             if (v == lit("woff2")) return FileCategory::ObjectGenerated;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -555,8 +528,7 @@ private:
         case 's':
             if (v == lit("sqlite")) return FileCategory::Database;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -573,8 +545,7 @@ private:
         case 's':
             if (v == lit("sqlite3")) return FileCategory::Database;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -588,25 +559,19 @@ private:
         case 'j':
             if (v == lit("journal~")) return FileCategory::Log;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
     }
 
-    [[nodiscard]] static inline FileCategory categorizeLen10(const char* ext,
-                                                             std::uint8_t len,
-                                                             char c0) noexcept {
+    [[nodiscard]] static inline FileCategory categorizeLen10(const char *ext, std::uint8_t len, char c0) noexcept {
         switch (c0) {
         case 'c':
-            if (equalsLiteralIgnoreCase(ext, len, "commitmeta"))
-                return FileCategory::ObjectGenerated;
-            if (equalsLiteralIgnoreCase(ext, len, "crdownload"))
-                return FileCategory::BackupTemp;
+            if (equalsLiteralIgnoreCase(ext, len, "commitmeta")) return FileCategory::ObjectGenerated;
+            if (equalsLiteralIgnoreCase(ext, len, "crdownload")) return FileCategory::BackupTemp;
             break;
-        default:
-            break;
+        default: break;
         }
 
         return FileCategory::Unknown;
@@ -623,7 +588,7 @@ public:
 
     using Items = std::array<Item, FileCategorizer::kCategoryCount>;
 
-    explicit FileCategoryCounter(const DirEntryStore& entryStore)
+    explicit FileCategoryCounter(const DirEntryStore &entryStore)
         : entryStore_(entryStore) {
         reset();
     }
@@ -638,10 +603,9 @@ public:
 
     void countTree(EntryRef root) {
         reset();
-        if (!root.valid())
-            return;
+        if (!root.valid()) return;
 
-        const DirEntry& rootEntry = entryStore_[root];
+        const DirEntry &rootEntry = entryStore_[root];
         if (rootEntry.isFile()) {
             countFile(rootEntry);
             return;
@@ -654,15 +618,14 @@ public:
         EntryRef child = rootEntry.firstChild;
         bool dirPopped = false;
         while (!stack.empty() && child.valid()) {
-            const DirEntry& entry = entryStore_[child];
+            const DirEntry &entry = entryStore_[child];
             if (entry.isDir() && entry.childCount > 0 && !dirPopped) {
                 stack.push_back(child);
                 child = entry.firstChild;
                 continue;
             }
 
-            if (entry.isFile())
-                countFile(entry);
+            if (entry.isFile()) countFile(entry);
 
             dirPopped = false;
             child = entry.nextSibling;
@@ -674,16 +637,16 @@ public:
         }
     }
 
-    [[nodiscard]] const Items& items() const noexcept { return items_; }
+    [[nodiscard]] const Items &items() const noexcept { return items_; }
 
 private:
-    void countFile(const DirEntry& entry) noexcept {
-        Item& item = items_[FileCategorizer::categoryIndex(entry.fileCategory)];
+    void countFile(const DirEntry &entry) noexcept {
+        Item &item = items_[FileCategorizer::categoryIndex(entry.fileCategory)];
         ++item.count;
         item.totalSize += layoutSizeOf(entry);
     }
 
-    const DirEntryStore& entryStore_;
+    const DirEntryStore &entryStore_;
     Items items_{};
 };
 
