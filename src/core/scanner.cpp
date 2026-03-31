@@ -41,6 +41,29 @@ bool isExecutableByMode(const struct stat &st) {
     return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
 }
 
+bool isCachePathComponent(const char *component, size_t len) {
+    return (len == 5 && std::memcmp(component, "cache", 5) == 0) ||
+           (len == 6 && std::memcmp(component, ".cache", 6) == 0);
+}
+
+bool pathContainsCacheComponent(const char *path) {
+    const char *component = path;
+    while (*component != '\0') {
+        while (*component == '/')
+            ++component;
+        if (*component == '\0') break;
+
+        const char *end = component;
+        while (*end != '\0' && *end != '/')
+            ++end;
+
+        if (isCachePathComponent(component, static_cast<size_t>(end - component))) return true;
+        component = end;
+    }
+
+    return false;
+}
+
 template<typename Visitor> void traverseDirectoryTree(const DirEntryStore &entryStore, EntryRef rootRef, Visitor &&visit) {
     if (!rootRef.valid()) return;
 
@@ -316,6 +339,8 @@ void Scanner::workerLoop(WorkerCtx &ctx) {
 
 void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
     buildPath(dirRef, ctx.pathBuf);
+    const bool cacheSubtree = pathContainsCacheComponent(ctx.pathBuf.data());
+    //const bool cacheSubtree = false;
     int fd = open(ctx.pathBuf.data(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (fd < 0) return;
 
@@ -388,6 +413,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             if (entry.isFile()) {
                 FileCategory category = FileCategorizer::categorize(d->d_name);
                 if (category == FileCategory::Unknown && haveStat && isExecutableByMode(st)) category = FileCategory::Executable;
+                if (category == FileCategory::Unknown && cacheSubtree) category = FileCategory::Cache;
                 entry.fileCategory = category;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
             }

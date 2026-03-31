@@ -14,7 +14,6 @@ Checks: >
   -bugprone-narrowing-conversions,
   concurrency-*,
   cppcoreguidelines-slicing,
-  cppcoreguidelines-virtual-class-destructor,
   misc-redundant-expression,
   misc-unused-using-decls,
   misc-use-internal-linkage,

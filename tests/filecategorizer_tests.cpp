@@ -66,6 +66,18 @@ ldirstat::EntryRef findChildByName(const ldirstat::DirEntryStore& entries,
     return ldirstat::kNoEntry;
 }
 
+ldirstat::EntryRef findDescendantByPath(const ldirstat::DirEntryStore& entries,
+                                        const ldirstat::NameStore& names,
+                                        ldirstat::EntryRef rootRef,
+                                        std::initializer_list<std::string_view> path) {
+    ldirstat::EntryRef current = rootRef;
+    for (const std::string_view segment : path) {
+        current = findChildByName(entries, names, current, segment);
+        if (!current.valid()) return ldirstat::kNoEntry;
+    }
+    return current;
+}
+
 TEST_CASE("categorizes supported extensions") {
     constexpr CategoryCase cases[] = {
         {"archive.zip", FileCategory::Archive},
@@ -222,6 +234,7 @@ TEST_CASE("returns friendly display names for categories") {
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Package)) == "Package");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Image)) == "Image");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::BackupTemp)) == "Backup/temp");
+    CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Cache)) == "Cache");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Library)) == "Library");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Log)) == "Log");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Music)) == "Music");
@@ -391,6 +404,96 @@ TEST_CASE("scanner detects extensionless executables from mode bits") {
     CHECK(entryStore[readme].fileCategory == FileCategory::Unknown);
 
     CHECK(entryStore[toolLink].type == ldirstat::EntryType::Symlink);
+}
+
+TEST_CASE("scanner assigns cache category for unknown files under cache subtrees") {
+    TempDir tempDir;
+    REQUIRE(fs::create_directories(tempDir.path / ".cache" / "nested" / "deeper"));
+    REQUIRE(fs::create_directories(tempDir.path / "cache"));
+    REQUIRE(fs::create_directories(tempDir.path / "mycache"));
+    REQUIRE(fs::create_directories(tempDir.path / "cache-data"));
+
+    writeFileWithMode(tempDir.path / ".cache" / "opaque", 0644);
+    writeFileWithMode(tempDir.path / ".cache" / "icon.png", 0644);
+    writeFileWithMode(tempDir.path / ".cache" / "tool", 0755);
+    writeFileWithMode(tempDir.path / ".cache" / "nested" / "deeper" / "blob", 0644);
+    writeFileWithMode(tempDir.path / "cache" / "entry", 0644);
+    writeFileWithMode(tempDir.path / "mycache" / "entry", 0644);
+    writeFileWithMode(tempDir.path / "cache-data" / "entry", 0644);
+
+    ldirstat::DirEntryStore entryStore;
+    ldirstat::NameStore nameStore;
+    ldirstat::Scanner scanner(entryStore, nameStore);
+
+    const ldirstat::EntryRef root = scanner.scan(tempDir.path.string(), 1);
+    REQUIRE(root.valid());
+
+    const ldirstat::EntryRef cacheUnknown = findDescendantByPath(entryStore, nameStore, root, {".cache", "opaque"});
+    const ldirstat::EntryRef cacheImage = findDescendantByPath(entryStore, nameStore, root, {".cache", "icon.png"});
+    const ldirstat::EntryRef cacheExecutable = findDescendantByPath(entryStore, nameStore, root, {".cache", "tool"});
+    const ldirstat::EntryRef nestedCacheUnknown =
+        findDescendantByPath(entryStore, nameStore, root, {".cache", "nested", "deeper", "blob"});
+    const ldirstat::EntryRef plainCacheUnknown = findDescendantByPath(entryStore, nameStore, root, {"cache", "entry"});
+    const ldirstat::EntryRef mycacheUnknown = findDescendantByPath(entryStore, nameStore, root, {"mycache", "entry"});
+    const ldirstat::EntryRef cacheDataUnknown = findDescendantByPath(entryStore, nameStore, root, {"cache-data", "entry"});
+
+    REQUIRE(cacheUnknown.valid());
+    REQUIRE(cacheImage.valid());
+    REQUIRE(cacheExecutable.valid());
+    REQUIRE(nestedCacheUnknown.valid());
+    REQUIRE(plainCacheUnknown.valid());
+    REQUIRE(mycacheUnknown.valid());
+    REQUIRE(cacheDataUnknown.valid());
+
+    CHECK(entryStore[cacheUnknown].fileCategory == FileCategory::Cache);
+    CHECK(entryStore[cacheImage].fileCategory == FileCategory::Image);
+    CHECK(entryStore[cacheExecutable].fileCategory == FileCategory::Executable);
+    CHECK(entryStore[nestedCacheUnknown].fileCategory == FileCategory::Cache);
+    CHECK(entryStore[plainCacheUnknown].fileCategory == FileCategory::Cache);
+    CHECK(entryStore[mycacheUnknown].fileCategory == FileCategory::Unknown);
+    CHECK(entryStore[cacheDataUnknown].fileCategory == FileCategory::Unknown);
+}
+
+TEST_CASE("scanner assigns cache category when the scan root itself is a cache directory") {
+    TempDir tempDir;
+    REQUIRE(fs::create_directories(tempDir.path / ".cache" / "nested"));
+    REQUIRE(fs::create_directories(tempDir.path / "cache"));
+
+    writeFileWithMode(tempDir.path / ".cache" / "root-opaque", 0644);
+    writeFileWithMode(tempDir.path / ".cache" / "nested" / "child", 0644);
+    writeFileWithMode(tempDir.path / "cache" / "root-opaque", 0644);
+
+    {
+        ldirstat::DirEntryStore entryStore;
+        ldirstat::NameStore nameStore;
+        ldirstat::Scanner scanner(entryStore, nameStore);
+
+        const ldirstat::EntryRef root = scanner.scan((tempDir.path / ".cache").string(), 1);
+        REQUIRE(root.valid());
+
+        const ldirstat::EntryRef rootOpaque = findChildByName(entryStore, nameStore, root, "root-opaque");
+        const ldirstat::EntryRef nestedChild = findDescendantByPath(entryStore, nameStore, root, {"nested", "child"});
+
+        REQUIRE(rootOpaque.valid());
+        REQUIRE(nestedChild.valid());
+
+        CHECK(entryStore[rootOpaque].fileCategory == FileCategory::Cache);
+        CHECK(entryStore[nestedChild].fileCategory == FileCategory::Cache);
+    }
+
+    {
+        ldirstat::DirEntryStore entryStore;
+        ldirstat::NameStore nameStore;
+        ldirstat::Scanner scanner(entryStore, nameStore);
+
+        const ldirstat::EntryRef root = scanner.scan((tempDir.path / "cache").string(), 1);
+        REQUIRE(root.valid());
+
+        const ldirstat::EntryRef rootOpaque = findChildByName(entryStore, nameStore, root, "root-opaque");
+
+        REQUIRE(rootOpaque.valid());
+        CHECK(entryStore[rootOpaque].fileCategory == FileCategory::Cache);
+    }
 }
 
 } // namespace

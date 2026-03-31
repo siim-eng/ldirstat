@@ -21,6 +21,7 @@ enum class FileCategory : std::uint16_t {
     Package,
     Image,
     BackupTemp,
+    Cache,
     Library,
     Log,
     Music,
@@ -47,6 +48,7 @@ public:
         case FileCategory::Package: return "package";
         case FileCategory::Image: return "image";
         case FileCategory::BackupTemp: return "backup_temp";
+        case FileCategory::Cache: return "cache";
         case FileCategory::Library: return "library";
         case FileCategory::Log: return "log";
         case FileCategory::Music: return "music";
@@ -70,6 +72,7 @@ public:
         case FileCategory::Package: return "Package";
         case FileCategory::Image: return "Image";
         case FileCategory::BackupTemp: return "Backup/temp";
+        case FileCategory::Cache: return "Cache";
         case FileCategory::Library: return "Library";
         case FileCategory::Log: return "Log";
         case FileCategory::Music: return "Music";
