@@ -75,7 +75,7 @@ EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
         dirQueue_.push_back(rootRef);
     }
 
-    runScanWorkers(workerCount);
+    runScanWorkers(workerCount, {entryCursor}, {nameCursor});
 
     return rootRef;
 }
@@ -114,7 +114,9 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
         dirQueue_.push_back(root);
     }
 
-    runScanWorkers(workerCount);
+    runScanWorkers(workerCount,
+                   entryStore_.reusableAppendCursors(static_cast<size_t>(workerCount)),
+                   nameStore_.reusableAppendCursors(static_cast<size_t>(workerCount)));
     propagate(root, false);
     sortBySize(workerCount);
     return !stopped();
@@ -265,15 +267,22 @@ void Scanner::resetRuntimeState() {
     activeWorkers_ = 0;
 }
 
-void Scanner::runScanWorkers(int workerCount) {
+void Scanner::runScanWorkers(int workerCount,
+                             std::vector<DirEntryStore::AppendCursor> entrySeeds,
+                             std::vector<NameStore::AppendCursor> nameSeeds) {
     threads_.reserve(workerCount);
     for (int i = 0; i < workerCount; ++i) {
-        threads_.emplace_back([this] {
+        const DirEntryStore::AppendCursor entrySeed =
+            i < static_cast<int>(entrySeeds.size()) ? entrySeeds[i] : DirEntryStore::AppendCursor{};
+        const NameStore::AppendCursor nameSeed =
+            i < static_cast<int>(nameSeeds.size()) ? nameSeeds[i] : NameStore::AppendCursor{};
+
+        threads_.emplace_back([this, entrySeed, nameSeed] {
             WorkerCtx ctx;
             ctx.getdentsBuf.resize(kGetdentsBufSize);
             ctx.pathBuf.resize(kInitialPathBufSize);
-            ctx.entryCursor = entryStore_.allocateAppendCursor();
-            ctx.nameCursor = nameStore_.allocateAppendCursor();
+            ctx.entryCursor = entrySeed.page != nullptr ? entrySeed : entryStore_.allocateAppendCursor();
+            ctx.nameCursor = nameSeed.page != nullptr ? nameSeed : nameStore_.allocateAppendCursor();
             workerLoop(ctx);
         });
     }

@@ -63,7 +63,9 @@ private:
     void scanDir(EntryRef dirRef, WorkerCtx &ctx);
     void buildPath(EntryRef ref, std::vector<char> &pathBuf);
     void resetRuntimeState();
-    void runScanWorkers(int workerCount);
+    void runScanWorkers(int workerCount,
+                        std::vector<DirEntryStore::AppendCursor> entrySeeds = {},
+                        std::vector<NameStore::AppendCursor> nameSeeds = {});
     void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scratch);
 
     static constexpr size_t kSortBatchSize = 10;

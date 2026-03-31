@@ -53,6 +53,24 @@ public:
         return {id, pages_.back().get()};
     }
 
+    // Returns up to maxCount non-full pages as append cursors. Call this
+    // before launching workers, while page allocation is still single-threaded.
+    // Pages with 15% or less free space are skipped so startup seeding only
+    // reuses pages that still have meaningful headroom.
+    std::vector<AppendCursor> reusableAppendCursors(std::size_t maxCount) {
+        std::vector<AppendCursor> cursors;
+        cursors.reserve(maxCount);
+        for (uint32_t i = 0; i < pages_.size(); ++i) {
+            Page *page = pages_[i].get();
+            if (page->used >= kEntriesPerPage) continue;
+            const uint32_t freeEntries = kEntriesPerPage - page->used;
+            if (static_cast<uint64_t>(freeEntries) * 100 <= static_cast<uint64_t>(kEntriesPerPage) * 5) continue;
+            cursors.push_back({i, page});
+            if (cursors.size() >= maxCount) break;
+        }
+        return cursors;
+    }
+
     // NOT thread-safe per page. Caller must have exclusive access to cursor.page.
     // Returns an EntryRef to the claimed entry. If the page is full, allocates
     // a new page and updates the cursor.
