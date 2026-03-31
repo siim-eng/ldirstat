@@ -36,7 +36,7 @@ void MainWindowBuilder::build(MainWindow *w) {
     connectCoreSignals(w);
     connectGraphTypeSignals(w, graphTypeActions);
     connectVisibilitySignals(w);
-    activateGraphWidget(w, w->flameGraphWidget_, MainWindow::tr("Flame Graph"));
+    activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map no headers"));
     updateGraphTypeButtonVisibility(w);
 }
 
@@ -152,15 +152,15 @@ void MainWindowBuilder::buildAnalysisWidgets(MainWindow *w) {
     w->dirListView_ = new DirListView(w);
     w->flameGraphWidget_ = new FlameGraphWidget(w);
     w->treeMapWidget_ = new TreeMapWidget(w);
-    w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::DirectoryHeaders);
-    w->graphWidget_ = w->flameGraphWidget_;
+    w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::Packed);
+    w->graphWidget_ = w->treeMapWidget_;
 
     w->scanProgress_ = new ScanProgressWidget(w);
 
     w->graphTypeStack_ = new QStackedWidget(w);
     w->graphTypeStack_->addWidget(w->flameGraphWidget_);
     w->graphTypeStack_->addWidget(w->treeMapWidget_);
-    w->graphTypeStack_->setCurrentWidget(w->flameGraphWidget_);
+    w->graphTypeStack_->setCurrentWidget(w->treeMapWidget_);
 
     w->flameStack_ = new QStackedWidget(w);
     w->flameStack_->addWidget(w->scanProgress_);
@@ -196,7 +196,6 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
     GraphTypeActions actions;
     actions.flameGraph = graphTypeMenu->addAction(MainWindow::tr("Flame Graph"));
     actions.flameGraph->setCheckable(true);
-    actions.flameGraph->setChecked(true);
     graphTypeGroup->addAction(actions.flameGraph);
 
     actions.treeMapHeaders = graphTypeMenu->addAction(MainWindow::tr("Tree Map - Directory Headers"));
@@ -205,6 +204,7 @@ MainWindowBuilder::GraphTypeActions MainWindowBuilder::buildGraphTypeMenu(MainWi
 
     actions.treeMapPacked = graphTypeMenu->addAction(MainWindow::tr("Tree Map no headers"));
     actions.treeMapPacked->setCheckable(true);
+    actions.treeMapPacked->setChecked(true);
     graphTypeGroup->addAction(actions.treeMapPacked);
 
     w->graphTypeButton_->setMenu(graphTypeMenu);

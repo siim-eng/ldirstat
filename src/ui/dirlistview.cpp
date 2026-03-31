@@ -29,7 +29,7 @@ DirListView::DirListView(QWidget *parent)
     scrollContent_ = new QWidget();
     columnsLayout_ = new QHBoxLayout(scrollContent_);
     columnsLayout_->setContentsMargins(0, 0, 0, 0);
-    columnsLayout_->setSpacing(2);
+    columnsLayout_->setSpacing(3);
     columnsLayout_->addStretch();
 
     scrollArea_->setWidget(scrollContent_);
