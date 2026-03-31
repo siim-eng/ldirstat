@@ -310,10 +310,7 @@ void DirListView::resizeEvent(QResizeEvent *event) {
     syncColumnHeights();
 }
 
-void DirListView::applyFocusInColumn(int columnIndex,
-                                     int rowIndex,
-                                     Qt::KeyboardModifiers modifiers,
-                                     bool preserveSelection) {
+void DirListView::applyFocusInColumn(int columnIndex, int rowIndex, Qt::KeyboardModifiers modifiers, bool preserveSelection) {
     if (columnIndex < 0 || columnIndex >= static_cast<int>(columns_.size())) return;
 
     DirListColumn *column = columns_[columnIndex];
@@ -371,8 +368,7 @@ void DirListView::setActiveColumnIndex(int columnIndex) {
     }
 
     const int clamped = std::clamp(columnIndex, 0, static_cast<int>(columns_.size()) - 1);
-    if (activeColumnIndex_ >= 0 && activeColumnIndex_ < static_cast<int>(columns_.size())
-        && activeColumnIndex_ != clamped) {
+    if (activeColumnIndex_ >= 0 && activeColumnIndex_ < static_cast<int>(columns_.size()) && activeColumnIndex_ != clamped) {
         columns_[activeColumnIndex_]->clearSelection();
     }
 
@@ -410,8 +406,7 @@ void DirListView::truncateColumnsAfter(int columnIndex) {
 void DirListView::updateActiveColumnState() {
     const QWidget *focusWidget = QApplication::focusWidget();
     const bool showActiveColumn =
-        activeColumnIndex_ >= 0
-        && (hasFocus() || (focusWidget != nullptr && isAncestorOf(const_cast<QWidget *>(focusWidget))));
+        activeColumnIndex_ >= 0 && (hasFocus() || (focusWidget != nullptr && isAncestorOf(const_cast<QWidget *>(focusWidget))));
 
     for (int i = 0; i < static_cast<int>(columns_.size()); ++i)
         columns_[i]->setKeyboardActive(showActiveColumn && i == activeColumnIndex_);
@@ -442,8 +437,8 @@ int DirListView::computeColumnWidth() const {
     const int nameField = fm.horizontalAdvance("directoryname123");
     const int arrowSpace = DirListColumn::kArrowSize * 2 + DirListColumn::kPadding;
     const int scrollBarW = style()->pixelMetric(QStyle::PM_ScrollBarExtent);
-    return DirListColumn::kLeftPadding + sizeField + DirListColumn::kPadding + pctField + DirListColumn::kPadding
-           + nameField + arrowSpace + DirListColumn::kPadding + scrollBarW;
+    return DirListColumn::kLeftPadding + sizeField + DirListColumn::kPadding + pctField + DirListColumn::kPadding + nameField
+           + arrowSpace + DirListColumn::kPadding + scrollBarW;
 }
 
 } // namespace ldirstat

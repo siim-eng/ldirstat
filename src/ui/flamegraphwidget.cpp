@@ -31,8 +31,7 @@ struct DirectedEdge {
 
 struct GridPointHash {
     size_t operator()(const GridPoint &point) const {
-        return (static_cast<size_t>(static_cast<uint32_t>(point.x)) << 32)
-               ^ static_cast<size_t>(static_cast<uint32_t>(point.y));
+        return (static_cast<size_t>(static_cast<uint32_t>(point.x)) << 32) ^ static_cast<size_t>(static_cast<uint32_t>(point.y));
     }
 };
 
@@ -68,8 +67,7 @@ std::vector<GridPoint> simplifyLoop(std::vector<GridPoint> points) {
             const size_t prev = (i + points.size() - 1) % points.size();
             const size_t next = (i + 1) % points.size();
 
-            if (points[i] == points[prev] || points[i] == points[next]
-                || isCollinear(points[prev], points[i], points[next])) {
+            if (points[i] == points[prev] || points[i] == points[next] || isCollinear(points[prev], points[i], points[next])) {
                 points.erase(points.begin() + static_cast<std::ptrdiff_t>(i));
                 changed = true;
                 continue;

@@ -229,8 +229,7 @@ void DirListColumn::applyFilter() {
     rebuildVisibleRows();
 
     for (int childIndex = 0; childIndex < static_cast<int>(children_.size()); ++childIndex) {
-        if (selectionFlags_[childIndex] != 0 && visibleRowByChild_[childIndex] < 0)
-            setSelectionState(childIndex, false);
+        if (selectionFlags_[childIndex] != 0 && visibleRowByChild_[childIndex] < 0) setSelectionState(childIndex, false);
     }
 
     if (focusedChildIndex_ >= 0 && visibleRowByChild_[focusedChildIndex_] < 0) focusedChildIndex_ = -1;
@@ -244,8 +243,7 @@ void DirListColumn::applyFilter() {
         }
     }
 
-    if (focusedChildIndex_ < 0 && !visibleRows_.empty() && previousFocus.valid())
-        focusedChildIndex_ = visibleRows_.front();
+    if (focusedChildIndex_ < 0 && !visibleRows_.empty() && previousFocus.valid()) focusedChildIndex_ = visibleRows_.front();
 
     if (anchorChildIndex_ >= 0 && visibleRowByChild_[anchorChildIndex_] < 0) anchorChildIndex_ = focusedChildIndex_;
     if (pathChildIndex_ >= 0 && visibleRowByChild_[pathChildIndex_] < 0) pathChildIndex_ = -1;
@@ -645,10 +643,7 @@ void DirListColumn::updateScrollBar() {
         scrollBar_->setSingleStep(kRowHeight);
     }
 
-    scrollBar_->setGeometry(width() - scrollBar_->sizeHint().width(),
-                            0,
-                            scrollBar_->sizeHint().width(),
-                            rowsRect.height());
+    scrollBar_->setGeometry(width() - scrollBar_->sizeHint().width(), 0, scrollBar_->sizeHint().width(), rowsRect.height());
 }
 
 void DirListColumn::paintRows(QPainter &painter, const QRect &rowsRect) {
@@ -661,8 +656,7 @@ void DirListColumn::paintRows(QPainter &painter, const QRect &rowsRect) {
     const QFontMetrics fm = painter.fontMetrics();
     const int scrollOffset = scrollBar_->value();
     const int firstRow = scrollOffset / kRowHeight;
-    const int lastRow =
-        std::min(static_cast<int>(visibleRows_.size()) - 1, (scrollOffset + rowsRect.height() - 1) / kRowHeight);
+    const int lastRow = std::min(static_cast<int>(visibleRows_.size()) - 1, (scrollOffset + rowsRect.height() - 1) / kRowHeight);
     const int arrowSpace = kArrowSize * 2 + kPadding;
 
     for (int row = firstRow; row <= lastRow; ++row) {
@@ -731,8 +725,7 @@ void DirListColumn::paintFooter(QPainter &painter, const QRect &footerRect) {
     painter.drawLine(0, footerRect.y(), footerRect.width(), footerRect.y());
 
     painter.setPen(pal.text().color());
-    const QString footerText =
-        QString("%1 dirs, %2 files, %3").arg(footerDirs_).arg(footerFiles_).arg(formatSize(footerBytes_));
+    const QString footerText = QString("%1 dirs, %2 files, %3").arg(footerDirs_).arg(footerFiles_).arg(formatSize(footerBytes_));
     painter.drawText(kLeftPadding,
                      footerRect.y(),
                      footerRect.width() - kLeftPadding - kPadding,

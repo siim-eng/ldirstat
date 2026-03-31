@@ -72,8 +72,7 @@ WelcomeWidget::WelcomeWidget(QWidget *parent)
     title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
-    auto *subtitle =
-        new QLabel(tr("LDirStat analyzes disk usage statistics so you can see what is using lots of space."));
+    auto *subtitle = new QLabel(tr("LDirStat analyzes disk usage statistics so you can see what is using lots of space."));
     QFont subtitleFont = subtitle->font();
     subtitleFont.setPointSize(14);
     subtitle->setFont(subtitleFont);
@@ -103,13 +102,11 @@ WelcomeWidget::WelcomeWidget(QWidget *parent)
     connect(homeBtn, &QPushButton::clicked, this, [this]() { emit scanRequested(QDir::homePath()); });
     actionRow->addWidget(homeBtn);
 
-    auto *rootBtn =
-        makeButton(tr("Open Root"), QStringLiteral("drive-harddisk-system-symbolic"), QStyle::SP_DirOpenIcon);
+    auto *rootBtn = makeButton(tr("Open Root"), QStringLiteral("drive-harddisk-system-symbolic"), QStyle::SP_DirOpenIcon);
     connect(rootBtn, &QPushButton::clicked, this, [this]() { emit scanRequested(QStringLiteral("/")); });
     actionRow->addWidget(rootBtn);
 
-    auto *otherBtn =
-        makeButton(tr("Open Other Directory..."), QStringLiteral("folder-open-symbolic"), QStyle::SP_DirIcon);
+    auto *otherBtn = makeButton(tr("Open Other Directory..."), QStringLiteral("folder-open-symbolic"), QStyle::SP_DirIcon);
     connect(otherBtn, &QPushButton::clicked, this, [this]() { emit openDirectoryRequested(); });
     actionRow->addWidget(otherBtn);
 

@@ -57,9 +57,8 @@ void TreeMap::build(const DirEntryStore &store, EntryRef focus, const TreeMapOpt
     if (!focus.valid() || options.width <= 0.0f || options.height <= 0.0f) return;
 
     const DirEntry &rootEntry = store[focus];
-    const uint64_t rootTreemapSize = rootEntry.firstChild.valid()
-                                         ? totalTreemapSizeOfChildren(store, rootEntry.firstChild)
-                                         : layoutSizeOf(rootEntry);
+    const uint64_t rootTreemapSize =
+        rootEntry.firstChild.valid() ? totalTreemapSizeOfChildren(store, rootEntry.firstChild) : layoutSizeOf(rootEntry);
     if (rootTreemapSize == 0) return;
 
     const size_t reserveCount =

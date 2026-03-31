@@ -56,9 +56,8 @@ void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGr
         f.previousSize = entrySize;
 
         // Compute rect x range.
-        const float width = (f.parentSize > 0)
-                                ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth
-                                : 0.0f;
+        const float width =
+            (f.parentSize > 0) ? static_cast<float>(static_cast<double>(entrySize) / f.parentSize) * f.parentWidth : 0.0f;
         const float x1 = f.x1;
         const float x2 = x1 + width;
 

@@ -36,10 +36,8 @@ QRectF toQRect(const TreeMapRect &rect) {
 }
 
 QRectF selectionOutlineRect(const TreeMapRect &rect) {
-    QRectF outline = toQRect(rect).adjusted(kSelectionBorderInset,
-                                            kSelectionBorderInset,
-                                            -kSelectionBorderInset,
-                                            -kSelectionBorderInset);
+    QRectF outline =
+        toQRect(rect).adjusted(kSelectionBorderInset, kSelectionBorderInset, -kSelectionBorderInset, -kSelectionBorderInset);
     if (outline.width() <= 0.0 || outline.height() <= 0.0) return {};
     return outline;
 }
@@ -204,8 +202,7 @@ void TreeMapWidget::paintPacked(QPainter &painter, const QPalette &widgetPalette
 
         const QColor fill = colorForEntry(entry, themeColors_);
         const QRectF textRect = labelRect.adjusted(3.0, 0.0, -3.0, 0.0);
-        const QString text =
-            metrics.elidedText(entryName(*names_, entry), Qt::ElideRight, static_cast<int>(textRect.width()));
+        const QString text = metrics.elidedText(entryName(*names_, entry), Qt::ElideRight, static_cast<int>(textRect.width()));
         if (text.isEmpty()) continue;
 
         painter.setPen(textColorForBackground(fill, widgetPalette));
@@ -275,9 +272,7 @@ void TreeMapWidget::paintDirectoryHeaders(QPainter &painter, const QPalette &wid
                                      ? textColorForBackground(headerColorForFill(fill), widgetPalette)
                                      : textColorForBackground(fill, widgetPalette);
         painter.setPen(textColor);
-        painter.drawText(labelRect.adjusted(3.0, 0.0, -3.0, 0.0),
-                         Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
-                         text);
+        painter.drawText(labelRect.adjusted(3.0, 0.0, -3.0, 0.0), Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, text);
     }
 
     if (selectedEntry_.valid()) {

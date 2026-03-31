@@ -323,8 +323,7 @@ bool appendLsblkVolumes(const std::vector<MountInfo> &mounts, std::vector<Volume
 
         if (const MountInfo *mountedInfo = findBestMountedLocal(mounts, devicePath)) {
             volume.mounted = true;
-            if (betterMountPoint(mountedInfo->mountPoint, volume.mountPoint))
-                volume.mountPoint = mountedInfo->mountPoint;
+            if (betterMountPoint(mountedInfo->mountPoint, volume.mountPoint)) volume.mountPoint = mountedInfo->mountPoint;
             volume.totalBytes = mountedInfo->totalBytes;
             volume.availBytes = mountedInfo->availBytes;
         }
@@ -358,8 +357,8 @@ bool appendLsblkVolumes(const std::vector<MountInfo> &mounts, std::vector<Volume
 } // namespace
 
 FileSystemType FileSystems::classifyFileSystem(std::string_view fsType) {
-    if (fsType == "ext4" || fsType == "xfs" || fsType == "btrfs" || fsType == "f2fs" || fsType == "zfs"
-        || fsType == "vfat" || fsType == "exfat" || fsType == "ntfs" || fsType == "ntfs3")
+    if (fsType == "ext4" || fsType == "xfs" || fsType == "btrfs" || fsType == "f2fs" || fsType == "zfs" || fsType == "vfat"
+        || fsType == "exfat" || fsType == "ntfs" || fsType == "ntfs3")
         return FileSystemType::Real;
 
     if (fsType == "nfs" || fsType == "nfs4" || fsType == "cifs" || fsType == "smb3" || fsType == "sshfs")
@@ -368,10 +367,10 @@ FileSystemType FileSystems::classifyFileSystem(std::string_view fsType) {
     if (fsType == "tmpfs" || fsType == "ramfs") return FileSystemType::Temporary;
 
     if (fsType == "proc" || fsType == "sysfs" || fsType == "devtmpfs" || fsType == "devpts" || fsType == "cgroup"
-        || fsType == "cgroup2" || fsType == "securityfs" || fsType == "pstore" || fsType == "debugfs"
-        || fsType == "tracefs" || fsType == "configfs" || fsType == "fusectl" || fsType == "mqueue"
-        || fsType == "hugetlbfs" || fsType == "fuse.portal" || fsType == "autofs" || fsType == "nsfs"
-        || fsType == "binfmt_misc" || fsType == "efivarfs" || fsType == "bpf" || fsType == "selinuxfs")
+        || fsType == "cgroup2" || fsType == "securityfs" || fsType == "pstore" || fsType == "debugfs" || fsType == "tracefs"
+        || fsType == "configfs" || fsType == "fusectl" || fsType == "mqueue" || fsType == "hugetlbfs" || fsType == "fuse.portal"
+        || fsType == "autofs" || fsType == "nsfs" || fsType == "binfmt_misc" || fsType == "efivarfs" || fsType == "bpf"
+        || fsType == "selinuxfs")
         return FileSystemType::Virtual;
 
     if (fsType == "fuse.gvfsd-fuse") return FileSystemType::Special;
@@ -392,9 +391,8 @@ void FileSystems::refresh() {
 
     const size_t localVolumeStart = volumes_.size();
     const bool lsblkOk = appendLsblkVolumes(mounts_, volumes_);
-    const bool hasMountedLocal = std::any_of(mounts_.begin(), mounts_.end(), [](const MountInfo &mount) {
-        return mount.kind == FileSystemType::Real;
-    });
+    const bool hasMountedLocal =
+        std::any_of(mounts_.begin(), mounts_.end(), [](const MountInfo &mount) { return mount.kind == FileSystemType::Real; });
 
     if (!lsblkOk) volumes_.resize(localVolumeStart);
 

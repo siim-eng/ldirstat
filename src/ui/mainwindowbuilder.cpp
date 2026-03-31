@@ -77,8 +77,7 @@ void MainWindowBuilder::buildToolbar(MainWindow *w) {
     QObject::connect(w->breadcrumbCopyButton_, &QToolButton::clicked, w, &MainWindow::copyCurrentDirectoryPath);
 
     w->breadcrumbClearButton_ = new QToolButton(breadcrumbWidget);
-    w->breadcrumbClearButton_->setIcon(
-        themedIcon(w, QStringLiteral("edit-clear-symbolic"), QStyle::SP_DialogResetButton));
+    w->breadcrumbClearButton_->setIcon(themedIcon(w, QStringLiteral("edit-clear-symbolic"), QStyle::SP_DialogResetButton));
     w->breadcrumbClearButton_->setToolTip(MainWindow::tr("Clear to root directory"));
     w->breadcrumbClearButton_->setFocusPolicy(Qt::NoFocus);
     QObject::connect(w->breadcrumbClearButton_, &QToolButton::clicked, w, &MainWindow::clearDirectoryBreadcrumb);
@@ -88,14 +87,12 @@ void MainWindowBuilder::buildToolbar(MainWindow *w) {
     breadcrumbLayout->addWidget(w->breadcrumbClearButton_);
     w->toolbar_->addWidget(breadcrumbWidget);
 
-    w->overviewAction_ =
-        w->toolbar_->addAction(themedIcon(w, QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon),
-                               MainWindow::tr("Overview"));
+    w->overviewAction_ = w->toolbar_->addAction(themedIcon(w, QStringLiteral("go-home-symbolic"), QStyle::SP_DirHomeIcon),
+                                                MainWindow::tr("Overview"));
     QObject::connect(w->overviewAction_, &QAction::triggered, w, &MainWindow::onOverview);
 
-    w->rescanAction_ =
-        w->toolbar_->addAction(themedIcon(w, QStringLiteral("view-refresh-symbolic"), QStyle::SP_BrowserReload),
-                               MainWindow::tr("Rescan"));
+    w->rescanAction_ = w->toolbar_->addAction(themedIcon(w, QStringLiteral("view-refresh-symbolic"), QStyle::SP_BrowserReload),
+                                              MainWindow::tr("Rescan"));
     QObject::connect(w->rescanAction_, &QAction::triggered, w, &MainWindow::onRescan);
 
     auto configureEntryAction = [w](QAction *&action,
@@ -144,8 +141,7 @@ void MainWindowBuilder::buildToolbar(MainWindow *w) {
                          &MainWindow::deleteCurrentEntryPermanently);
 
     w->graphTypeButton_ = new QToolButton(w->toolbar_);
-    w->graphTypeButton_->setIcon(
-        themedIcon(w, QStringLiteral("find-location-symbolic"), QStyle::SP_FileDialogContentsView));
+    w->graphTypeButton_->setIcon(themedIcon(w, QStringLiteral("find-location-symbolic"), QStyle::SP_FileDialogContentsView));
     w->graphTypeButton_->setText(MainWindow::tr("Graph Type"));
     w->graphTypeButton_->setPopupMode(QToolButton::InstantPopup);
     w->graphTypeButton_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);

@@ -41,8 +41,7 @@ bool isExecutableByMode(const struct stat &st) {
     return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
 }
 
-template <typename Visitor>
-void traverseDirectoryTree(const DirEntryStore &entryStore, EntryRef rootRef, Visitor &&visit) {
+template<typename Visitor> void traverseDirectoryTree(const DirEntryStore &entryStore, EntryRef rootRef, Visitor &&visit) {
     if (!rootRef.valid()) return;
 
     std::vector<EntryRef> stack;
@@ -388,8 +387,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
 
             if (entry.isFile()) {
                 FileCategory category = FileCategorizer::categorize(d->d_name);
-                if (category == FileCategory::Unknown && haveStat && isExecutableByMode(st))
-                    category = FileCategory::Executable;
+                if (category == FileCategory::Unknown && haveStat && isExecutableByMode(st)) category = FileCategory::Executable;
                 entry.fileCategory = category;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
             }

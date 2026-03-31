@@ -187,8 +187,7 @@ void MainWindow::updateEntryActions() {
     if (openEntryTerminalAction_) openEntryTerminalAction_->setEnabled(enabled);
     if (copyEntryPathAction_) copyEntryPathAction_->setEnabled(enabled);
     if (trashEntryAction_) trashEntryAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
-    if (deleteEntryPermanentlyAction_)
-        deleteEntryPermanentlyAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
+    if (deleteEntryPermanentlyAction_) deleteEntryPermanentlyAction_->setEnabled(enabled && currentEntry_ != currentRoot_);
 }
 
 bool MainWindow::dirListSelectionIsActive() const {
@@ -265,17 +264,14 @@ void MainWindow::applyPostRemovalState(const std::vector<EntryRef> &removedRefs)
         graphFocusDir_ = fallbackDir.valid() ? fallbackDir : currentRoot_;
 
     if (dirListView_) {
-        const EntryRef target =
-            currentEntry_.valid() ? currentEntry_ : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
+        const EntryRef target = currentEntry_.valid() ? currentEntry_ : (graphFocusDir_.valid() ? graphFocusDir_ : currentRoot_);
         dirListView_->selectEntry(target);
     }
 
     syncGraphSelection();
 }
 
-void MainWindow::showBatchFailureDialog(const QString &title,
-                                        const QString &actionDescription,
-                                        const QStringList &failedPaths) {
+void MainWindow::showBatchFailureDialog(const QString &title, const QString &actionDescription, const QStringList &failedPaths) {
     if (failedPaths.isEmpty()) return;
 
     QStringList lines;
@@ -333,9 +329,7 @@ void MainWindow::showEntryContextMenuInternal(EntryRef ref, QPoint globalPos, bo
         menu.addAction(openEntryTerminalAction_->icon(), openEntryTerminalAction_->text(), this, [this, ref]() {
             openEntryTerminal(ref);
         });
-        menu.addAction(copyEntryPathAction_->icon(), copyEntryPathAction_->text(), this, [this, ref]() {
-            copyEntryPath(ref);
-        });
+        menu.addAction(copyEntryPathAction_->icon(), copyEntryPathAction_->text(), this, [this, ref]() { copyEntryPath(ref); });
     } else {
         setCurrentEntry(ref);
         syncGraphHighlight();
@@ -816,15 +810,15 @@ void MainWindow::showAboutDialog() {
     dialog.setModal(true);
 
     auto *layout = new QVBoxLayout(&dialog);
-    auto *text = new QLabel(
-        tr("<p><b>%1</b><br>Version %2</p>"
-           "<p>LDirStat scans directories and helps you understand disk usage with flame graph and tree map views. "
-           "It is built for fast, low-latency analysis with low memory usage for exploring large directory trees.</p>"
-           "<p>Copyright Siim Suisalu 2026<br>"
-           "License: MIT</p>"
-           "<p><a href=\"https://github.com/siim-eng/ldirstat\">Source code repository</a></p>")
-            .arg(appName, appVersion),
-        &dialog);
+    auto *text =
+        new QLabel(tr("<p><b>%1</b><br>Version %2</p>"
+                      "<p>LDirStat scans directories and helps you understand disk usage with flame graph and tree map views. "
+                      "It is built for fast, low-latency analysis with low memory usage for exploring large directory trees.</p>"
+                      "<p>Copyright Siim Suisalu 2026<br>"
+                      "License: MIT</p>"
+                      "<p><a href=\"https://github.com/siim-eng/ldirstat\">Source code repository</a></p>")
+                       .arg(appName, appVersion),
+                   &dialog);
     text->setWordWrap(true);
     text->setTextFormat(Qt::RichText);
     text->setTextInteractionFlags(Qt::TextBrowserInteraction);
@@ -891,8 +885,7 @@ void MainWindow::deleteCurrentEntryPermanently() {
     }
 
     bool ok = false;
-    const QString confirmation =
-        QInputDialog::getText(this, tr("Delete Permanently"), prompt, QLineEdit::Normal, {}, &ok);
+    const QString confirmation = QInputDialog::getText(this, tr("Delete Permanently"), prompt, QLineEdit::Normal, {}, &ok);
     if (!ok || confirmation != QStringLiteral("yes")) return;
 
     std::vector<EntryRef> removedRefs;
