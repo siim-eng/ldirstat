@@ -63,12 +63,12 @@ EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     rootDev_ = rootSt.st_dev;
 
     // Create root entry.
-    uint32_t entryPage = entryStore_.allocatePage();
-    uint32_t namePage = nameStore_.allocatePage();
-    EntryRef rootRef = entryStore_.add(entryPage);
+    DirEntryStore::AppendCursor entryCursor = entryStore_.allocateAppendCursor();
+    NameStore::AppendCursor nameCursor = nameStore_.allocateAppendCursor();
+    EntryRef rootRef = entryStore_.add(entryCursor);
     DirEntry &root = entryStore_[rootRef];
     root.type = EntryType::Directory;
-    root.name = nameStore_.add(namePage, rootPath);
+    root.name = nameStore_.add(nameCursor, rootPath);
 
     {
         std::lock_guard lock(mutex_);
@@ -272,8 +272,8 @@ void Scanner::runScanWorkers(int workerCount) {
             WorkerCtx ctx;
             ctx.getdentsBuf.resize(kGetdentsBufSize);
             ctx.pathBuf.resize(kInitialPathBufSize);
-            ctx.entryPage = entryStore_.allocatePage();
-            ctx.namePage = nameStore_.allocatePage();
+            ctx.entryCursor = entryStore_.allocateAppendCursor();
+            ctx.nameCursor = nameStore_.allocateAppendCursor();
             workerLoop(ctx);
         });
     }
@@ -317,9 +317,9 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             if (isDotOrDotdot(d->d_name)) continue;
 
             // Create entry.
-            EntryRef ref = entryStore_.add(ctx.entryPage);
+            EntryRef ref = entryStore_.add(ctx.entryCursor);
             DirEntry &entry = entryStore_[ref];
-            entry.name = nameStore_.add(ctx.namePage, d->d_name);
+            entry.name = nameStore_.add(ctx.nameCursor, d->d_name);
             entry.parent = dirRef;
 
             // Stat for size, and same-filesystem filtering.

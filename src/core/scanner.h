@@ -53,8 +53,8 @@ private:
         std::vector<char> getdentsBuf;
         std::vector<EntryRef> subdirBatch;
         std::vector<char> pathBuf;
-        uint32_t entryPage;
-        uint32_t namePage;
+        DirEntryStore::AppendCursor entryCursor;
+        NameStore::AppendCursor nameCursor;
     };
 
     std::optional<EntryRef> takeWork();

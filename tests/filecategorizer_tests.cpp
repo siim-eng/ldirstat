@@ -274,14 +274,14 @@ TEST_CASE("returns null extension info when no supported extension is present") 
 
 TEST_CASE("counts file categories across a direntry tree") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
-    const ldirstat::EntryRef rootRef = entryStore.add(entryPage);
-    const ldirstat::EntryRef docRef = entryStore.add(entryPage);
-    const ldirstat::EntryRef musicRef = entryStore.add(entryPage);
-    const ldirstat::EntryRef subdirRef = entryStore.add(entryPage);
-    const ldirstat::EntryRef sourceRef = entryStore.add(entryPage);
-    const ldirstat::EntryRef unknownRef = entryStore.add(entryPage);
+    const ldirstat::EntryRef rootRef = entryStore.add(entryCursor);
+    const ldirstat::EntryRef docRef = entryStore.add(entryCursor);
+    const ldirstat::EntryRef musicRef = entryStore.add(entryCursor);
+    const ldirstat::EntryRef subdirRef = entryStore.add(entryCursor);
+    const ldirstat::EntryRef sourceRef = entryStore.add(entryCursor);
+    const ldirstat::EntryRef unknownRef = entryStore.add(entryCursor);
 
     auto& root = entryStore[rootRef];
     root.type = ldirstat::EntryType::Directory;

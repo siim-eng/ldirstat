@@ -15,39 +15,57 @@ namespace ldirstat {
 // Page-based arena for DirEntry nodes. Each page holds 32768 entries.
 // Grows by adding pages — never reallocates existing pages.
 // Workers get their own page to write to; page allocation is thread-safe,
-// writing within a page is not. Page lookup is protected by a shared mutex
-// so the store can keep growing without a fixed page cap.
+// writing within a page is not. Read-side page lookup is protected by a
+// shared mutex so the store can keep growing without a fixed page cap.
 class DirEntryStore {
 public:
     static constexpr uint32_t kEntriesPerPage = 32768;
+
+private:
+    static constexpr std::size_t kPageAlignment = 64;
+
+    struct alignas(kPageAlignment) Page {
+        std::array<DirEntry, kEntriesPerPage> entries{};
+        uint32_t used = 0;
+    };
+
+public:
+    using PageHandle = Page;
+
+    struct AppendCursor {
+        uint32_t pageId = 0;
+        PageHandle *page = nullptr;
+    };
 
     void clear() {
         std::unique_lock lock(mutex_);
         pages_.clear();
     }
 
-    // Thread-safe. Allocates a new empty page, returns its ID.
-    uint32_t allocatePage() {
+    // Thread-safe. Allocates a new empty page and returns an append cursor
+    // that can be used without page lookup on the hot path.
+    AppendCursor allocateAppendCursor() {
         auto page = std::make_unique<Page>();
         std::unique_lock lock(mutex_);
         assert(pages_.size() < UINT32_MAX);
         auto id = static_cast<uint32_t>(pages_.size());
         pages_.push_back(std::move(page));
-        return id;
+        return {id, pages_.back().get()};
     }
 
-    // NOT thread-safe per page. Caller must have exclusive access to currentPage.
+    // NOT thread-safe per page. Caller must have exclusive access to cursor.page.
     // Returns an EntryRef to the claimed entry. If the page is full, allocates
-    // a new page and updates currentPage.
-    EntryRef add(uint32_t &currentPage) {
-        auto *page = pageFor(currentPage);
+    // a new page and updates the cursor.
+    EntryRef add(AppendCursor &cursor) {
+        Page *page = cursor.page;
+        assert(page != nullptr);
 
         if (page->used >= kEntriesPerPage) {
-            currentPage = allocatePage();
-            page = pageFor(currentPage);
+            cursor = allocateAppendCursor();
+            page = cursor.page;
         }
 
-        EntryRef ref{currentPage, static_cast<uint16_t>(page->used)};
+        EntryRef ref{cursor.pageId, static_cast<uint16_t>(page->used)};
         ++page->used;
         return ref;
     }
@@ -108,13 +126,6 @@ public:
     uint32_t pageUsed(uint32_t pageId) const { return pageFor(pageId)->used; }
 
 private:
-    static constexpr std::size_t kPageAlignment = 64;
-
-    struct alignas(kPageAlignment) Page {
-        std::array<DirEntry, kEntriesPerPage> entries{};
-        uint32_t used = 0;
-    };
-
     Page *pageFor(uint32_t pageId) {
         std::shared_lock lock(mutex_);
         return pages_[pageId].get();

@@ -22,10 +22,11 @@ static_assert(sizeof(NameRef) == 8);
 
 // Page-based string storage. 64KB pages, no resizes — only new pages are added.
 // Thread safety:
-//   - allocatePage(): thread-safe (exclusive lock)
-//   - add():           NOT thread-safe per page — caller must own the page exclusively
+//   - allocateAppendCursor(): thread-safe (exclusive lock)
+//   - add():                  NOT thread-safe per page — caller must own the page exclusively
 //   - get():           thread-safe (shared lock for page lookup)
 class NameStore {
+private:
     static constexpr size_t kPageSize = 65536;
 
     struct Page {
@@ -47,33 +48,43 @@ class NameStore {
     }
 
 public:
+    using PageHandle = Page;
+
+    struct AppendCursor {
+        uint32_t pageId = 0;
+        PageHandle *page = nullptr;
+    };
+
     void clear() {
         std::unique_lock lock(mutex_);
         pages_.clear();
     }
 
-    // Thread-safe. Allocates a new empty page, returns its ID.
-    uint32_t allocatePage() {
+    // Thread-safe. Allocates a new empty page and returns an append cursor
+    // that can be reused without page lookup on the hot path.
+    AppendCursor allocateAppendCursor() {
         auto page = std::make_unique<Page>();
         std::unique_lock lock(mutex_);
         assert(pages_.size() < UINT32_MAX);
         auto id = static_cast<uint32_t>(pages_.size());
         pages_.push_back(std::move(page));
-        return id;
+        return {id, pages_.back().get()};
     }
 
-    // NOT thread-safe per page. Caller must have exclusive access to currentPage.
-    // If the name doesn't fit, a new page is allocated and currentPage is updated.
-    NameRef add(uint32_t &currentPage, std::string_view name) {
+    // NOT thread-safe per page. Caller must have exclusive access to cursor.page.
+    // If the name doesn't fit, a new page is allocated and the cursor is updated.
+    NameRef add(AppendCursor &cursor, std::string_view name) {
         assert(name.size() <= kPageSize);
-        auto *page = pageFor(currentPage);
+        Page *page = cursor.page;
+        assert(page != nullptr);
+
         if (page->used + name.size() > kPageSize) {
-            currentPage = allocatePage();
-            page = pageFor(currentPage);
+            cursor = allocateAppendCursor();
+            page = cursor.page;
         }
 
         auto ref = NameRef{
-            currentPage,
+            cursor.pageId,
             static_cast<uint16_t>(page->used),
             static_cast<uint16_t>(name.size()),
         };

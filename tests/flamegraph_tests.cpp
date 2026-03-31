@@ -9,10 +9,10 @@
 namespace {
 
 ldirstat::EntryRef addTestEntry(ldirstat::DirEntryStore& entries,
-                                std::uint32_t& entryPage,
+                                ldirstat::DirEntryStore::AppendCursor& entryCursor,
                                 ldirstat::EntryType type,
                                 std::uint64_t size) {
-    const ldirstat::EntryRef ref = entries.add(entryPage);
+    const ldirstat::EntryRef ref = entries.add(entryCursor);
     auto& entry = entries[ref];
     entry.type = type;
     entry.size = size;
@@ -44,16 +44,16 @@ void linkChildren(ldirstat::DirEntryStore& entries,
 
 TEST_CASE("flamegraph emits all siblings above minimum pixel width") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
     const ldirstat::EntryRef rootRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef firstRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 60);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 60);
     const ldirstat::EntryRef secondRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 25);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 25);
     const ldirstat::EntryRef thirdRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 15);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 15);
     linkChildren(entryStore, rootRef, {firstRef, secondRef, thirdRef});
 
     ldirstat::FlameGraph flameGraph;
@@ -71,18 +71,18 @@ TEST_CASE("flamegraph emits all siblings above minimum pixel width") {
 
 TEST_CASE("flamegraph stops scanning siblings once width cutoff is reached") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
     const ldirstat::EntryRef rootRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef firstRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 70);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 70);
     const ldirstat::EntryRef secondRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 20);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 20);
     const ldirstat::EntryRef culledRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 5);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 5);
     const ldirstat::EntryRef laterRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 5);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 5);
     linkChildren(entryStore, rootRef, {firstRef, secondRef, culledRef, laterRef});
 
     ldirstat::FlameGraph flameGraph;
@@ -99,18 +99,18 @@ TEST_CASE("flamegraph stops scanning siblings once width cutoff is reached") {
 
 TEST_CASE("flamegraph skips zero-sized siblings before applying width cutoff") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
     const ldirstat::EntryRef rootRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef firstRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 60);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 60);
     const ldirstat::EntryRef zeroRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 0);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 0);
     const ldirstat::EntryRef secondRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 30);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 30);
     const ldirstat::EntryRef culledRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 3);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 3);
     linkChildren(entryStore, rootRef, {firstRef, zeroRef, secondRef, culledRef});
 
     ldirstat::FlameGraph flameGraph;
@@ -127,16 +127,16 @@ TEST_CASE("flamegraph skips zero-sized siblings before applying width cutoff") {
 
 TEST_CASE("flamegraph respects configured max depth") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
     const ldirstat::EntryRef rootRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef dirARef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef dirBRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef fileRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 100);
     linkChildren(entryStore, rootRef, {dirARef});
     linkChildren(entryStore, dirARef, {dirBRef});
     linkChildren(entryStore, dirBRef, {fileRef});
@@ -157,14 +157,14 @@ TEST_CASE("flamegraph respects configured max depth") {
 
 TEST_CASE("flamegraph keeps ancestry rows even when child widths are culled") {
     ldirstat::DirEntryStore entryStore;
-    std::uint32_t entryPage = entryStore.allocatePage();
+    auto entryCursor = entryStore.allocateAppendCursor();
 
     const ldirstat::EntryRef rootRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef focusRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::Directory, 100);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::Directory, 100);
     const ldirstat::EntryRef childRef =
-        addTestEntry(entryStore, entryPage, ldirstat::EntryType::File, 50);
+        addTestEntry(entryStore, entryCursor, ldirstat::EntryType::File, 50);
     linkChildren(entryStore, rootRef, {focusRef});
     linkChildren(entryStore, focusRef, {childRef});
 
