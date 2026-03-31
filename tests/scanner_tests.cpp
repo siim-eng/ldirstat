@@ -45,6 +45,10 @@ void writeFile(const fs::path &path, std::string_view contents) {
     REQUIRE(::close(fd) == 0);
 }
 
+std::string sizedContents(size_t size, char fill) {
+    return std::string(size, fill);
+}
+
 void collectDescendantSnapshot(const ldirstat::DirEntryStore &entries,
                                const ldirstat::NameStore &names,
                                ldirstat::EntryRef dirRef,
@@ -67,6 +71,22 @@ std::vector<std::string> descendantSnapshot(const ldirstat::DirEntryStore &entri
     collectDescendantSnapshot(entries, names, rootRef, {}, snapshot);
     std::sort(snapshot.begin(), snapshot.end());
     return snapshot;
+}
+
+std::vector<ldirstat::EntryRef> childRefs(const ldirstat::DirEntryStore &entries, ldirstat::EntryRef dirRef) {
+    std::vector<ldirstat::EntryRef> refs;
+    for (ldirstat::EntryRef child = entries[dirRef].firstChild; child.valid(); child = entries[child].nextSibling)
+        refs.push_back(child);
+    return refs;
+}
+
+void checkChildrenSortedBySize(const ldirstat::DirEntryStore &entries, ldirstat::EntryRef dirRef) {
+    uint64_t prevSize = UINT64_MAX;
+    for (ldirstat::EntryRef child = entries[dirRef].firstChild; child.valid(); child = entries[child].nextSibling) {
+        const uint64_t size = entries[child].size;
+        CHECK(size <= prevSize);
+        prevSize = size;
+    }
 }
 
 struct ContinueScanFixture {
@@ -135,6 +155,40 @@ TEST_CASE("scanner reuses the root append pages for fresh scans") {
     CHECK(root.childCount == 2);
 }
 
+TEST_CASE("sortBySize sorts all current-pass directories across evenly split worker slices") {
+    TempDir tempDir;
+    constexpr int dirCount = 25;
+    constexpr int filesPerDir = 3;
+
+    for (int i = 0; i < dirCount; ++i) {
+        const fs::path dirPath = tempDir.path / ("dir-" + std::to_string(i));
+        REQUIRE(fs::create_directory(dirPath));
+
+        writeFile(dirPath / "tiny.bin", sizedContents(static_cast<size_t>(i + 1), 'a'));
+        writeFile(dirPath / "huge.bin", sizedContents(static_cast<size_t>(200 + i), 'b'));
+        writeFile(dirPath / "mid.bin", sizedContents(static_cast<size_t>(100 + i), 'c'));
+    }
+
+    ldirstat::DirEntryStore entryStore;
+    ldirstat::NameStore nameStore;
+    ldirstat::Scanner scanner(entryStore, nameStore);
+
+    const ldirstat::EntryRef rootRef = scanner.scan(tempDir.path.string(), 4);
+    REQUIRE(rootRef.valid());
+    scanner.propagate(rootRef);
+    scanner.sortBySize(4);
+
+    const std::vector<ldirstat::EntryRef> rootChildren = childRefs(entryStore, rootRef);
+    REQUIRE(rootChildren.size() == dirCount);
+    checkChildrenSortedBySize(entryStore, rootRef);
+
+    for (ldirstat::EntryRef dirRef : rootChildren) {
+        CHECK(entryStore[dirRef].isDir());
+        REQUIRE(entryStore[dirRef].childCount == filesPerDir);
+        checkChildrenSortedBySize(entryStore, dirRef);
+    }
+}
+
 TEST_CASE("continueScan seeds workers from existing reusable pages") {
     ContinueScanFixture fixture(2);
     writeFile(fixture.mountPath() / "alpha.txt", "alpha");
@@ -178,6 +232,41 @@ TEST_CASE("continueScan matches a fresh scan for subtree results") {
     CHECK(continuedRoot.childCount == freshRootEntry.childCount);
     CHECK(descendantSnapshot(fixture.entryStore, fixture.nameStore, fixture.mountRef) ==
           descendantSnapshot(freshEntryStore, freshNameStore, freshRoot));
+}
+
+TEST_CASE("continueScan leaves ancestor order untouched until commitContinueScan resorts it") {
+    ContinueScanFixture fixture;
+
+    auto entryCursor = fixture.entryStore.allocateAppendCursor();
+    auto nameCursor = fixture.nameStore.allocateAppendCursor();
+
+    const ldirstat::EntryRef siblingRef = fixture.entryStore.add(entryCursor);
+    auto &sibling = fixture.entryStore[siblingRef];
+    sibling.type = ldirstat::EntryType::File;
+    sibling.parent = fixture.rootRef;
+    sibling.name = fixture.nameStore.add(nameCursor, "small.txt");
+    sibling.size = 1;
+
+    auto &root = fixture.entryStore[fixture.rootRef];
+    root.firstChild = siblingRef;
+    root.childCount = 2;
+    root.fileCount = 1;
+    root.size = 1;
+    sibling.nextSibling = fixture.mountRef;
+
+    writeFile(fixture.mountPath() / "large.bin", sizedContents(256, 'z'));
+
+    REQUIRE(fixture.scanner.continueScan(fixture.mountRef, 3));
+
+    CHECK(root.firstChild == siblingRef);
+    CHECK(fixture.entryStore[siblingRef].nextSibling == fixture.mountRef);
+    CHECK(root.size == 1);
+
+    fixture.scanner.commitContinueScan(fixture.mountRef);
+
+    CHECK(root.firstChild == fixture.mountRef);
+    CHECK(fixture.entryStore[fixture.mountRef].nextSibling == siblingRef);
+    CHECK(root.size > fixture.entryStore[siblingRef].size);
 }
 
 } // namespace

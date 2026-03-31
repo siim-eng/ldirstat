@@ -88,9 +88,13 @@ public:
         return ref;
     }
 
+    // Unlocked lookup — use only when the store is not growing (post-scan).
     DirEntry &operator[](EntryRef ref) { return pageFor(ref.pageId)->entries[ref.index]; }
-
     const DirEntry &operator[](EntryRef ref) const { return pageFor(ref.pageId)->entries[ref.index]; }
+
+    // Thread-safe lookup — safe to call while other threads may allocate pages.
+    DirEntry &at(EntryRef ref) { return safePageFor(ref.pageId)->entries[ref.index]; }
+    const DirEntry &at(EntryRef ref) const { return safePageFor(ref.pageId)->entries[ref.index]; }
 
     // Unhook an entry from the tree and propagate size/count changes up.
     // The entry's storage is not freed (arena allocator), but it becomes
@@ -141,15 +145,15 @@ public:
         return static_cast<uint32_t>(pages_.size());
     }
 
-    uint32_t pageUsed(uint32_t pageId) const { return pageFor(pageId)->used; }
-
 private:
-    Page *pageFor(uint32_t pageId) {
+    Page *pageFor(uint32_t pageId) { return pages_[pageId].get(); }
+    const Page *pageFor(uint32_t pageId) const { return pages_[pageId].get(); }
+
+    Page *safePageFor(uint32_t pageId) {
         std::shared_lock lock(mutex_);
         return pages_[pageId].get();
     }
-
-    const Page *pageFor(uint32_t pageId) const {
+    const Page *safePageFor(uint32_t pageId) const {
         std::shared_lock lock(mutex_);
         return pages_[pageId].get();
     }

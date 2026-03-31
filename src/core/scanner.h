@@ -40,7 +40,7 @@ public:
     void propagate(EntryRef root, bool includeAncestors = true);
 
     // Sort each directory's children by size (descending).
-    // Workers take batches from dirQueue_.
+    // Workers each take one pre-assigned slice from the current-pass tree snapshot.
     void sortBySize(int workerCount);
 
 private:
@@ -67,9 +67,6 @@ private:
                         std::vector<DirEntryStore::AppendCursor> entrySeeds = {},
                         std::vector<NameStore::AppendCursor> nameSeeds = {});
     void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scratch);
-
-    static constexpr size_t kSortBatchSize = 10;
-    size_t takeSortBatch();
 
     DirEntryStore &entryStore_;
     NameStore &nameStore_;
