@@ -20,6 +20,24 @@ Build an AppImage for the GUI application only:
 The script stages an AppDir via `cmake --install --component App`, bundles Qt
 with `linuxdeploy`, and writes the result to `dist/LDirStat-<version>-x86_64.AppImage`.
 
+## Releasing
+
+1. Update the version in `CMakeLists.txt`:
+   ```
+   project(ldirstat VERSION 0.3.0 LANGUAGES CXX)
+   ```
+2. Commit, tag, and push:
+   ```bash
+   git add CMakeLists.txt
+   git commit -m "v0.3.0"
+   git tag v0.3.0
+   git push origin main v0.3.0
+   ```
+
+The tag must match the project version (`v<VERSION>`). Pushing a `v*` tag
+triggers the [Release AppImage](.github/workflows/release-appimage.yml)
+workflow, which builds an AppImage and publishes a GitHub release.
+
 ### Distribution Notes
 
 - The AppImage bundles the Qt runtime for `LDirStat` only. Benchmark tools are not included.
