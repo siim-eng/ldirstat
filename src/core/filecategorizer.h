@@ -297,6 +297,7 @@ private:
             if (v == lit("js")) return FileCategory::Source;
             break;
         case 'k':
+            if (v == lit("ko")) return FileCategory::ObjectGenerated;
             if (v == lit("kt")) return FileCategory::Source;
             break;
         case 'l':
@@ -375,6 +376,7 @@ private:
         case 'i':
             if (v == lit("ibd")) return FileCategory::Database;
             if (v == lit("ico")) return FileCategory::Image;
+            if (v == lit("ini")) return FileCategory::Document;
             if (v == lit("iso")) return FileCategory::DiskImage;
             break;
         case 'j':
@@ -411,6 +413,7 @@ private:
             if (v == lit("pdf")) return FileCategory::Document;
             if (v == lit("pid")) return FileCategory::Log;
             if (v == lit("png")) return FileCategory::Image;
+            if (v == lit("pyc")) return FileCategory::ObjectGenerated;
             break;
         case 'r':
             if (v == lit("rar")) return FileCategory::Archive;
@@ -419,9 +422,11 @@ private:
             break;
         case 's':
             if (v == lit("sql")) return FileCategory::Source;
+            if (v == lit("svg")) return FileCategory::Image;
             if (v == lit("swp")) return FileCategory::BackupTemp;
             break;
         case 't':
+            if (v == lit("tar")) return FileCategory::Archive;
             if (v == lit("tgz")) return FileCategory::Archive;
             if (v == lit("tmp")) return FileCategory::BackupTemp;
             if (v == lit("tsx")) return FileCategory::Source;
@@ -450,6 +455,9 @@ private:
 
     static inline FileCategory categorizeLen4(std::uint64_t v, char c0) {
         switch (c0) {
+        case 'c':
+            if (v == lit("conf")) return FileCategory::Document;
+            break;
         case 'd':
             if (v == lit("docx")) return FileCategory::Document;
             break;
@@ -476,12 +484,14 @@ private:
         case 't':
             if (v == lit("tbz2")) return FileCategory::Archive;
             if (v == lit("tiff")) return FileCategory::Image;
+            if (v == lit("toml")) return FileCategory::Document;
             break;
         case 'v':
             if (v == lit("vmdk")) return FileCategory::DiskImage;
             break;
         case 'w':
             if (v == lit("wasm")) return FileCategory::ObjectGenerated;
+            if (v == lit("webm")) return FileCategory::Video;
             if (v == lit("webp")) return FileCategory::Image;
             break;
         case 'x':
@@ -533,6 +543,9 @@ private:
 
     static inline FileCategory categorizeLen7(std::uint64_t v, char c0) {
         switch (c0) {
+        case 'd':
+            if (v == lit("desktop")) return FileCategory::Document;
+            break;
         case 'f':
             if (v == lit("flatpak")) return FileCategory::Package;
             break;
@@ -540,6 +553,7 @@ private:
             if (v == lit("journal")) return FileCategory::Log;
             break;
         case 's':
+            if (v == lit("service")) return FileCategory::Document;
             if (v == lit("sqlite3")) return FileCategory::Database;
             break;
         default: break;
