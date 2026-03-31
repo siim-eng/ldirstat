@@ -1,4 +1,4 @@
-# ldirstat
+# LDirStat
 
 LDirStat helps you see what is taking up space on your disk.
 
