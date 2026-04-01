@@ -411,10 +411,10 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             }
 
             if (entry.isFile()) {
-                FileCategory category = FileCategorizer::categorize(d->d_name);
-                if (category == FileCategory::Unknown && haveStat && isExecutableByMode(st)) category = FileCategory::Executable;
-                if (category == FileCategory::Unknown && cacheSubtree) category = FileCategory::Cache;
-                entry.fileCategory = category;
+                FileType fileType = FileCategorizer::categorize(d->d_name);
+                if (fileType == FileType::Unknown && haveStat && isExecutableByMode(st)) fileType = FileType::Executable;
+                if (fileType == FileType::Unknown && cacheSubtree) fileType = FileType::Cache;
+                entry.fileType = fileType;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
             }
 

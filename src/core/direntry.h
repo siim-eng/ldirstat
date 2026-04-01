@@ -11,6 +11,7 @@
 namespace ldirstat {
 
 enum class FileCategory : uint16_t;
+enum class FileType : uint16_t;
 
 enum class EntryType : uint8_t {
     File,
@@ -48,11 +49,11 @@ struct DirEntry {
 
     // Directory/file specific payload at the same offset:
     //  - directories and mount points use fileCount
-    //  - regular files use fileCategory + hardLinks
+    //  - regular files use fileType + hardLinks
     union {
         uint32_t fileCount = 0;
         struct {
-            FileCategory fileCategory;
+            FileType fileType;
             uint16_t hardLinks;
         };
     };
@@ -78,8 +79,8 @@ inline uint64_t layoutSizeOf(const DirEntry &entry) {
 }
 
 static_assert(sizeof(EntryRef) == 8);
-static_assert(offsetof(DirEntry, fileCount) == offsetof(DirEntry, fileCategory));
-static_assert(offsetof(DirEntry, hardLinks) == offsetof(DirEntry, fileCategory) + sizeof(FileCategory));
+static_assert(offsetof(DirEntry, fileCount) == offsetof(DirEntry, fileType));
+static_assert(offsetof(DirEntry, hardLinks) == offsetof(DirEntry, fileType) + sizeof(FileType));
 static_assert(sizeof(DirEntry) == 64);
 
 } // namespace ldirstat

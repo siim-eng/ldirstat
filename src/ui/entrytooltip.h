@@ -39,7 +39,8 @@ inline QString entryTooltip(const DirEntryStore &store, const NameStore &names, 
     QString tip = entryFullPath(store, names, ref);
     tip += '\n' + formatSizePrecise(entry.size);
     if (entry.isFile()) {
-        tip += '\n' + QStringLiteral("Category: ") + QString::fromUtf8(FileCategorizer::displayCategoryName(entry.fileCategory));
+        tip += '\n' + QStringLiteral("Category: ")
+               + QString::fromUtf8(FileCategorizer::displayCategoryName(FileCategorizer::categoryForType(entry.fileType)));
         if (entry.hardLinks > 1) {
             tip += '\n' + QString::number(entry.hardLinks) + ' ' + QStringLiteral("hard links");
         }
