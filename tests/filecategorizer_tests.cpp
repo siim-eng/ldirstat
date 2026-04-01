@@ -231,6 +231,16 @@ TEST_CASE("handles full paths and extension views without copying") {
     CHECK(std::string_view(result.extensionPtr, result.extensionLen) == "PDF");
 }
 
+TEST_CASE("returns canonical extensions for extension-backed file types") {
+    CHECK(FileCategorizer::extensionForType(FileType::ExtPdf) == "pdf");
+    CHECK(FileCategorizer::extensionForType(FileType::ExtCPlusPlus) == "c++");
+    CHECK(FileCategorizer::extensionForType(FileType::ExtJournalTilde) == "journal~");
+    CHECK(FileCategorizer::extensionForType(FileType::Unknown).empty());
+    CHECK(FileCategorizer::extensionForType(FileType::Executable).empty());
+    CHECK(FileCategorizer::extensionForType(FileType::Cache).empty());
+    CHECK(FileCategorizer::extensionForType(FileType::VersionedSharedLibrary).empty());
+}
+
 TEST_CASE("returns friendly display names for categories") {
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Unknown)) == "Unknown");
     CHECK(std::string_view(FileCategorizer::displayCategoryName(FileCategory::Archive)) == "Archive");
@@ -379,6 +389,18 @@ TEST_CASE("counts file categories across a direntry tree") {
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Unknown)].totalSize == 30);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].count == 0);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].totalSize == 0);
+
+    const auto& typeItems = counter.typeItems();
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtPdf)].count == 1);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtPdf)].totalSize == 100);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtMp3)].count == 1);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtMp3)].totalSize == 100);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtCpp)].count == 1);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtCpp)].totalSize == 50);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::Unknown)].count == 1);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::Unknown)].totalSize == 30);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::Executable)].count == 0);
+    CHECK(typeItems[FileCategorizer::typeIndex(FileType::Executable)].totalSize == 0);
 }
 
 TEST_CASE("scanner detects extensionless executables from mode bits") {

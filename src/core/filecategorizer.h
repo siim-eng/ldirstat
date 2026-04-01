@@ -238,6 +238,17 @@ public:
         return kTypeCategories_[index];
     }
 
+    static inline std::string_view extensionForType(FileType type) {
+        if (type == FileType::Unknown) return {};
+        if (type == FileType::Executable) return {};
+        if (type == FileType::Cache) return {};
+        if (type == FileType::VersionedSharedLibrary) return {};
+
+        const std::size_t index = typeIndex(type);
+        if (index >= kTypeExtensions_.size()) return {};
+        return kTypeExtensions_[index];
+    }
+
     static inline FileType categorize(std::string_view utf8Path) {
         const BasenameView base = findBasename(utf8Path);
         const ExtensionView ext = findExtension(base);
@@ -418,7 +429,19 @@ private:
         return categories;
     }
 
+    static constexpr std::array<std::string_view, kTypeCount> buildTypeExtensions() {
+        std::array<std::string_view, kTypeCount> extensions{};
+
+        for (const FileTypeSpec &spec : kExtensionTypes_) {
+            const std::size_t index = typeIndex(spec.type);
+            if (extensions[index].empty()) extensions[index] = spec.extension;
+        }
+
+        return extensions;
+    }
+
     static const std::array<FileCategory, kTypeCount> kTypeCategories_;
+    static const std::array<std::string_view, kTypeCount> kTypeExtensions_;
 
     static inline bool isSlash(char c) { return c == '/'; }
 
@@ -905,7 +928,14 @@ public:
         std::uint64_t totalSize = 0;
     };
 
+    struct TypeItem {
+        FileType type = FileType::Unknown;
+        std::uint64_t count = 0;
+        std::uint64_t totalSize = 0;
+    };
+
     using Items = std::array<Item, FileCategorizer::kCategoryCount>;
+    using TypeItems = std::array<TypeItem, FileCategorizer::kTypeCount>;
 
     explicit FileCategoryCounter(const DirEntryStore &entryStore)
         : entryStore_(entryStore) {
@@ -917,6 +947,12 @@ public:
             items_[i].category = static_cast<FileCategory>(i);
             items_[i].count = 0;
             items_[i].totalSize = 0;
+        }
+
+        for (std::size_t i = 0; i < typeItems_.size(); ++i) {
+            typeItems_[i].type = static_cast<FileType>(i);
+            typeItems_[i].count = 0;
+            typeItems_[i].totalSize = 0;
         }
     }
 
@@ -957,19 +993,30 @@ public:
     }
 
     const Items &items() const { return items_; }
+    const TypeItems &typeItems() const { return typeItems_; }
 
 private:
     void countFile(const DirEntry &entry) {
-        Item &item = items_[FileCategorizer::categoryIndex(FileCategorizer::categoryForType(entry.fileType))];
+        const FileType type = entry.fileType;
+        const std::uint64_t totalSize = layoutSizeOf(entry);
+
+        TypeItem &typeItem = typeItems_[FileCategorizer::typeIndex(type)];
+        ++typeItem.count;
+        typeItem.totalSize += totalSize;
+
+        Item &item = items_[FileCategorizer::categoryIndex(FileCategorizer::categoryForType(type))];
         ++item.count;
-        item.totalSize += layoutSizeOf(entry);
+        item.totalSize += totalSize;
     }
 
     const DirEntryStore &entryStore_;
     Items items_{};
+    TypeItems typeItems_{};
 };
 
 inline const std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeCategories_ =
     ldirstat::FileCategorizer::buildTypeCategories();
+inline const std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions_ =
+    ldirstat::FileCategorizer::buildTypeExtensions();
 
 } // namespace ldirstat

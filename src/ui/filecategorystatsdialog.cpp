@@ -5,10 +5,12 @@
 #include <QAbstractItemView>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QFrame>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
-#include <QTableWidget>
-#include <QTableWidgetItem>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -36,6 +38,49 @@ QString formatCategorySize(uint64_t bytes) {
 
     const double gb = bytes / (1024.0 * 1024.0 * 1024.0);
     return formatUnit(gb, "GB");
+}
+
+QString formatTypeLabel(FileType type) {
+    if (type == FileType::Unknown) return QObject::tr("Unknown");
+    if (type == FileType::Executable) return QObject::tr("Executable");
+    if (type == FileType::Cache) return QObject::tr("Cache");
+    if (type == FileType::VersionedSharedLibrary) return QObject::tr("Versioned Shared Library (.so.*)");
+
+    const std::string_view extension = FileCategorizer::extensionForType(type);
+    if (extension.empty()) return QObject::tr("Unknown");
+
+    const QString extensionText = QString::fromUtf8(extension.data(), static_cast<int>(extension.size()));
+    return extensionText.toUpper() + QStringLiteral(" (.%1)").arg(extensionText);
+}
+
+QWidget *createColorSwatchWidget(const QColor &color, const QString &toolTip, QWidget *parent) {
+    auto *container = new QWidget(parent);
+    auto *layout = new QHBoxLayout(container);
+    layout->setContentsMargins(7, 4, 7, 4);
+    layout->setSpacing(0);
+
+    auto *swatch = new QFrame(container);
+    swatch->setFixedSize(18, 11);
+    swatch->setToolTip(toolTip);
+    swatch->setStyleSheet(QStringLiteral("background-color: %1; border: 1px solid palette(mid); border-radius: 2px;")
+                              .arg(color.name()));
+    layout->addWidget(swatch, 0, Qt::AlignCenter);
+
+    return container;
+}
+
+void populateStatsRow(QTreeWidgetItem *item,
+                      const QString &label,
+                      uint64_t count,
+                      uint64_t totalSize) {
+    item->setFlags(Qt::ItemIsEnabled);
+    item->setToolTip(0, label);
+    item->setToolTip(1, label);
+    item->setText(1, label);
+    item->setText(2, QString::number(count));
+    item->setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
+    item->setText(3, formatCategorySize(totalSize));
+    item->setTextAlignment(3, Qt::AlignRight | Qt::AlignVCenter);
 }
 
 } // namespace
@@ -73,46 +118,54 @@ FileCategoryStatsDialog::FileCategoryStatsDialog(const DirEntryStore &store,
     summaryLabel->setWordWrap(true);
     layout->addWidget(summaryLabel);
 
-    auto *table = new QTableWidget(static_cast<int>(items.size()), 4, this);
-    table->setHorizontalHeaderLabels({tr("Color"), tr("Category"), tr("Files"), tr("Total Size")});
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setSelectionMode(QAbstractItemView::NoSelection);
-    table->setFocusPolicy(Qt::NoFocus);
-    table->setAlternatingRowColors(true);
-    table->setShowGrid(false);
-    table->verticalHeader()->setVisible(false);
-    table->horizontalHeader()->setStretchLastSection(false);
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
-    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    table->setColumnWidth(0, 36);
+    auto *tree = new QTreeWidget(this);
+    tree->setColumnCount(4);
+    tree->setHeaderLabels({tr("Color"), tr("Category / File Type"), tr("Files"), tr("Total Size")});
+    tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    tree->setSelectionMode(QAbstractItemView::NoSelection);
+    tree->setFocusPolicy(Qt::NoFocus);
+    tree->setAlternatingRowColors(true);
+    tree->setUniformRowHeights(true);
+    tree->header()->setStretchLastSection(false);
+    tree->header()->setSectionResizeMode(0, QHeaderView::Fixed);
+    tree->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+    tree->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    tree->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    tree->setColumnWidth(0, 36);
 
-    for (int row = 0; row < static_cast<int>(items.size()); ++row) {
-        const FileCategoryCounter::Item &item = items[row];
+    const auto &typeItems = counter.typeItems();
+    for (const FileCategoryCounter::Item &item : items) {
+        const QString categoryLabel = QString::fromUtf8(FileCategorizer::displayCategoryName(item.category));
+        const QColor categoryColor = themeColors.colorForFileCategory(item.category);
 
-        auto *colorItem = new QTableWidgetItem;
-        colorItem->setFlags(Qt::ItemIsEnabled);
-        colorItem->setBackground(themeColors.colorForFileCategory(item.category));
-        colorItem->setToolTip(QString::fromUtf8(FileCategorizer::displayCategoryName(item.category)));
-        table->setItem(row, 0, colorItem);
+        auto *categoryItem = new QTreeWidgetItem(tree);
+        populateStatsRow(categoryItem, categoryLabel, item.count, item.totalSize);
+        tree->setItemWidget(categoryItem, 0, createColorSwatchWidget(categoryColor, categoryLabel, tree));
 
-        auto *nameItem = new QTableWidgetItem(QString::fromUtf8(FileCategorizer::displayCategoryName(item.category)));
-        nameItem->setFlags(Qt::ItemIsEnabled);
-        table->setItem(row, 1, nameItem);
+        std::vector<FileCategoryCounter::TypeItem> childItems;
+        childItems.reserve(typeItems.size());
+        for (const FileCategoryCounter::TypeItem &typeItem : typeItems) {
+            if (typeItem.count == 0) continue;
+            if (FileCategorizer::categoryForType(typeItem.type) != item.category) continue;
+            childItems.push_back(typeItem);
+        }
 
-        auto *countItem = new QTableWidgetItem(QString::number(item.count));
-        countItem->setFlags(Qt::ItemIsEnabled);
-        countItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        table->setItem(row, 2, countItem);
+        std::sort(childItems.begin(),
+                  childItems.end(),
+                  [](const FileCategoryCounter::TypeItem &lhs, const FileCategoryCounter::TypeItem &rhs) {
+                      if (lhs.totalSize != rhs.totalSize) return lhs.totalSize > rhs.totalSize;
 
-        auto *sizeItem = new QTableWidgetItem(formatCategorySize(item.totalSize));
-        sizeItem->setFlags(Qt::ItemIsEnabled);
-        sizeItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        table->setItem(row, 3, sizeItem);
+                      return formatTypeLabel(lhs.type) < formatTypeLabel(rhs.type);
+                  });
+
+        for (const FileCategoryCounter::TypeItem &typeItem : childItems) {
+            auto *typeRow = new QTreeWidgetItem(categoryItem);
+            populateStatsRow(typeRow, formatTypeLabel(typeItem.type), typeItem.count, typeItem.totalSize);
+        }
     }
 
-    layout->addWidget(table);
+    tree->collapseAll();
+    layout->addWidget(tree);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
