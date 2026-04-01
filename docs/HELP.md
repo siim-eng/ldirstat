@@ -68,6 +68,7 @@ The directory list is a column browser. Each column shows the contents of one fo
 - The footer shows totals for the visible items in that column
 - Use the **Filter** box at the top of a column to narrow the list
 - The small menu next to the filter gives quick selection actions such as **Select All**, **Clear Filter**, and **Invert Selection**
+- The same menu also includes **File Category Statistics...**, which shows a category breakdown for that column's current directory and all subdirectories, even if a text filter is active
 
 Mount points that were skipped during the original scan are marked with **`mnt`** instead of a size.
 

@@ -1,4 +1,5 @@
 #include "dirlistcolumn.h"
+#include "filecategorystatsdialog.h"
 #include "iconutil.h"
 
 #include <QEvent>
@@ -110,6 +111,8 @@ DirListColumn::DirListColumn(const DirEntryStore &store,
     QAction *selectAllAction = filterMenu_->addAction(tr("Select All"));
     QAction *clearFilterAction = filterMenu_->addAction(tr("Clear Filter"));
     QAction *invertSelectionAction = filterMenu_->addAction(tr("Invert Selection"));
+    filterMenu_->addSeparator();
+    QAction *fileCategoryStatsAction = filterMenu_->addAction(tr("File Category Statistics..."));
 
     connect(selectAllAction, &QAction::triggered, this, [this]() {
         emit activated();
@@ -122,6 +125,10 @@ DirListColumn::DirListColumn(const DirEntryStore &store,
     connect(invertSelectionAction, &QAction::triggered, this, [this]() {
         emit activated();
         invertVisibleSelection();
+    });
+    connect(fileCategoryStatsAction, &QAction::triggered, this, [this]() {
+        emit activated();
+        showFileCategoryStatsDialog();
     });
 
     filterTimer_ = new QTimer(this);
@@ -254,6 +261,11 @@ void DirListColumn::applyFilter() {
     update();
 
     if (focusedRef() != previousFocus) emitFocusChanged();
+}
+
+void DirListColumn::showFileCategoryStatsDialog() {
+    FileCategoryStatsDialog dialog(store_, names_, dirRef_, themeColors_, window());
+    dialog.exec();
 }
 
 void DirListColumn::rebuild(uint64_t rootSize) {

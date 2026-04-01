@@ -46,7 +46,7 @@ void MainWindowBuilder::configureWindow(MainWindow *w) {
 
     auto *closeAction = new QAction(MainWindow::tr("Close"), w);
     closeAction->setShortcut(QKeySequence(Qt::Key_Escape));
-    closeAction->setShortcutContext(Qt::ApplicationShortcut);
+    closeAction->setShortcutContext(Qt::WindowShortcut);
     w->addAction(closeAction);
     QObject::connect(closeAction, &QAction::triggered, w, &QWidget::close);
 }

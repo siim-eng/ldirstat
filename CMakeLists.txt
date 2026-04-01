@@ -41,6 +41,7 @@ add_library(ldirstat_ui STATIC
     src/ui/mainwindowbuilder.cpp
     src/ui/dirlistview.cpp
     src/ui/dirlistcolumn.cpp
+    src/ui/filecategorystatsdialog.cpp
     src/ui/graphwidget.cpp
     src/ui/flamegraphwidget.cpp
     src/ui/treemapwidget.cpp

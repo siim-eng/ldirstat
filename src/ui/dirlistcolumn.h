@@ -93,6 +93,7 @@ private:
     void buildChildList();
     void rebuildVisibleRows();
     void applyFilter();
+    void showFileCategoryStatsDialog();
     int childIndexAtRow(int row) const;
     int childIndexForRef(EntryRef ref) const;
     int hitTestRow(const QPoint &pos) const;
