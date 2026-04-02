@@ -41,16 +41,18 @@ QString formatCategorySize(uint64_t bytes) {
 }
 
 QString formatTypeLabel(FileType type) {
-    if (type == FileType::Unknown) return QObject::tr("Unknown");
-    if (type == FileType::Executable) return QObject::tr("Executable");
-    if (type == FileType::Cache) return QObject::tr("Cache");
-    if (type == FileType::VersionedSharedLibrary) return QObject::tr("Versioned Shared Library (.so.*)");
+    const char *displayName = FileCategorizer::displayNameForType(type);
+    if (!displayName) return QObject::tr("Unknown");
 
     const std::string_view extension = FileCategorizer::extensionForType(type);
-    if (extension.empty()) return QObject::tr("Unknown");
+    if (extension.empty()) {
+        if (type == FileType::VersionedSharedLibrary)
+            return QObject::tr("%1 (.so.*)").arg(QLatin1String(displayName));
+        return QObject::tr(displayName);
+    }
 
     const QString extensionText = QString::fromUtf8(extension.data(), static_cast<int>(extension.size()));
-    return extensionText.toUpper() + QStringLiteral(" (.%1)").arg(extensionText);
+    return QObject::tr(displayName) + QStringLiteral(" (.%1)").arg(extensionText);
 }
 
 QWidget *createColorSwatchWidget(const QColor &color, const QString &toolTip, QWidget *parent) {

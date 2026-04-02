@@ -1,6 +1,7 @@
 #include "dirlistcolumn.h"
 #include "filecategorystatsdialog.h"
 #include "iconutil.h"
+#include "modifiedtimehistogramdialog.h"
 
 #include <QEvent>
 #include <QLineEdit>
@@ -113,6 +114,7 @@ DirListColumn::DirListColumn(const DirEntryStore &store,
     QAction *invertSelectionAction = filterMenu_->addAction(tr("Invert Selection"));
     filterMenu_->addSeparator();
     QAction *fileCategoryStatsAction = filterMenu_->addAction(tr("File Category Statistics..."));
+    QAction *modifiedTimeHistogramAction = filterMenu_->addAction(tr("Modified Time Histogram..."));
 
     connect(selectAllAction, &QAction::triggered, this, [this]() {
         emit activated();
@@ -129,6 +131,10 @@ DirListColumn::DirListColumn(const DirEntryStore &store,
     connect(fileCategoryStatsAction, &QAction::triggered, this, [this]() {
         emit activated();
         showFileCategoryStatsDialog();
+    });
+    connect(modifiedTimeHistogramAction, &QAction::triggered, this, [this]() {
+        emit activated();
+        showModifiedTimeHistogramDialog();
     });
 
     filterTimer_ = new QTimer(this);
@@ -265,6 +271,11 @@ void DirListColumn::applyFilter() {
 
 void DirListColumn::showFileCategoryStatsDialog() {
     FileCategoryStatsDialog dialog(store_, names_, dirRef_, themeColors_, window());
+    dialog.exec();
+}
+
+void DirListColumn::showModifiedTimeHistogramDialog() {
+    ModifiedTimeHistogramDialog dialog(store_, names_, dirRef_, window());
     dialog.exec();
 }
 

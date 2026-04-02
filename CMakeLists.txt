@@ -29,6 +29,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 add_library(ldirstat_core STATIC
     src/core/scanner.cpp
     src/core/flamegraph.cpp
+    src/core/modifiedtimehistogram.cpp
     src/core/treemap.cpp
     src/core/filesystem.cpp
 )
@@ -44,6 +45,7 @@ add_library(ldirstat_ui STATIC
     src/ui/filecategorystatsdialog.cpp
     src/ui/graphwidget.cpp
     src/ui/flamegraphwidget.cpp
+    src/ui/modifiedtimehistogramdialog.cpp
     src/ui/treemapwidget.cpp
     src/ui/scanprogresswidget.cpp
     src/ui/welcomewidget.cpp
@@ -135,4 +137,9 @@ if(BUILD_TESTING)
     target_include_directories(scanner_tests PRIVATE third_party)
     target_link_libraries(scanner_tests PRIVATE ldirstat_core)
     add_test(NAME scanner_tests COMMAND scanner_tests)
+
+    add_executable(modifiedtimehistogram_tests tests/modifiedtimehistogram_tests.cpp)
+    target_include_directories(modifiedtimehistogram_tests PRIVATE third_party)
+    target_link_libraries(modifiedtimehistogram_tests PRIVATE ldirstat_core)
+    add_test(NAME modifiedtimehistogram_tests COMMAND modifiedtimehistogram_tests)
 endif()

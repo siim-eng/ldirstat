@@ -94,6 +94,7 @@ private:
     void rebuildVisibleRows();
     void applyFilter();
     void showFileCategoryStatsDialog();
+    void showModifiedTimeHistogramDialog();
     int childIndexAtRow(int row) const;
     int childIndexForRef(EntryRef ref) const;
     int hitTestRow(const QPoint &pos) const;

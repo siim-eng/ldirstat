@@ -7,6 +7,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <linux/stat.h>
 #include <limits>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -64,8 +65,20 @@ bool pathContainsCacheComponent(const char *path) {
     return false;
 }
 
-uint32_t packModifiedMinutes(const struct stat &st) {
-    const int64_t seconds = static_cast<int64_t>(st.st_mtim.tv_sec);
+int64_t birthTimeSeconds(int dirFd, const char *name) {
+#ifdef SYS_statx
+    struct statx stx{};
+    if (syscall(SYS_statx, dirFd, name, AT_SYMLINK_NOFOLLOW, STATX_BTIME, &stx) == 0 && (stx.stx_mask & STATX_BTIME) != 0) {
+        return static_cast<int64_t>(stx.stx_btime.tv_sec);
+    }
+#endif
+    return 0;
+}
+
+uint32_t packModifiedMinutes(const struct stat &st, int64_t birthSeconds = 0) {
+    int64_t seconds = static_cast<int64_t>(st.st_mtim.tv_sec);
+    if (birthSeconds > seconds) seconds = birthSeconds;
+
     if (seconds <= 0) return 0;
 
     const uint64_t minutes = static_cast<uint64_t>(seconds / 60);
@@ -427,7 +440,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
                 if (fileType == FileType::Unknown && cacheSubtree) fileType = FileType::Cache;
                 entry.fileType = fileType;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
-                entry.setModifiedMinutes(haveStat ? packModifiedMinutes(st) : 0);
+                entry.setModifiedMinutes(haveStat ? packModifiedMinutes(st, birthTimeSeconds(fd, d->d_name)) : 0);
             }
 
             // Accumulate counts and totals.
