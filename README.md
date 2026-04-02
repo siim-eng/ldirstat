@@ -2,6 +2,10 @@
 
 LDirStat helps you see what is taking up space on your disk.
 
+![Screenshot of app](docs/images/main.png)
+
+[App Help](docs/HELP.md)
+
 ## Build
 
 ```bash
