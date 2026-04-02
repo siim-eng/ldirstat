@@ -64,6 +64,17 @@ bool pathContainsCacheComponent(const char *path) {
     return false;
 }
 
+uint32_t packModifiedMinutes(const struct stat &st) {
+    const int64_t seconds = static_cast<int64_t>(st.st_mtim.tv_sec);
+    if (seconds <= 0) return 0;
+
+    const uint64_t minutes = static_cast<uint64_t>(seconds / 60);
+    if (minutes > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
+        return std::numeric_limits<uint32_t>::max();
+    }
+    return static_cast<uint32_t>(minutes);
+}
+
 template<typename Visitor> void traverseDirectoryTree(const DirEntryStore &entryStore, EntryRef rootRef, Visitor &&visit) {
     if (!rootRef.valid()) return;
 
@@ -416,6 +427,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
                 if (fileType == FileType::Unknown && cacheSubtree) fileType = FileType::Cache;
                 entry.fileType = fileType;
                 entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
+                entry.setModifiedMinutes(haveStat ? packModifiedMinutes(st) : 0);
             }
 
             // Accumulate counts and totals.

@@ -58,8 +58,13 @@ struct DirEntry {
         };
     };
 
-    // Number of descendant directories (excluding self). 0 for non-directories.
-    uint32_t dirCount = 0;
+    // Directory/file specific payload at the same offset:
+    //  - directories and mount points use dirCount
+    //  - regular files use packedModifiedMinutes (Unix epoch minutes)
+    union {
+        uint32_t dirCount = 0;
+        uint32_t packedModifiedMinutes;
+    };
 
     // Tree links (EntryRef into DirEntryStore).
     EntryRef parent;
@@ -70,6 +75,8 @@ struct DirEntry {
     bool isDir() const { return type == EntryType::Directory || type == EntryType::MountPoint; }
     bool isMountPoint() const { return type == EntryType::MountPoint; }
     bool isFile() const { return type == EntryType::File; }
+    uint32_t modifiedMinutes() const { return packedModifiedMinutes; }
+    void setModifiedMinutes(uint32_t minutes) { packedModifiedMinutes = minutes; }
 };
 
 inline uint64_t layoutSizeOf(const DirEntry &entry) {
@@ -81,6 +88,7 @@ inline uint64_t layoutSizeOf(const DirEntry &entry) {
 static_assert(sizeof(EntryRef) == 8);
 static_assert(offsetof(DirEntry, fileCount) == offsetof(DirEntry, fileType));
 static_assert(offsetof(DirEntry, hardLinks) == offsetof(DirEntry, fileType) + sizeof(FileType));
+static_assert(offsetof(DirEntry, dirCount) == offsetof(DirEntry, packedModifiedMinutes));
 static_assert(sizeof(DirEntry) == 64);
 
 } // namespace ldirstat

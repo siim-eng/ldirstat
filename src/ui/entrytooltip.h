@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QDateTime>
 #include <QString>
+#include <QTimeZone>
 
 #include "direntry.h"
 #include "direntrystore.h"
@@ -34,6 +36,12 @@ inline QString formatSizePrecise(uint64_t bytes) {
     return QString::number(gb, 'f', 1) + " GB";
 }
 
+inline QString formatModifiedMinutes(uint32_t packedMinutes) {
+    const qint64 seconds = static_cast<qint64>(packedMinutes) * 60;
+    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone(QTimeZone::LocalTime))
+        .toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+}
+
 inline QString entryTooltip(const DirEntryStore &store, const NameStore &names, EntryRef ref) {
     const DirEntry &entry = store[ref];
     QString tip = entryFullPath(store, names, ref);
@@ -41,6 +49,9 @@ inline QString entryTooltip(const DirEntryStore &store, const NameStore &names, 
     if (entry.isFile()) {
         tip += '\n' + QStringLiteral("Category: ")
                + QString::fromUtf8(FileCategorizer::displayCategoryName(FileCategorizer::categoryForType(entry.fileType)));
+        if (entry.modifiedMinutes() != 0) {
+            tip += '\n' + QStringLiteral("Modified: ") + formatModifiedMinutes(entry.modifiedMinutes());
+        }
         if (entry.hardLinks > 1) {
             tip += '\n' + QString::number(entry.hardLinks) + ' ' + QStringLiteral("hard links");
         }
