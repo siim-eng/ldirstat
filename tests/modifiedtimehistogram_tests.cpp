@@ -101,6 +101,28 @@ TEST_CASE("modified time histogram bins counts and sizes by time and category") 
     CHECK(bins[23].categories[ldirstat::FileCategorizer::categoryIndex(ldirstat::FileCategory::Cache)].count == 1);
 }
 
+TEST_CASE("modified time histogram excludes files outside selected bounds") {
+    HistogramFixture fixture;
+    const ldirstat::EntryRef root = fixture.addDirectory(ldirstat::kNoEntry, "/root");
+    fixture.addFile(root, "early.txt", ldirstat::FileType::ExtTxt, 90, 10);
+    fixture.addFile(root, "inside-a.txt", ldirstat::FileType::ExtPng, 100, 20);
+    fixture.addFile(root, "inside-b.txt", ldirstat::FileType::Cache, 120, 40);
+    fixture.addFile(root, "late.txt", ldirstat::FileType::ExtTxt, 130, 80);
+
+    const ldirstat::ModifiedTimeHistogramBuilder builder(fixture.entryStore);
+    const auto bins = builder.build(root, 100, 120);
+
+    std::uint64_t totalCount = 0;
+    std::uint64_t totalSize = 0;
+    for (const auto &bin : bins) {
+        totalCount += bin.fileCount;
+        totalSize += bin.totalSize;
+    }
+
+    CHECK(totalCount == 2);
+    CHECK(totalSize == 60);
+}
+
 TEST_CASE("modified time histogram treats zero-span ranges as final-bin-only") {
     HistogramFixture fixture;
     const ldirstat::EntryRef root = fixture.addDirectory(ldirstat::kNoEntry, "/root");

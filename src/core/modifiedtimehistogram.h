@@ -38,7 +38,7 @@ public:
     ModifiedTimeHistogramBounds bounds(EntryRef root) const;
     std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> build(EntryRef root,
                                                                                std::uint32_t startMinutes,
-                                                                               std::uint32_t nowMinutes) const;
+                                                                               std::uint32_t endMinutes) const;
 
 private:
     template<typename Visitor> void forEachFile(EntryRef root, Visitor &&visit) const;

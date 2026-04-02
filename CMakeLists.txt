@@ -46,6 +46,7 @@ add_library(ldirstat_ui STATIC
     src/ui/graphwidget.cpp
     src/ui/flamegraphwidget.cpp
     src/ui/modifiedtimehistogramdialog.cpp
+    src/ui/rangeslider.cpp
     src/ui/treemapwidget.cpp
     src/ui/scanprogresswidget.cpp
     src/ui/welcomewidget.cpp
