@@ -102,6 +102,11 @@ QString formatPrimaryMetric(const ModifiedTimeHistogramBin &bin, HistogramMetric
     return formatHistogramSize(bin.totalSize);
 }
 
+QString formatBarMetricLabel(const ModifiedTimeHistogramBin &bin, HistogramMetricMode mode) {
+    if (mode == HistogramMetricMode::FileCount) return QString::number(bin.fileCount);
+    return formatHistogramSize(bin.totalSize);
+}
+
 QString formatBreakdownLine(const ModifiedTimeHistogramCategoryValue &value) {
     return QStringLiteral("%1: %2 files, %3")
         .arg(QString::fromUtf8(FileCategorizer::displayCategoryName(value.category)))
@@ -168,8 +173,13 @@ protected:
         const int rowHeight = 18;
         const int delimiterGap = 10;
         const int delimiterWidth = metrics.horizontalAdvance(QStringLiteral("|"));
+        int valueLabelWidth = 0;
+        for (const ModifiedTimeHistogramBin &bin : bins_)
+            valueLabelWidth = std::max(valueLabelWidth, metrics.horizontalAdvance(formatBarMetricLabel(bin, metricMode_)));
+        const int valueLabelGap = valueLabelWidth > 0 ? 10 : 0;
         const int barX = leftMargin + labelWidth + delimiterGap + delimiterWidth + 8;
-        const int barWidth = std::max(0, width() - barX - rightMargin);
+        const int valueLabelX = std::max(barX, width() - rightMargin - valueLabelWidth);
+        const int barWidth = std::max(0, valueLabelX - valueLabelGap - barX);
         const int cellStep = 10;
         const int cellWidth = 8;
         const int cellHeight = 12;
@@ -185,9 +195,11 @@ protected:
             const int rowY = topMargin + static_cast<int>(i) * rowPitch;
             const int textBaseline = rowY + rowHeight - 4;
             const QString label = formatHistogramMinutes(bin.startMinutes);
+            const QString valueLabel = formatBarMetricLabel(bin, metricMode_);
 
             painter.drawText(leftMargin, textBaseline, label);
             painter.drawText(leftMargin + labelWidth + delimiterGap, textBaseline, QStringLiteral("|"));
+            if (!valueLabel.isEmpty()) painter.drawText(valueLabelX, textBaseline, valueLabel);
 
             const std::uint64_t value = metricValue(bin, metricMode_);
             if (value == 0 || maxValue == 0 || barWidth <= 0) continue;

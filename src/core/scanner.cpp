@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
@@ -27,6 +28,7 @@ struct linux_dirent64 {
 
 constexpr size_t kGetdentsBufSize = 32768;
 constexpr size_t kInitialPathBufSize = 4096;
+constexpr size_t kDirQueueCompactThreshold = 4096;
 
 bool isDotOrDotdot(const char *name) {
     return name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
@@ -137,7 +139,9 @@ EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     DirEntry &root = entryStore_[rootRef];
     root.type = EntryType::Directory;
     root.name = nameStore_.add(nameCursor, rootPath);
+    root.setCacheSubtree(pathContainsCacheComponent(rootPath.c_str()));
     dirQueue_.push_back(rootRef);
+    scanRoot_ = rootRef;
 
     runScanWorkers(workerCount, {entryCursor}, {nameCursor});
 
@@ -172,8 +176,10 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
     rootEntry.dirCount = 0;
     rootEntry.firstChild = kNoEntry;
     rootEntry.childCount = 0;
+    rootEntry.setCacheSubtree(pathContainsCacheComponent(pathBuf.data()));
 
     dirQueue_.push_back(root);
+    scanRoot_ = root;
 
     runScanWorkers(workerCount,
                    entryStore_.reusableAppendCursors(static_cast<size_t>(workerCount)),
@@ -230,6 +236,9 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
     while (!stack.empty() && child.valid()) {
         DirEntry &entry = entryStore_[child];
         if (entry.isDir() && entry.dirCount > 0 && !dirPopped) {
+            // scanDir() already counted the directory's direct files and direct child
+            // directories. Only descend when there are child directories whose
+            // subtree totals still need to be folded into this entry first.
             stack.push_back(child);
             child = entry.firstChild;
             continue;
@@ -237,6 +246,9 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
 
         if (entry.isDir() && entry.parent.valid()) {
             DirEntry &parent = entryStore_[entry.parent];
+            // Parents already include this directory in their direct dirCount from
+            // scanDir(); propagate() only adds descendant directories and subtree
+            // file/size totals.
             parent.fileCount += entry.fileCount;
             parent.dirCount += entry.dirCount;
             parent.size += entry.size;
@@ -269,6 +281,7 @@ std::optional<EntryRef> Scanner::takeWork() {
         if (stop_.load(std::memory_order_relaxed)) return std::nullopt;
         if (dirQueueNext_ < dirQueue_.size()) {
             EntryRef ref = dirQueue_[dirQueueNext_++];
+            compactDirQueueLocked();
             ++activeWorkers_;
             return ref;
         }
@@ -317,6 +330,20 @@ void Scanner::buildPath(EntryRef ref, std::vector<char> &pathBuf) {
     pathBuf[pos] = '\0';
 }
 
+void Scanner::compactDirQueueLocked() {
+    if (dirQueueNext_ == 0) return;
+    if (dirQueueNext_ == dirQueue_.size()) {
+        dirQueue_.clear();
+        dirQueueNext_ = 0;
+        return;
+    }
+
+    if (dirQueueNext_ < kDirQueueCompactThreshold && dirQueueNext_ * 2 < dirQueue_.size()) return;
+
+    dirQueue_.erase(dirQueue_.begin(), dirQueue_.begin() + static_cast<std::ptrdiff_t>(dirQueueNext_));
+    dirQueueNext_ = 0;
+}
+
 void Scanner::resetRuntimeState() {
     stop_.store(false, std::memory_order_relaxed);
     filesScanned_.store(0, std::memory_order_relaxed);
@@ -325,6 +352,7 @@ void Scanner::resetRuntimeState() {
     std::lock_guard lock(mutex_);
     dirQueue_.clear();
     dirQueueNext_ = 0;
+    scanRoot_ = kNoEntry;
     activeWorkers_ = 0;
 }
 
@@ -363,12 +391,11 @@ void Scanner::workerLoop(WorkerCtx &ctx) {
 
 void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
     buildPath(dirRef, ctx.pathBuf);
-    const bool cacheSubtree = pathContainsCacheComponent(ctx.pathBuf.data());
-    //const bool cacheSubtree = false;
     int fd = open(ctx.pathBuf.data(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (fd < 0) return;
 
     DirEntry &parent = entryStore_.at(dirRef);
+    const bool cacheSubtree = parent.inCacheSubtree();
     EntryRef prevChild;
     uint32_t files = 0;
     uint32_t dirs = 0;
@@ -391,7 +418,8 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             // Create entry.
             EntryRef ref = entryStore_.add(ctx.entryCursor);
             DirEntry &entry = entryStore_.at(ref);
-            entry.name = nameStore_.add(ctx.nameCursor, d->d_name);
+            const std::string_view nameView{d->d_name};
+            entry.name = nameStore_.add(ctx.nameCursor, nameView);
             entry.parent = dirRef;
 
             // Stat for size, and same-filesystem filtering.
@@ -434,8 +462,10 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
                 allocatedBytes = 0;
             }
 
+            if (entry.isDir()) entry.setCacheSubtree(cacheSubtree || isCachePathComponent(nameView.data(), nameView.size()));
+
             if (entry.isFile()) {
-                FileType fileType = FileCategorizer::categorize(d->d_name);
+                FileType fileType = FileCategorizer::categorize(nameView);
                 if (fileType == FileType::Unknown && haveStat && isExecutableByMode(st)) fileType = FileType::Executable;
                 if (fileType == FileType::Unknown && cacheSubtree) fileType = FileType::Cache;
                 entry.fileType = fileType;
@@ -496,8 +526,7 @@ void Scanner::sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scr
 }
 
 void Scanner::sortBySize(int workerCount) {
-    EntryRef sortRoot;
-    if (!dirQueue_.empty()) sortRoot = dirQueue_.front();
+    const EntryRef sortRoot = scanRoot_;
     if (!sortRoot.valid()) return;
 
     std::vector<EntryRef> sortTargets;

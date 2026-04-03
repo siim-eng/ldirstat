@@ -129,6 +129,8 @@ private:
     std::vector<TreeMapNode> nodes_;
     std::vector<Frame> stack_;
     std::vector<Frame> pendingChildren_;
+    // Scratch storage reused across collectRow() + emitRow() to avoid per-row
+    // allocations while keeping the current row materialized between the two steps.
     std::vector<RowEntry> rowEntries_;
 };
 

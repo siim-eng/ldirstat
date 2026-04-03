@@ -28,8 +28,7 @@ struct EntryRef {
 
     bool valid() const { return pageId != UINT32_MAX; }
 
-    bool operator==(const EntryRef &other) const { return pageId == other.pageId && index == other.index; }
-    bool operator!=(const EntryRef &other) const { return !(*this == other); }
+    bool operator==(const EntryRef &other) const = default;
 };
 
 inline constexpr EntryRef kNoEntry{};
@@ -38,10 +37,13 @@ inline constexpr EntryRef kNoEntry{};
 // Tree links use EntryRef (page_id + index) into the DirEntryStore.
 // Name data is stored externally in a NameStore; NameRef locates it.
 struct DirEntry {
+    static constexpr uint8_t kCacheSubtreeFlag = 0x1;
+
     // Name (page_id + offset + length into NameStore).
     NameRef name;
 
     EntryType type = EntryType::File;
+    uint8_t flags = 0;
 
     // Size in bytes. For files: st_size. For directories: sum of subtree.
     // Mount points are treated as empty directories and keep size 0.
@@ -75,7 +77,15 @@ struct DirEntry {
     bool isDir() const { return type == EntryType::Directory || type == EntryType::MountPoint; }
     bool isMountPoint() const { return type == EntryType::MountPoint; }
     bool isFile() const { return type == EntryType::File; }
+    bool inCacheSubtree() const { return (flags & kCacheSubtreeFlag) != 0; }
     uint32_t modifiedMinutes() const { return packedModifiedMinutes; }
+    void setCacheSubtree(bool enabled) {
+        if (enabled) {
+            flags |= kCacheSubtreeFlag;
+            return;
+        }
+        flags &= static_cast<uint8_t>(~kCacheSubtreeFlag);
+    }
     void setModifiedMinutes(uint32_t minutes) { packedModifiedMinutes = minutes; }
 };
 

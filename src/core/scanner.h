@@ -62,6 +62,7 @@ private:
     void workerLoop(WorkerCtx &ctx);
     void scanDir(EntryRef dirRef, WorkerCtx &ctx);
     void buildPath(EntryRef ref, std::vector<char> &pathBuf);
+    void compactDirQueueLocked();
     void resetRuntimeState();
     void runScanWorkers(int workerCount,
                         std::vector<DirEntryStore::AppendCursor> entrySeeds = {},
@@ -77,6 +78,7 @@ private:
     std::condition_variable cv_;
     std::vector<EntryRef> dirQueue_;
     size_t dirQueueNext_ = 0;
+    EntryRef scanRoot_ = kNoEntry;
     int activeWorkers_ = 0;
     std::atomic<bool> stop_{false};
     std::atomic<uint64_t> filesScanned_{0};

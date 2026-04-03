@@ -290,7 +290,10 @@ private:
         std::size_t len;
     };
 
-    // Metadata source of truth for FileType -> FileCategory and extension display.
+    // Metadata source of truth for extension/category/display metadata.
+    // Some FileType values intentionally have multiple extensions (for example
+    // executable formats), so the per-type builders keep the first display
+    // extension/name they encounter.
     // The hot-path extension matcher stays hand-written below to keep scanning fast.
     static constexpr auto kExtensionTypes_ = std::to_array<FileTypeSpec>({
         {FileType::Ext7z, "7z", FileCategory::Archive, "7-Zip archive"},
@@ -1038,11 +1041,11 @@ private:
     TypeItems typeItems_{};
 };
 
-inline const std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeCategories_ =
+inline constexpr std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeCategories_ =
     ldirstat::FileCategorizer::buildTypeCategories();
-inline const std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions_ =
+inline constexpr std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions_ =
     ldirstat::FileCategorizer::buildTypeExtensions();
-inline const std::array<const char *, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeDisplayNames_ =
+inline constexpr std::array<const char *, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeDisplayNames_ =
     ldirstat::FileCategorizer::buildTypeDisplayNames();
 
 } // namespace ldirstat
