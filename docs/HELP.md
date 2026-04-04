@@ -16,14 +16,14 @@ Below that is a list of available filesystems and devices.
 - Click an unmounted device to mount it and then start scanning
 - Mounted entries show the device path, mount point, and free space
 
-<!-- Screenshot: welcome screen -->
+![Welcome screen](images/welcome.png)
 
 ## Scanning
 
 After you choose a location, LDirStat switches to a scan progress view.
 
 - The progress bar shows that a scan is in progress
-- Live counters show how many files and directories have been found so far
+- Live counters show how many files and directories have been found so far (for EXT4, not suported btrfs)
 - Click **Stop** to cancel the scan
 
 The same progress view is also used when you continue scanning into a mount point later.
