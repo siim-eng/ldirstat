@@ -15,6 +15,7 @@ Below that is a list of available filesystems and devices.
 - Click a mounted filesystem to scan it
 - Click an unmounted device to mount it and then start scanning
 - Mounted entries show the device path, mount point, and free space
+- Currently free space reporting for btrfs file system is not supported
 
 ![Welcome screen](images/welcome.png)
 
@@ -22,9 +23,8 @@ Below that is a list of available filesystems and devices.
 
 After you choose a location, LDirStat switches to a scan progress view.
 
-- The progress bar shows that a scan is in progress (for EXT4 it shows actual prograss, btrfs shows infinite progressbar)
-- Live counters show how many files and directories have been found so far 
-- Click **Stop** to cancel the scan
+- The progress bar shows that a scan is in progress 
+- Progressbar depends on file system support for file counts without scanning. For example for EXT4 it shows actual prograss, btrfs shows infinite progressbar
 
 The same progress view is also used when you continue scanning into a mount point later.
 
