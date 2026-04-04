@@ -55,12 +55,12 @@ QString formatHistogramSize(std::uint64_t bytes) {
 
 QString formatHistogramMinutes(std::uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
-    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone(QTimeZone::LocalTime)).toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone()).toString(QStringLiteral("yyyy-MM-dd HH:mm"));
 }
 
 QString formatHistogramDate(std::uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
-    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone(QTimeZone::LocalTime)).toString(QStringLiteral("yyyy-MM-dd"));
+    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone()).toString(QStringLiteral("yyyy-MM-dd"));
 }
 
 std::uint32_t currentEpochMinutes() {
@@ -71,7 +71,7 @@ std::uint32_t currentEpochMinutes() {
 
 QDateTime dateTimeForMinutes(std::uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
-    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone(QTimeZone::LocalTime));
+    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone());
 }
 
 std::uint32_t minutesForDateTime(const QDateTime &dateTime) {
@@ -81,7 +81,7 @@ std::uint32_t minutesForDateTime(const QDateTime &dateTime) {
 }
 
 std::uint32_t minutesForDate(const QDate &date) {
-    return minutesForDateTime(QDateTime(date, QTime(0, 0), QTimeZone(QTimeZone::LocalTime)));
+    return minutesForDateTime(QDateTime(date, QTime(0, 0), QTimeZone::systemTimeZone()));
 }
 
 QDate dateForMinutes(std::uint32_t minutes) {
