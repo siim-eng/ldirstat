@@ -5,6 +5,19 @@ LDirStat helps you see what is taking up space on your disk.
 ![Screenshot of app](docs/images/main.png)
 
 [App Help](docs/HELP.md)
+[Download](releases)
+
+## Repository Layout
+
+- `src/` application code
+- `src/app/` GUI application entry point
+- `src/core/` non-Qt core logic for scanning, data structures, and layout calculations
+- `src/ui/` Qt widgets, dialogs, and main window code
+- `bench/` small benchmark and helper executables
+- `docs/` user-facing documentation and screenshots
+- `scripts/` build, formatting, linting, and analysis helpers
+- `packaging/` AppImage packaging support
+- `.github/` CI and release workflows
 
 ## Build
 
