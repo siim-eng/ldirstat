@@ -8,6 +8,12 @@ LDirStat helps you see what is taking up space on your disk.
 
 [Download](https://github.com/siim-eng/ldirstat/releases)
 
+## Performance
+
+- LDirStat is built to be fast, low-latency analysis with low memory usage for exploring large directory trees.
+![Performance](docs/images/performance.png)
+
+
 ## Repository Layout
 
 - `src/` application code
