@@ -134,10 +134,56 @@ int sliderIntValue(std::uint32_t minutes) {
     return static_cast<int>(std::min<std::uint32_t>(minutes, static_cast<std::uint32_t>(std::numeric_limits<int>::max())));
 }
 
+struct HistogramBarSegment {
+    FileCategory category = FileCategory::Unknown;
+    std::uint64_t value = 0;
+};
+
+int separatorWidthForBar(int filledWidth, int segmentCount) {
+    constexpr int kPreferredSeparatorWidth = 1;
+
+    const int separatorCount = std::max(0, segmentCount - 1);
+    if (filledWidth <= 0 || separatorCount == 0) return 0;
+
+    int separatorWidth = kPreferredSeparatorWidth;
+    while (separatorWidth > 0 && filledWidth - separatorWidth * separatorCount < segmentCount)
+        --separatorWidth;
+    return separatorWidth;
+}
+
+std::vector<int> distributeSegmentWidths(const std::vector<HistogramBarSegment> &segments,
+                                         int availableWidth,
+                                         std::uint64_t totalValue) {
+    std::vector<int> widths(segments.size(), 0);
+    if (segments.empty() || availableWidth <= 0 || totalValue == 0) return widths;
+
+    int extraWidth = availableWidth;
+    if (availableWidth >= static_cast<int>(segments.size())) {
+        for (int &width : widths)
+            width = 1;
+        extraWidth -= static_cast<int>(segments.size());
+    }
+
+    if (extraWidth <= 0) return widths;
+
+    int allocatedExtraWidth = 0;
+    for (std::size_t i = 0; i + 1 < segments.size(); ++i) {
+        const long double exactExtraWidth = static_cast<long double>(segments[i].value) * extraWidth / totalValue;
+        const int wholeExtraWidth = static_cast<int>(exactExtraWidth);
+        widths[i] += wholeExtraWidth;
+        allocatedExtraWidth += wholeExtraWidth;
+    }
+
+    widths.back() += extraWidth - allocatedExtraWidth;
+
+    return widths;
+}
+
 class ModifiedTimeHistogramWidget : public QWidget {
 public:
-    explicit ModifiedTimeHistogramWidget(QWidget *parent = nullptr)
-        : QWidget(parent) {
+    explicit ModifiedTimeHistogramWidget(const ThemeColors &themeColors, QWidget *parent = nullptr)
+        : QWidget(parent)
+        , themeColors_(themeColors) {
         setMouseTracking(true);
     }
 
@@ -180,10 +226,7 @@ protected:
         const int barX = leftMargin + labelWidth + delimiterGap + delimiterWidth + 8;
         const int valueLabelX = std::max(barX, width() - rightMargin - valueLabelWidth);
         const int barWidth = std::max(0, valueLabelX - valueLabelGap - barX);
-        const int cellStep = 10;
-        const int cellWidth = 8;
         const int cellHeight = 12;
-        const int cellCount = std::max(1, barWidth / cellStep);
 
         std::array<QRect, kModifiedTimeHistogramBinCount> barRects{};
         std::uint64_t maxValue = 0;
@@ -204,16 +247,44 @@ protected:
             const std::uint64_t value = metricValue(bin, metricMode_);
             if (value == 0 || maxValue == 0 || barWidth <= 0) continue;
 
-            int segmentCount = static_cast<int>((static_cast<long double>(value) * cellCount / maxValue) + 0.5L);
-            segmentCount = std::clamp(segmentCount, 1, cellCount);
+            int filledWidth = static_cast<int>((static_cast<long double>(value) * barWidth / maxValue) + 0.5L);
+            filledWidth = std::clamp(filledWidth, 1, barWidth);
 
             const int cellY = rowY + (rowHeight - cellHeight) / 2;
-            for (int segment = 0; segment < segmentCount; ++segment) {
-                const QRect cellRect(barX + segment * cellStep, cellY, cellWidth, cellHeight);
-                painter.fillRect(cellRect, textColor);
+            std::vector<HistogramBarSegment> segments;
+            segments.reserve(bin.categories.size());
+            for (const ModifiedTimeHistogramCategoryValue &category : bin.categories) {
+                const std::uint64_t categoryValue = metricValue(category, metricMode_);
+                if (categoryValue == 0) continue;
+                segments.push_back({category.category, categoryValue});
+            }
+            std::sort(segments.begin(), segments.end(), [](const HistogramBarSegment &lhs, const HistogramBarSegment &rhs) {
+                if (lhs.value != rhs.value) return lhs.value > rhs.value;
+
+                return QString::fromUtf8(FileCategorizer::displayCategoryName(lhs.category))
+                       < QString::fromUtf8(FileCategorizer::displayCategoryName(rhs.category));
+            });
+
+            const int separatorWidth = separatorWidthForBar(filledWidth, static_cast<int>(segments.size()));
+            const int separatorCount = std::max(0, static_cast<int>(segments.size()) - 1);
+            const int contentWidth = std::max(0, filledWidth - separatorWidth * separatorCount);
+            const std::vector<int> segmentWidths = distributeSegmentWidths(segments, contentWidth, value);
+
+            int segmentX = barX;
+            for (std::size_t segmentIndex = 0; segmentIndex < segments.size(); ++segmentIndex) {
+                const int segmentWidth = segmentWidths[segmentIndex];
+                if (segmentWidth > 0) {
+                    painter.fillRect(QRect(segmentX, cellY, segmentWidth, cellHeight),
+                                     themeColors_.colorForFileCategory(segments[segmentIndex].category));
+                    segmentX += segmentWidth;
+                }
+
+                if (segmentIndex + 1 < segments.size() && separatorWidth > 0) {
+                    painter.fillRect(QRect(segmentX, cellY, separatorWidth, cellHeight), background);
+                    segmentX += separatorWidth;
+                }
             }
 
-            const int filledWidth = (segmentCount - 1) * cellStep + cellWidth;
             barRects[i] = QRect(barX, cellY, filledWidth, cellHeight);
         }
 
@@ -283,6 +354,7 @@ private:
     std::array<QRect, kModifiedTimeHistogramBinCount> barRects_{};
     HistogramMetricMode metricMode_ = HistogramMetricMode::FileCount;
     int hoveredBinIndex_ = -1;
+    ThemeColors themeColors_;
 };
 
 struct HistogramDialogState {
@@ -356,6 +428,7 @@ QLabel *createDialogTimestampRuleLabel(QWidget *parent) {
 
 HistogramDialogWidgets buildHistogramDialogWidgets(ModifiedTimeHistogramDialog *dialog,
                                                    const QString &directoryPath,
+                                                   const ThemeColors &themeColors,
                                                    const HistogramDialogState &state) {
     HistogramDialogWidgets widgets;
 
@@ -369,6 +442,7 @@ HistogramDialogWidgets buildHistogramDialogWidgets(ModifiedTimeHistogramDialog *
     controlsLayout->addWidget(new QLabel(QObject::tr("Selected Range"), dialog));
 
     widgets.rangeSlider = new RangeSlider(dialog);
+    widgets.rangeSlider->setThemeColors(themeColors);
     widgets.rangeSlider->setRange(sliderIntValue(state.availableMinimumMinutes), sliderIntValue(state.availableMaximumMinutes));
     widgets.rangeSlider->setLowerValue(sliderIntValue(state.pendingLowerMinutes));
     widgets.rangeSlider->setUpperValue(sliderIntValue(state.pendingUpperMinutes));
@@ -394,7 +468,7 @@ HistogramDialogWidgets buildHistogramDialogWidgets(ModifiedTimeHistogramDialog *
 
     layout->addLayout(controlsLayout);
 
-    widgets.histogramWidget = new ModifiedTimeHistogramWidget(dialog);
+    widgets.histogramWidget = new ModifiedTimeHistogramWidget(themeColors, dialog);
     widgets.histogramWidget->setMetricMode(HistogramMetricMode::TotalFileSize);
     layout->addWidget(widgets.histogramWidget, 1);
 
@@ -475,12 +549,13 @@ void connectHistogramDialogSignals(ModifiedTimeHistogramDialog *dialog,
 ModifiedTimeHistogramDialog::ModifiedTimeHistogramDialog(const DirEntryStore &store,
                                                          const NameStore &names,
                                                          EntryRef dirRef,
+                                                         const ThemeColors &themeColors,
                                                          QWidget *parent)
     : QDialog(parent) {
     const auto state = createHistogramDialogState(store, dirRef);
     const QString directoryPath = QDir::toNativeSeparators(entryFullPath(store, names, dirRef));
     configureDialogShell(this, directoryPath);
-    const HistogramDialogWidgets widgets = buildHistogramDialogWidgets(this, directoryPath, *state);
+    const HistogramDialogWidgets widgets = buildHistogramDialogWidgets(this, directoryPath, themeColors, *state);
     connectHistogramDialogSignals(this, state, dirRef, widgets);
     applyHistogramDialogState(state, dirRef, widgets);
 }

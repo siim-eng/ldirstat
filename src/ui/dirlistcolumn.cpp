@@ -275,7 +275,7 @@ void DirListColumn::showFileCategoryStatsDialog() {
 }
 
 void DirListColumn::showModifiedTimeHistogramDialog() {
-    ModifiedTimeHistogramDialog dialog(store_, names_, dirRef_, window());
+    ModifiedTimeHistogramDialog dialog(store_, names_, dirRef_, themeColors_, window());
     dialog.exec();
 }
 

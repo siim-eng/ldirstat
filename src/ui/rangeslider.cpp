@@ -11,16 +11,14 @@ namespace ldirstat {
 namespace {
 
 constexpr int kOuterMargin = 8;
-constexpr int kTrackHeight = 8;
-constexpr int kHandleWidth = 10;
-constexpr int kHandleHeight = 18;
-constexpr int kSegmentStep = 10;
-constexpr int kSegmentWidth = 8;
+constexpr int kTrackHeight = 4;
+constexpr int kHandleDiameter = 14;
 
 } // namespace
 
 RangeSlider::RangeSlider(QWidget *parent)
     : QWidget(parent) {
+    themeColors_ = ThemeColors::fromPalette(palette());
     setMouseTracking(true);
 }
 
@@ -58,6 +56,11 @@ void RangeSlider::setUpperValue(int value) {
     setUpperValueInternal(value, true);
 }
 
+void RangeSlider::setThemeColors(const ThemeColors &colors) {
+    themeColors_ = colors;
+    update();
+}
+
 QSize RangeSlider::minimumSizeHint() const {
     return {120, 28};
 }
@@ -68,29 +71,24 @@ QSize RangeSlider::sizeHint() const {
 
 void RangeSlider::paintEvent(QPaintEvent * /*event*/) {
     QPainter painter(this);
-    const QPalette widgetPalette = palette();
-    const QColor background = widgetPalette.color(QPalette::Window);
-    const QColor textColor = widgetPalette.color(QPalette::Text);
-    const QColor inactiveColor = widgetPalette.color(QPalette::Mid);
-    painter.fillRect(rect(), background);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.fillRect(rect(), palette().color(QPalette::Window));
 
     const QRect track = trackRect();
     const QRect selected = selectedRect(track);
-
-    const int segmentCount = std::max(1, track.width() / kSegmentStep);
-    for (int i = 0; i < segmentCount; ++i) {
-        const QRect segment(track.left() + i * kSegmentStep, track.top(), kSegmentWidth, track.height());
-        painter.fillRect(segment, segment.intersects(selected) ? textColor : inactiveColor);
-    }
-
     const QRect lowerRect = lowerHandleRect(track);
     const QRect upperRect = upperHandleRect(track);
 
-    painter.setPen(textColor);
-    painter.drawRect(lowerRect);
-    painter.drawRect(upperRect);
-    painter.fillRect(lowerRect.adjusted(2, 2, -2, -2), textColor);
-    painter.fillRect(upperRect.adjusted(2, 2, -2, -2), textColor);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(themeColors_.primaryBackground);
+    painter.drawRoundedRect(QRectF(track), track.height() / 2.0, track.height() / 2.0);
+    painter.setBrush(themeColors_.primaryForeground);
+    painter.drawRoundedRect(QRectF(selected), selected.height() / 2.0, selected.height() / 2.0);
+
+    painter.setPen(QPen(themeColors_.primaryBackground, 2));
+    painter.setBrush(themeColors_.primaryForeground);
+    painter.drawEllipse(QRectF(lowerRect));
+    painter.drawEllipse(QRectF(upperRect));
 }
 
 void RangeSlider::mousePressEvent(QMouseEvent *event) {
@@ -143,8 +141,8 @@ void RangeSlider::leaveEvent(QEvent *event) {
 }
 
 QRect RangeSlider::trackRect() const {
-    const int left = kOuterMargin + kHandleWidth / 2;
-    const int right = width() - kOuterMargin - kHandleWidth / 2;
+    const int left = kOuterMargin + kHandleDiameter / 2;
+    const int right = width() - kOuterMargin - kHandleDiameter / 2;
     const int trackWidth = std::max(1, right - left);
     const int top = (height() - kTrackHeight) / 2;
     return {left, top, trackWidth, kTrackHeight};
@@ -158,12 +156,12 @@ QRect RangeSlider::selectedRect(const QRect &track) const {
 
 QRect RangeSlider::lowerHandleRect(const QRect &track) const {
     const int centerX = xForValue(lowerValue_, track);
-    return QRect(centerX - kHandleWidth / 2, (height() - kHandleHeight) / 2, kHandleWidth, kHandleHeight);
+    return QRect(centerX - kHandleDiameter / 2, (height() - kHandleDiameter) / 2, kHandleDiameter, kHandleDiameter);
 }
 
 QRect RangeSlider::upperHandleRect(const QRect &track) const {
     const int centerX = xForValue(upperValue_, track);
-    return QRect(centerX - kHandleWidth / 2, (height() - kHandleHeight) / 2, kHandleWidth, kHandleHeight);
+    return QRect(centerX - kHandleDiameter / 2, (height() - kHandleDiameter) / 2, kHandleDiameter, kHandleDiameter);
 }
 
 int RangeSlider::xForValue(int value, const QRect &track) const {

@@ -4,6 +4,8 @@
 
 #include <QWidget>
 
+#include "themecolors.h"
+
 namespace ldirstat {
 
 class RangeSlider : public QWidget {
@@ -24,6 +26,7 @@ public:
 
     void setLowerValue(int value);
     void setUpperValue(int value);
+    void setThemeColors(const ThemeColors &colors);
 
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
@@ -64,6 +67,7 @@ private:
     int upperValue_ = 100;
     ActiveHandle activeHandle_ = ActiveHandle::None;
     bool dragging_ = false;
+    ThemeColors themeColors_;
 };
 
 } // namespace ldirstat
