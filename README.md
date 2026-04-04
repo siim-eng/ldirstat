@@ -4,8 +4,9 @@ LDirStat helps you see what is taking up space on your disk.
 
 ![Screenshot of app](docs/images/main.png)
 
-[App Help](docs/HELP.md)
-[Download](releases)
+[App Help](docs/HELP.md)  
+
+[Download](https://github.com/siim-eng/ldirstat/releases)
 
 ## Repository Layout
 
