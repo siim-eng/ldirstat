@@ -176,6 +176,7 @@ void MainWindowBuilder::buildScanPollTimer(MainWindow *w) {
 
 void MainWindowBuilder::buildCentralView(MainWindow *w) {
     auto *mainSplitter = new QSplitter(Qt::Vertical, w);
+    mainSplitter->setOpaqueResize(false);
     mainSplitter->addWidget(w->dirListView_);
     mainSplitter->addWidget(w->flameStack_);
     int totalHeight = w->height();

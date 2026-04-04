@@ -7,6 +7,7 @@ class QMouseEvent;
 class QPaintEvent;
 class QPainter;
 class QResizeEvent;
+class QTimer;
 
 namespace ldirstat {
 
@@ -42,6 +43,7 @@ protected:
 
 private:
     static constexpr int kGraphInset = 4;
+    static constexpr int kResizeDebounceMs = 120;
 
     QRect graphRect() const;
     void ensureLayout();
@@ -60,6 +62,7 @@ private:
     EntryRef selectedEntry_ = kNoEntry;
     QSize lastLayoutSize_;
     bool layoutDirty_ = true;
+    QTimer *resizeDebounceTimer_ = nullptr;
 };
 
 } // namespace ldirstat

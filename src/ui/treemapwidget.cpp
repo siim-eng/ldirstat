@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QTimer>
 #include <QToolTip>
 
 namespace ldirstat {
@@ -56,6 +57,12 @@ bool hasHeader(const TreeMapNode &node) {
 TreeMapWidget::TreeMapWidget(QWidget *parent)
     : GraphWidget(parent) {
     setMouseTracking(true);
+    resizeDebounceTimer_ = new QTimer(this);
+    resizeDebounceTimer_->setSingleShot(true);
+    connect(resizeDebounceTimer_, &QTimer::timeout, this, [this]() {
+        if (!layoutDirty_) return;
+        update();
+    });
 }
 
 void TreeMapWidget::setStores(const DirEntryStore *store, const NameStore *names) {
@@ -84,7 +91,9 @@ QRect TreeMapWidget::graphRect() const {
 
 void TreeMapWidget::ensureLayout() {
     const QRect area = graphRect();
+    const bool sizeChanged = area.size() != lastLayoutSize_;
     if (!layoutDirty_ && area.size() == lastLayoutSize_) return;
+    if (resizeDebounceTimer_->isActive() && sizeChanged) return;
 
     rebuildLayout();
     lastLayoutSize_ = area.size();
@@ -92,12 +101,12 @@ void TreeMapWidget::ensureLayout() {
 }
 
 void TreeMapWidget::rebuildLayout() {
+    const QRect area = graphRect();
     if (!store_ || !currentDir_.valid()) {
         treeMap_ = TreeMap();
         return;
     }
 
-    const QRect area = graphRect();
     TreeMapOptions options;
     options.width = static_cast<float>(area.width());
     options.height = static_cast<float>(area.height());
@@ -120,12 +129,11 @@ void TreeMapWidget::paintEvent(QPaintEvent * /*event*/) {
     const QPalette widgetPalette = palette();
     painter.fillRect(rect(), widgetPalette.color(QPalette::Window));
 
-    if (!store_ || !names_ || !currentDir_.valid()) return;
-
     const QRect area = graphRect();
-    if (area.width() <= 0 || area.height() <= 0) return;
-
-    ensureLayout();
+    const bool hasData = store_ && names_ && currentDir_.valid();
+    const bool hasArea = area.width() > 0 && area.height() > 0;
+    if (hasData && hasArea) ensureLayout();
+    if (!hasData || !hasArea) return;
     if (treeMap_.nodes().empty()) return;
 
     painter.save();
@@ -143,6 +151,8 @@ void TreeMapWidget::paintEvent(QPaintEvent * /*event*/) {
 void TreeMapWidget::resizeEvent(QResizeEvent *event) {
     layoutDirty_ = true;
     QWidget::resizeEvent(event);
+    resizeDebounceTimer_->start(kResizeDebounceMs);
+    update();
 }
 
 void TreeMapWidget::mousePressEvent(QMouseEvent *event) {
@@ -170,6 +180,7 @@ EntryRef TreeMapWidget::hitTest(const QPoint &pos) {
 
     const QRect area = graphRect();
     if (!area.contains(pos) || area.width() <= 0 || area.height() <= 0) return kNoEntry;
+    if (resizeDebounceTimer_->isActive() && area.size() != lastLayoutSize_) return kNoEntry;
 
     ensureLayout();
     if (treeMap_.nodes().empty()) return kNoEntry;
