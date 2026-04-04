@@ -16,7 +16,7 @@ Below that is a list of available filesystems and devices.
 - Click an unmounted device to mount it and then start scanning
 - Mounted entries show the device path, mount point, and free space
 
-![Welcome screen](docs/images/welcome.png)
+![Welcome screen](images/welcome.png)
 
 ## Scanning
 
