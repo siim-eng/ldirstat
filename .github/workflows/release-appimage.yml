@@ -14,7 +14,7 @@ env:
 
 jobs:
   appimage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
@@ -31,10 +31,9 @@ jobs:
             patchelf \
             desktop-file-utils \
             appstream \
-            libgl1-mesa-dev \
+            libgl-dev \
             qt6-base-dev \
             qt6-base-dev-tools \
-            libqt6opengl6-dev \
             libqt6svg6-dev
 
       - name: Debug OpenGL
