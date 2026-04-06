@@ -86,6 +86,35 @@ if [[ -n "${qmakeBinary}" ]]; then
     qtPluginBase=$("${qmakeBinary}" -query QT_INSTALL_PLUGINS)
 fi
 
+deploy_qt_plugins() {
+    local pluginSubdir=$1
+    local sourceDir="${qtPluginBase}/${pluginSubdir}"
+    local targetDir="${appDir}/usr/plugins/${pluginSubdir}"
+
+    if [[ -z "${qtPluginBase}" ]] || [[ ! -d "${sourceDir}" ]]; then
+        return
+    fi
+
+    shopt -s nullglob
+    local pluginFiles=("${sourceDir}"/*.so)
+    shopt -u nullglob
+    if [[ ${#pluginFiles[@]} -eq 0 ]]; then
+        return
+    fi
+
+    mkdir -p "${targetDir}"
+
+    for pluginFile in "${pluginFiles[@]}"; do
+        local pluginName
+        pluginName=$(basename "${pluginFile}")
+
+        install -D -m 0755 "${pluginFile}" "${targetDir}/${pluginName}"
+        "${linuxdeploy}" \
+            --appdir "${appDir}" \
+            --deploy-deps-only "${targetDir}/${pluginName}"
+    done
+}
+
 "${cmakeBin}" -S "${repoRoot}" \
       -B "${buildDir}" \
       -G Ninja \
@@ -121,6 +150,9 @@ rm -f "${outputAppImage}"
         --icon-file "${appDir}/usr/share/icons/hicolor/scalable/apps/ldirstat.svg" \
         --icon-file "${appDir}/usr/share/icons/hicolor/256x256/apps/ldirstat.png" \
         --plugin qt
+
+    deploy_qt_plugins platformthemes
+    deploy_qt_plugins styles
 
     if [[ -n "${qtPluginBase}" ]] && [[ -f "${qtPluginBase}/platforms/libqoffscreen.so" ]]; then
         install -D -m 0755 \

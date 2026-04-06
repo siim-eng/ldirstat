@@ -35,6 +35,7 @@ jobs:
             qt6-base-dev \
             qt6-base-dev-tools \
             qt6-gtk-platformtheme \
+            qt6-xdgdesktopportal-platformtheme \
             libqt6svg6-dev
 
       - name: Debug OpenGL
