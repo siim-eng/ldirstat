@@ -514,8 +514,14 @@ void DirListColumn::mousePressEvent(QMouseEvent *event) {
         return;
     }
 
+    const EntryRef previousFocus = focusedRef();
     const bool keepCurrentSelection = selectionFlags_[childIndex] != 0;
     applyMouseSelection(childIndex, event->modifiers(), keepCurrentSelection);
+
+    if (event->button() == Qt::LeftButton && event->modifiers() == Qt::NoModifier && focusedRef() == previousFocus
+        && focusedChildIndex_ == childIndex && previousFocus.valid()) {
+        emitFocusChanged();
+    }
 }
 
 void DirListColumn::wheelEvent(QWheelEvent *event) {
