@@ -34,6 +34,8 @@ jobs:
             libgl-dev \
             qt6-base-dev \
             qt6-base-dev-tools \
+            plasma-integration \
+            kde-style-breeze \
             qt6-gtk-platformtheme \
             qt6-xdgdesktopportal-platformtheme \
             libqt6svg6-dev
@@ -113,6 +115,8 @@ jobs:
           test -e squashfs-root/.DirIcon
           test -e squashfs-root/ldirstat.desktop
           test -e squashfs-root/usr/bin/LDirStat
+          test -e squashfs-root/usr/plugins/platformthemes/KDEPlasmaPlatformTheme6.so
+          test -e squashfs-root/usr/plugins/styles/breeze6.so
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v6
