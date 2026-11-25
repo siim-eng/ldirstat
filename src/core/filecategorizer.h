@@ -235,8 +235,8 @@ public:
 
     static inline FileCategory categoryForType(FileType type) {
         const size_t index = typeIndex(type);
-        if (index >= kTypeCategories_.size()) return FileCategory::Unknown;
-        return kTypeCategories_[index];
+        if (index >= kTypeCategories.size()) return FileCategory::Unknown;
+        return kTypeCategories[index];
     }
 
     static inline std::string_view extensionForType(FileType type) {
@@ -246,8 +246,8 @@ public:
         if (type == FileType::VersionedSharedLibrary) return {};
 
         const size_t index = typeIndex(type);
-        if (index >= kTypeExtensions_.size()) return {};
-        return kTypeExtensions_[index];
+        if (index >= kTypeExtensions.size()) return {};
+        return kTypeExtensions[index];
     }
 
     static inline const char *displayNameForType(FileType type) {
@@ -257,8 +257,8 @@ public:
         if (type == FileType::VersionedSharedLibrary) return "Versioned shared library";
 
         const size_t index = typeIndex(type);
-        if (index >= kTypeDisplayNames_.size()) return nullptr;
-        return kTypeDisplayNames_[index];
+        if (index >= kTypeDisplayNames.size()) return nullptr;
+        return kTypeDisplayNames[index];
     }
 
     static inline FileType categorize(std::string_view utf8Path) {
@@ -295,7 +295,7 @@ private:
     // executable formats), so the per-type builders keep the first display
     // extension/name they encounter.
     // The hot-path extension matcher stays hand-written below to keep scanning fast.
-    static constexpr auto kExtensionTypes_ = std::to_array<FileTypeSpec>({
+    static constexpr auto kExtensionTypes = std::to_array<FileTypeSpec>({
         {FileType::Ext7z, "7z", FileCategory::Archive, "7-Zip archive"},
         {FileType::ExtA, "a", FileCategory::Library, "Static library"},
         {FileType::ExtAac, "aac", FileCategory::Music, "AAC audio"},
@@ -440,7 +440,7 @@ private:
         categories[typeIndex(FileType::Cache)] = FileCategory::Cache;
         categories[typeIndex(FileType::VersionedSharedLibrary)] = FileCategory::Library;
 
-        for (const FileTypeSpec &spec : kExtensionTypes_)
+        for (const FileTypeSpec &spec : kExtensionTypes)
             categories[typeIndex(spec.type)] = spec.category;
 
         return categories;
@@ -450,7 +450,7 @@ private:
     static constexpr std::array<std::string_view, kTypeCount> buildTypeExtensions() {
         std::array<std::string_view, kTypeCount> extensions{};
 
-        for (const FileTypeSpec &spec : kExtensionTypes_) {
+        for (const FileTypeSpec &spec : kExtensionTypes) {
             const size_t index = typeIndex(spec.type);
             if (extensions[index].empty()) extensions[index] = spec.extension;
         }
@@ -462,7 +462,7 @@ private:
     static constexpr std::array<const char *, kTypeCount> buildTypeDisplayNames() {
         std::array<const char *, kTypeCount> names{};
 
-        for (const FileTypeSpec &spec : kExtensionTypes_) {
+        for (const FileTypeSpec &spec : kExtensionTypes) {
             const size_t index = typeIndex(spec.type);
             if (names[index] == nullptr) names[index] = spec.displayName;
         }
@@ -470,9 +470,9 @@ private:
         return names;
     }
 
-    static const std::array<FileCategory, kTypeCount> kTypeCategories_;
-    static const std::array<std::string_view, kTypeCount> kTypeExtensions_;
-    static const std::array<const char *, kTypeCount> kTypeDisplayNames_;
+    static const std::array<FileCategory, kTypeCount> kTypeCategories;
+    static const std::array<std::string_view, kTypeCount> kTypeExtensions;
+    static const std::array<const char *, kTypeCount> kTypeDisplayNames;
 
     static inline bool isSlash(char c) { return c == '/'; }
 
@@ -1045,10 +1045,10 @@ private:
 };
 
 inline constexpr std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount>
-    ldirstat::FileCategorizer::kTypeCategories_ = ldirstat::FileCategorizer::buildTypeCategories();
-inline constexpr std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions_ =
+    ldirstat::FileCategorizer::kTypeCategories = ldirstat::FileCategorizer::buildTypeCategories();
+inline constexpr std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions =
     ldirstat::FileCategorizer::buildTypeExtensions();
-inline constexpr std::array<const char *, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeDisplayNames_ =
+inline constexpr std::array<const char *, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeDisplayNames =
     ldirstat::FileCategorizer::buildTypeDisplayNames();
 
 } // namespace ldirstat
