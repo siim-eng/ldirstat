@@ -83,9 +83,9 @@ private:
         QString sizeStr;
         QString pctStr;
         QString name;
-        bool isDir;
-        bool isMountPoint;
-        SizeTier sizeTier;
+        bool isDir = false;
+        bool isMountPoint = false;
+        SizeTier sizeTier = SizeTier::Bytes;
     };
 
     static SizeTier sizeTierFor(uint64_t bytes);

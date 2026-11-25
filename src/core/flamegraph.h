@@ -9,8 +9,8 @@
 namespace ldirstat {
 
 struct FlameRect {
-    float x1;
-    float x2;
+    float x1 = 0.0f;
+    float x2 = 0.0f;
     EntryRef ref;
 };
 

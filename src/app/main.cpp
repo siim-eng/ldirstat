@@ -19,9 +19,9 @@ QString debugLogPath() {
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (logDir.isEmpty()) logDir = QDir(QDir::tempPath()).filePath(QStringLiteral("LDirStat"));
 
-    QDir dir(logDir);
-    dir.mkpath(QStringLiteral("."));
-    return dir.filePath(QStringLiteral("debug.log"));
+    // Fall back to the temp directory itself if the log directory cannot be created.
+    if (!QDir().mkpath(logDir)) logDir = QDir::tempPath();
+    return QDir(logDir).filePath(QStringLiteral("debug.log"));
 }
 
 QString messageTypeName(QtMsgType type) {

@@ -30,7 +30,6 @@ size_t binIndexFor(uint32_t modifiedMinutes, uint32_t startMinutes, uint32_t end
     if (modifiedMinutes >= endMinutes) return kModifiedTimeHistogramBinCount - 1;
 
     const uint64_t range = static_cast<uint64_t>(endMinutes - startMinutes);
-    if (range == 0) return kModifiedTimeHistogramBinCount - 1;
 
     const uint64_t offset = static_cast<uint64_t>(modifiedMinutes - startMinutes);
     const uint64_t index = (offset * kModifiedTimeHistogramBinCount) / range;

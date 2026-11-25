@@ -5,7 +5,6 @@
 
 # Qt keywords/signals that cppcheck does not model well.
 unknownMacro:src/ui/*.h
-shadowFunction:src/ui/dirlistcolumn.cpp
 
 # ── Intentional patterns ───────────────────────────────────────
 # We use C arrays on the stack for fixed-depth stacks (scanner, flamegraph).
@@ -25,6 +24,8 @@ memleak:src/ui/*
 *:third_party/*
 
 # Style checks that conflict with our conventions.
+# Qt-style setters take parameters named like their getters (setRange(minimum, maximum)).
+shadowFunction
 passedByValue
 postfixOperator
 useStlAlgorithm

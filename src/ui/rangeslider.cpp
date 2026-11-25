@@ -17,8 +17,8 @@ constexpr int kHandleDiameter = 14;
 } // namespace
 
 RangeSlider::RangeSlider(QWidget *parent)
-    : QWidget(parent) {
-    themeColors_ = ThemeColors::fromPalette(palette());
+    : QWidget(parent),
+      themeColors_(ThemeColors::fromPalette(palette())) {
     setMouseTracking(true);
 }
 

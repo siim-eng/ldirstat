@@ -21,10 +21,10 @@ struct MountInfo {
     std::string device;
     std::string mountPoint;
     std::string fsType;
-    dev_t dev;
-    FileSystemType kind;
-    uint64_t totalBytes;
-    uint64_t availBytes;
+    dev_t dev = 0;
+    FileSystemType kind = FileSystemType::Unknown;
+    uint64_t totalBytes = 0;
+    uint64_t availBytes = 0;
 };
 
 struct VolumeInfo {

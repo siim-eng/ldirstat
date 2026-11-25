@@ -173,10 +173,10 @@ enum class FileType : uint16_t {
 class FileCategorizer final {
 public:
     struct FileTypeSpec {
-        FileType type;
+        FileType type = FileType::Unknown;
         std::string_view extension;
-        FileCategory category;
-        const char *displayName;
+        FileCategory category = FileCategory::Unknown;
+        const char *displayName = nullptr;
     };
 
     static constexpr size_t kCategoryCount = static_cast<size_t>(FileCategory::Executable) + 1;
@@ -432,6 +432,8 @@ private:
         {FileType::ExtZstd, "zstd", FileCategory::Compressed, "Zstandard compressed"},
     });
 
+    // Used by the out-of-class constant definitions at the end of this file.
+    // cppcheck-suppress unusedPrivateFunction
     static constexpr std::array<FileCategory, kTypeCount> buildTypeCategories() {
         std::array<FileCategory, kTypeCount> categories{};
         categories[typeIndex(FileType::Executable)] = FileCategory::Executable;
@@ -444,6 +446,7 @@ private:
         return categories;
     }
 
+    // cppcheck-suppress unusedPrivateFunction
     static constexpr std::array<std::string_view, kTypeCount> buildTypeExtensions() {
         std::array<std::string_view, kTypeCount> extensions{};
 
@@ -455,6 +458,7 @@ private:
         return extensions;
     }
 
+    // cppcheck-suppress unusedPrivateFunction
     static constexpr std::array<const char *, kTypeCount> buildTypeDisplayNames() {
         std::array<const char *, kTypeCount> names{};
 

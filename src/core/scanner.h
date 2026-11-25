@@ -45,7 +45,7 @@ public:
 
 private:
     struct SortEntry {
-        uint64_t size;
+        uint64_t size = 0;
         EntryRef ref;
     };
 

@@ -23,10 +23,10 @@ void FlameGraph::build(const DirEntryStore &store, EntryRef focus, const FlameGr
         rows_[rowIndex].push_back({0.0f, 1.0f, ancestry[rowIndex]});
 
     struct Frame {
-        EntryRef child; // next child to process
-        float x1;       // current x offset within parent
-        float parentWidth;
-        uint64_t parentSize;
+        EntryRef child;  // next child to process
+        float x1 = 0.0f; // current x offset within parent
+        float parentWidth = 0.0f;
+        uint64_t parentSize = 0;
         uint64_t previousSize = UINT64_MAX;
     };
 
