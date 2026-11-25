@@ -219,7 +219,7 @@ TEST_CASE("categorizes supported extensions") {
 
 TEST_CASE("handles full paths and extension views without copying") {
     constexpr std::string_view path = "/tmp/reports/Quarterly.PDF";
-    const std::size_t extensionOffset = path.find_last_of('.') + 1;
+    const size_t extensionOffset = path.find_last_of('.') + 1;
 
     const FileCategorizer::Result result = FileCategorizer::categorizeWithExtension(path);
 

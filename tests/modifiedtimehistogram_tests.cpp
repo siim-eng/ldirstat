@@ -27,8 +27,8 @@ struct HistogramFixture {
     ldirstat::EntryRef addFile(ldirstat::EntryRef parent,
                                std::string_view name,
                                ldirstat::FileType fileType,
-                               std::uint32_t modifiedMinutes,
-                               std::uint64_t size) {
+                               uint32_t modifiedMinutes,
+                               uint64_t size) {
         const ldirstat::EntryRef ref = entryStore.add(entryCursor);
         auto &entry = entryStore[ref];
         entry.type = ldirstat::EntryType::File;
@@ -112,8 +112,8 @@ TEST_CASE("modified time histogram excludes files outside selected bounds") {
     const ldirstat::ModifiedTimeHistogramBuilder builder(fixture.entryStore);
     const auto bins = builder.build(root, 100, 120);
 
-    std::uint64_t totalCount = 0;
-    std::uint64_t totalSize = 0;
+    uint64_t totalCount = 0;
+    uint64_t totalSize = 0;
     for (const auto &bin : bins) {
         totalCount += bin.fileCount;
         totalSize += bin.totalSize;

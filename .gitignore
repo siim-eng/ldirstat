@@ -50,3 +50,6 @@ dist/
 compile_commands.json
 .clangd
 .vscode
+
+# Local AppImage builds (releases are built by GitHub Actions)
+appimage/

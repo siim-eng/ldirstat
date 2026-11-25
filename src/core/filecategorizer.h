@@ -11,7 +11,7 @@
 
 namespace ldirstat {
 
-enum class FileCategory : std::uint16_t {
+enum class FileCategory : uint16_t {
     Unknown = 0,
     Archive,
     Compressed,
@@ -31,7 +31,7 @@ enum class FileCategory : std::uint16_t {
     Executable,
 };
 
-enum class FileType : std::uint16_t {
+enum class FileType : uint16_t {
     Unknown = 0,
     Executable,
     Cache,
@@ -179,11 +179,11 @@ public:
         const char *displayName;
     };
 
-    static constexpr std::size_t kCategoryCount = static_cast<std::size_t>(FileCategory::Executable) + 1;
-    static constexpr std::size_t kTypeCount = static_cast<std::size_t>(FileType::VersionedSharedLibrary) + 1;
+    static constexpr size_t kCategoryCount = static_cast<size_t>(FileCategory::Executable) + 1;
+    static constexpr size_t kTypeCount = static_cast<size_t>(FileType::VersionedSharedLibrary) + 1;
 
-    static constexpr std::size_t categoryIndex(FileCategory category) { return static_cast<std::size_t>(category); }
-    static constexpr std::size_t typeIndex(FileType type) { return static_cast<std::size_t>(type); }
+    static constexpr size_t categoryIndex(FileCategory category) { return static_cast<size_t>(category); }
+    static constexpr size_t typeIndex(FileType type) { return static_cast<size_t>(type); }
 
     static constexpr const char *categoryName(FileCategory category) {
         switch (category) {
@@ -234,7 +234,7 @@ public:
     }
 
     static inline FileCategory categoryForType(FileType type) {
-        const std::size_t index = typeIndex(type);
+        const size_t index = typeIndex(type);
         if (index >= kTypeCategories_.size()) return FileCategory::Unknown;
         return kTypeCategories_[index];
     }
@@ -245,7 +245,7 @@ public:
         if (type == FileType::Cache) return {};
         if (type == FileType::VersionedSharedLibrary) return {};
 
-        const std::size_t index = typeIndex(type);
+        const size_t index = typeIndex(type);
         if (index >= kTypeExtensions_.size()) return {};
         return kTypeExtensions_[index];
     }
@@ -256,7 +256,7 @@ public:
         if (type == FileType::Cache) return "Cache file";
         if (type == FileType::VersionedSharedLibrary) return "Versioned shared library";
 
-        const std::size_t index = typeIndex(type);
+        const size_t index = typeIndex(type);
         if (index >= kTypeDisplayNames_.size()) return nullptr;
         return kTypeDisplayNames_[index];
     }
@@ -270,7 +270,7 @@ public:
     struct Result {
         FileType type;
         const char *extensionPtr;
-        std::size_t extensionLen;
+        size_t extensionLen;
     };
 
     static inline Result categorizeWithExtension(std::string_view utf8Path) {
@@ -282,12 +282,12 @@ public:
 private:
     struct BasenameView {
         const char *ptr;
-        std::size_t len;
+        size_t len;
     };
 
     struct ExtensionView {
         const char *ptr;
-        std::size_t len;
+        size_t len;
     };
 
     // Metadata source of truth for extension/category/display metadata.
@@ -448,7 +448,7 @@ private:
         std::array<std::string_view, kTypeCount> extensions{};
 
         for (const FileTypeSpec &spec : kExtensionTypes_) {
-            const std::size_t index = typeIndex(spec.type);
+            const size_t index = typeIndex(spec.type);
             if (extensions[index].empty()) extensions[index] = spec.extension;
         }
 
@@ -459,7 +459,7 @@ private:
         std::array<const char *, kTypeCount> names{};
 
         for (const FileTypeSpec &spec : kExtensionTypes_) {
-            const std::size_t index = typeIndex(spec.type);
+            const size_t index = typeIndex(spec.type);
             if (names[index] == nullptr) names[index] = spec.displayName;
         }
 
@@ -477,43 +477,43 @@ private:
         return (uc >= 'A' && uc <= 'Z') ? static_cast<char>(uc | 0x20u) : c;
     }
 
-    static constexpr std::uint64_t lowerMaskForLen(std::size_t len) {
-        std::uint64_t mask = 0;
-        for (std::size_t i = 0; i < len; ++i)
-            mask |= (std::uint64_t{0x20} << (i * 8));
+    static constexpr uint64_t lowerMaskForLen(size_t len) {
+        uint64_t mask = 0;
+        for (size_t i = 0; i < len; ++i)
+            mask |= (uint64_t{0x20} << (i * 8));
         return mask;
     }
 
-    static constexpr std::uint64_t packLiteral(const char *s, std::size_t len) {
-        std::uint64_t value = 0;
-        for (std::size_t i = 0; i < len; ++i) {
+    static constexpr uint64_t packLiteral(const char *s, size_t len) {
+        uint64_t value = 0;
+        for (size_t i = 0; i < len; ++i) {
             auto c = static_cast<unsigned char>(s[i]);
             if (c >= 'A' && c <= 'Z') c |= 0x20;
-            value |= static_cast<std::uint64_t>(c) << (i * 8);
+            value |= static_cast<uint64_t>(c) << (i * 8);
         }
         return value;
     }
 
-    template<std::size_t N> static constexpr std::uint64_t lit(const char (&s)[N]) {
+    template<size_t N> static constexpr uint64_t lit(const char (&s)[N]) {
         static_assert(N >= 2, "literal must not be empty");
         static_assert(N - 1 <= 8, "only supports up to 8 chars");
         return packLiteral(s, N - 1);
     }
 
-    template<std::size_t N>
-    static inline bool equalsLiteralIgnoreCase(const char *s, std::size_t len, const char (&literal)[N]) {
+    template<size_t N>
+    static inline bool equalsLiteralIgnoreCase(const char *s, size_t len, const char (&literal)[N]) {
         static_assert(N >= 2, "literal must not be empty");
         if (len != N - 1) return false;
 
-        for (std::size_t i = 0; i < len; ++i) {
+        for (size_t i = 0; i < len; ++i) {
             if (asciiLower(s[i]) != literal[i]) return false;
         }
 
         return true;
     }
 
-    static inline std::uint64_t loadLowerAsciiUpTo8(const char *s, std::size_t len) {
-        std::uint64_t value = 0;
+    static inline uint64_t loadLowerAsciiUpTo8(const char *s, size_t len) {
+        uint64_t value = 0;
         std::memcpy(&value, s, len);
         value |= lowerMaskForLen(len);
         return value;
@@ -521,13 +521,13 @@ private:
 
     static inline BasenameView findBasename(std::string_view path) {
         const char *s = path.data();
-        std::size_t end = path.size();
+        size_t end = path.size();
 
         while (end > 0 && isSlash(s[end - 1]))
             --end;
         if (end == 0) return {nullptr, 0};
 
-        std::size_t base = end;
+        size_t base = end;
         while (base > 0 && !isSlash(s[base - 1]))
             --base;
 
@@ -538,15 +538,15 @@ private:
         if (base.ptr == nullptr || base.len == 0) return {nullptr, 0};
 
         const char *s = base.ptr;
-        const std::size_t end = base.len;
+        const size_t end = base.len;
 
-        for (std::size_t i = end; i > 0; --i) {
+        for (size_t i = end; i > 0; --i) {
             if (s[i - 1] != '.') continue;
 
-            const std::size_t dot = i - 1;
+            const size_t dot = i - 1;
             if (dot == 0) return {nullptr, 0};
 
-            const std::size_t extLen = end - (dot + 1);
+            const size_t extLen = end - (dot + 1);
             if (extLen == 0 || extLen > 10) return {nullptr, 0};
 
             return {s + dot + 1, extLen};
@@ -561,7 +561,7 @@ private:
         const char *s = base.ptr;
         if (s[0] != 'l' || s[1] != 'i' || s[2] != 'b') return FileType::Unknown;
 
-        for (std::size_t i = 3; i + 3 < base.len; ++i) {
+        for (size_t i = 3; i + 3 < base.len; ++i) {
             if (s[i] == '.' && s[i + 1] == 's' && s[i + 2] == 'o' && s[i + 3] == '.') return FileType::VersionedSharedLibrary;
         }
 
@@ -577,13 +577,13 @@ private:
         return categorizeCaseSensitive(base);
     }
 
-    static inline FileType categorizeExtension(const char *ext, std::size_t len) {
+    static inline FileType categorizeExtension(const char *ext, size_t len) {
         if (len == 0 || len > 10) return FileType::Unknown;
 
         const char c0 = asciiLower(ext[0]);
 
         if (len <= 8) {
-            const std::uint64_t v = loadLowerAsciiUpTo8(ext, len);
+            const uint64_t v = loadLowerAsciiUpTo8(ext, len);
 
             switch (len) {
             case 1: return categorizeLen1(v, c0);
@@ -604,7 +604,7 @@ private:
         }
     }
 
-    static inline FileType categorizeLen1(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen1(uint64_t v, char c0) {
         switch (c0) {
         case 'a':
             if (v == lit("a")) return FileType::ExtA;
@@ -630,7 +630,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen2(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen2(uint64_t v, char c0) {
         switch (c0) {
         case '7':
             if (v == lit("7z")) return FileType::Ext7z;
@@ -692,7 +692,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen3(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen3(uint64_t v, char c0) {
         switch (c0) {
         case 'a':
             if (v == lit("aac")) return FileType::ExtAac;
@@ -811,7 +811,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen4(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen4(uint64_t v, char c0) {
         switch (c0) {
         case 'c':
             if (v == lit("conf")) return FileType::ExtConf;
@@ -868,7 +868,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen5(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen5(uint64_t v, char c0) {
         switch (c0) {
         case 'c':
             if (v == lit("class")) return FileType::ExtClass;
@@ -888,7 +888,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen6(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen6(uint64_t v, char c0) {
         switch (c0) {
         case 's':
             if (v == lit("sqlite")) return FileType::ExtSqlite;
@@ -899,7 +899,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen7(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen7(uint64_t v, char c0) {
         switch (c0) {
         case 'd':
             if (v == lit("desktop")) return FileType::ExtDesktop;
@@ -920,7 +920,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen8(std::uint64_t v, char c0) {
+    static inline FileType categorizeLen8(uint64_t v, char c0) {
         switch (c0) {
         case 'a':
             if (v == lit("appimage")) return FileType::ExtAppImage;
@@ -934,7 +934,7 @@ private:
         return FileType::Unknown;
     }
 
-    static inline FileType categorizeLen10(const char *ext, std::size_t len, char c0) {
+    static inline FileType categorizeLen10(const char *ext, size_t len, char c0) {
         switch (c0) {
         case 'c':
             if (equalsLiteralIgnoreCase(ext, len, "commitmeta")) return FileType::ExtCommitMeta;
@@ -951,14 +951,14 @@ class FileCategoryCounter final {
 public:
     struct Item {
         FileCategory category = FileCategory::Unknown;
-        std::uint64_t count = 0;
-        std::uint64_t totalSize = 0;
+        uint64_t count = 0;
+        uint64_t totalSize = 0;
     };
 
     struct TypeItem {
         FileType type = FileType::Unknown;
-        std::uint64_t count = 0;
-        std::uint64_t totalSize = 0;
+        uint64_t count = 0;
+        uint64_t totalSize = 0;
     };
 
     using Items = std::array<Item, FileCategorizer::kCategoryCount>;
@@ -970,13 +970,13 @@ public:
     }
 
     void reset() {
-        for (std::size_t i = 0; i < items_.size(); ++i) {
+        for (size_t i = 0; i < items_.size(); ++i) {
             items_[i].category = static_cast<FileCategory>(i);
             items_[i].count = 0;
             items_[i].totalSize = 0;
         }
 
-        for (std::size_t i = 0; i < typeItems_.size(); ++i) {
+        for (size_t i = 0; i < typeItems_.size(); ++i) {
             typeItems_[i].type = static_cast<FileType>(i);
             typeItems_[i].count = 0;
             typeItems_[i].totalSize = 0;
@@ -1025,7 +1025,7 @@ public:
 private:
     void countFile(const DirEntry &entry) {
         const FileType type = entry.fileType;
-        const std::uint64_t totalSize = layoutSizeOf(entry);
+        const uint64_t totalSize = layoutSizeOf(entry);
 
         TypeItem &typeItem = typeItems_[FileCategorizer::typeIndex(type)];
         ++typeItem.count;

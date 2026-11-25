@@ -30,15 +30,15 @@ namespace ldirstat {
 
 namespace {
 
-enum class HistogramMetricMode : std::uint8_t {
+enum class HistogramMetricMode : uint8_t {
     FileCount,
     TotalFileSize,
 };
 
-QString formatHistogramSize(std::uint64_t bytes) {
+QString formatHistogramSize(uint64_t bytes) {
     auto formatUnit = [](double value, const char *suffix) {
         if (value < 10.0) return QString::number(value, 'f', 1) + ' ' + suffix;
-        return QString::number(static_cast<std::uint64_t>(value)) + ' ' + suffix;
+        return QString::number(static_cast<uint64_t>(value)) + ' ' + suffix;
     };
 
     if (bytes < 1024) return QString::number(bytes) + " B";
@@ -53,47 +53,47 @@ QString formatHistogramSize(std::uint64_t bytes) {
     return formatUnit(gb, "GB");
 }
 
-QString formatHistogramMinutes(std::uint32_t minutes) {
+QString formatHistogramMinutes(uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
     return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone()).toString(QStringLiteral("yyyy-MM-dd HH:mm"));
 }
 
-QString formatHistogramDate(std::uint32_t minutes) {
+QString formatHistogramDate(uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
     return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone()).toString(QStringLiteral("yyyy-MM-dd"));
 }
 
-std::uint32_t currentEpochMinutes() {
+uint32_t currentEpochMinutes() {
     const qint64 seconds = QDateTime::currentSecsSinceEpoch();
     if (seconds <= 0) return 0;
-    return static_cast<std::uint32_t>(seconds / 60);
+    return static_cast<uint32_t>(seconds / 60);
 }
 
-QDateTime dateTimeForMinutes(std::uint32_t minutes) {
+QDateTime dateTimeForMinutes(uint32_t minutes) {
     const qint64 seconds = static_cast<qint64>(minutes) * 60;
     return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone());
 }
 
-std::uint32_t minutesForDateTime(const QDateTime &dateTime) {
+uint32_t minutesForDateTime(const QDateTime &dateTime) {
     const qint64 seconds = dateTime.toSecsSinceEpoch();
     if (seconds <= 0) return 0;
-    return static_cast<std::uint32_t>(seconds / 60);
+    return static_cast<uint32_t>(seconds / 60);
 }
 
-std::uint32_t minutesForDate(const QDate &date) {
+uint32_t minutesForDate(const QDate &date) {
     return minutesForDateTime(QDateTime(date, QTime(0, 0), QTimeZone::systemTimeZone()));
 }
 
-QDate dateForMinutes(std::uint32_t minutes) {
+QDate dateForMinutes(uint32_t minutes) {
     return dateTimeForMinutes(minutes).date();
 }
 
-std::uint32_t defaultLowerMinutes(const ModifiedTimeHistogramBounds &bounds, std::uint32_t maximumMinutes) {
+uint32_t defaultLowerMinutes(const ModifiedTimeHistogramBounds &bounds, uint32_t maximumMinutes) {
     if (!bounds.hasKnownFiles) return maximumMinutes;
 
     const QDate maximumDate = dateForMinutes(maximumMinutes);
     const QDate fiveYearsBack = maximumDate.addYears(-5);
-    const std::uint32_t fiveYearsBackMinutes = minutesForDate(fiveYearsBack);
+    const uint32_t fiveYearsBackMinutes = minutesForDate(fiveYearsBack);
     return std::max(bounds.earliestMinutes, std::min(fiveYearsBackMinutes, maximumMinutes));
 }
 
@@ -114,15 +114,15 @@ QString formatBreakdownLine(const ModifiedTimeHistogramCategoryValue &value) {
         .arg(formatHistogramSize(value.totalSize));
 }
 
-QString formatSelectedRange(std::uint32_t lowerMinutes, std::uint32_t upperMinutes) {
+QString formatSelectedRange(uint32_t lowerMinutes, uint32_t upperMinutes) {
     return QStringLiteral("%1 - %2").arg(formatHistogramDate(lowerMinutes), formatHistogramDate(upperMinutes));
 }
 
-std::uint64_t metricValue(const ModifiedTimeHistogramBin &bin, HistogramMetricMode mode) {
+uint64_t metricValue(const ModifiedTimeHistogramBin &bin, HistogramMetricMode mode) {
     return mode == HistogramMetricMode::FileCount ? bin.fileCount : bin.totalSize;
 }
 
-std::uint64_t metricValue(const ModifiedTimeHistogramCategoryValue &value, HistogramMetricMode mode) {
+uint64_t metricValue(const ModifiedTimeHistogramCategoryValue &value, HistogramMetricMode mode) {
     return mode == HistogramMetricMode::FileCount ? value.count : value.totalSize;
 }
 
@@ -130,13 +130,13 @@ HistogramMetricMode metricModeForIndex(int index) {
     return index == 0 ? HistogramMetricMode::FileCount : HistogramMetricMode::TotalFileSize;
 }
 
-int sliderIntValue(std::uint32_t minutes) {
-    return static_cast<int>(std::min<std::uint32_t>(minutes, static_cast<std::uint32_t>(std::numeric_limits<int>::max())));
+int sliderIntValue(uint32_t minutes) {
+    return static_cast<int>(std::min<uint32_t>(minutes, static_cast<uint32_t>(std::numeric_limits<int>::max())));
 }
 
 struct HistogramBarSegment {
     FileCategory category = FileCategory::Unknown;
-    std::uint64_t value = 0;
+    uint64_t value = 0;
 };
 
 int separatorWidthForBar(int filledWidth, int segmentCount) {
@@ -153,7 +153,7 @@ int separatorWidthForBar(int filledWidth, int segmentCount) {
 
 std::vector<int> distributeSegmentWidths(const std::vector<HistogramBarSegment> &segments,
                                          int availableWidth,
-                                         std::uint64_t totalValue) {
+                                         uint64_t totalValue) {
     std::vector<int> widths(segments.size(), 0);
     if (segments.empty() || availableWidth <= 0 || totalValue == 0) return widths;
 
@@ -167,7 +167,7 @@ std::vector<int> distributeSegmentWidths(const std::vector<HistogramBarSegment> 
     if (extraWidth <= 0) return widths;
 
     int allocatedExtraWidth = 0;
-    for (std::size_t i = 0; i + 1 < segments.size(); ++i) {
+    for (size_t i = 0; i + 1 < segments.size(); ++i) {
         const long double exactExtraWidth = static_cast<long double>(segments[i].value) * extraWidth / totalValue;
         const int wholeExtraWidth = static_cast<int>(exactExtraWidth);
         widths[i] += wholeExtraWidth;
@@ -229,11 +229,11 @@ protected:
         const int cellHeight = 12;
 
         std::array<QRect, kModifiedTimeHistogramBinCount> barRects{};
-        std::uint64_t maxValue = 0;
+        uint64_t maxValue = 0;
         for (const ModifiedTimeHistogramBin &bin : bins_)
             maxValue = std::max(maxValue, metricValue(bin, metricMode_));
 
-        for (std::size_t i = 0; i < bins_.size(); ++i) {
+        for (size_t i = 0; i < bins_.size(); ++i) {
             const ModifiedTimeHistogramBin &bin = bins_[i];
             const int rowY = topMargin + static_cast<int>(i) * rowPitch;
             const int textBaseline = rowY + rowHeight - 4;
@@ -244,7 +244,7 @@ protected:
             painter.drawText(leftMargin + labelWidth + delimiterGap, textBaseline, QStringLiteral("|"));
             if (!valueLabel.isEmpty()) painter.drawText(valueLabelX, textBaseline, valueLabel);
 
-            const std::uint64_t value = metricValue(bin, metricMode_);
+            const uint64_t value = metricValue(bin, metricMode_);
             if (value == 0 || maxValue == 0 || barWidth <= 0) continue;
 
             int filledWidth = static_cast<int>((static_cast<long double>(value) * barWidth / maxValue) + 0.5L);
@@ -254,7 +254,7 @@ protected:
             std::vector<HistogramBarSegment> segments;
             segments.reserve(bin.categories.size());
             for (const ModifiedTimeHistogramCategoryValue &category : bin.categories) {
-                const std::uint64_t categoryValue = metricValue(category, metricMode_);
+                const uint64_t categoryValue = metricValue(category, metricMode_);
                 if (categoryValue == 0) continue;
                 segments.push_back({category.category, categoryValue});
             }
@@ -271,7 +271,7 @@ protected:
             const std::vector<int> segmentWidths = distributeSegmentWidths(segments, contentWidth, value);
 
             int segmentX = barX;
-            for (std::size_t segmentIndex = 0; segmentIndex < segments.size(); ++segmentIndex) {
+            for (size_t segmentIndex = 0; segmentIndex < segments.size(); ++segmentIndex) {
                 const int segmentWidth = segmentWidths[segmentIndex];
                 if (segmentWidth > 0) {
                     painter.fillRect(QRect(segmentX, cellY, segmentWidth, cellHeight),
@@ -301,7 +301,7 @@ protected:
 
         if (hoveredBinIndex_ == binIndex && QToolTip::isVisible()) return;
         hoveredBinIndex_ = binIndex;
-        QToolTip::showText(event->globalPosition().toPoint(), tooltipForBin(static_cast<std::size_t>(binIndex)), this);
+        QToolTip::showText(event->globalPosition().toPoint(), tooltipForBin(static_cast<size_t>(binIndex)), this);
     }
 
     void leaveEvent(QEvent *event) override {
@@ -312,15 +312,15 @@ protected:
 
 private:
     int hitTest(const QPoint &pos) const {
-        for (std::size_t i = 0; i < barRects_.size(); ++i) {
+        for (size_t i = 0; i < barRects_.size(); ++i) {
             if (barRects_[i].isValid() && barRects_[i].contains(pos)) return static_cast<int>(i);
         }
         return -1;
     }
 
-    QString tooltipForBin(std::size_t index) const {
+    QString tooltipForBin(size_t index) const {
         const ModifiedTimeHistogramBin &bin = bins_[index];
-        std::uint32_t endMinutes = bin.endMinutes;
+        uint32_t endMinutes = bin.endMinutes;
         if (index + 1 < bins_.size() && endMinutes > bin.startMinutes) --endMinutes;
 
         QStringList lines;
@@ -336,8 +336,8 @@ private:
 
         std::sort(categories.begin(), categories.end(), [this](const ModifiedTimeHistogramCategoryValue &lhs,
                                                                const ModifiedTimeHistogramCategoryValue &rhs) {
-            const std::uint64_t lhsValue = metricValue(lhs, metricMode_);
-            const std::uint64_t rhsValue = metricValue(rhs, metricMode_);
+            const uint64_t lhsValue = metricValue(lhs, metricMode_);
+            const uint64_t rhsValue = metricValue(rhs, metricMode_);
             if (lhsValue != rhsValue) return lhsValue > rhsValue;
 
             return QString::fromUtf8(FileCategorizer::displayCategoryName(lhs.category))
@@ -360,12 +360,12 @@ private:
 struct HistogramDialogState {
     ModifiedTimeHistogramBuilder builder;
     ModifiedTimeHistogramBounds bounds;
-    std::uint32_t availableMinimumMinutes = 0;
-    std::uint32_t availableMaximumMinutes = 0;
-    std::uint32_t pendingLowerMinutes = 0;
-    std::uint32_t pendingUpperMinutes = 0;
-    std::uint32_t appliedLowerMinutes = 0;
-    std::uint32_t appliedUpperMinutes = 0;
+    uint32_t availableMinimumMinutes = 0;
+    uint32_t availableMaximumMinutes = 0;
+    uint32_t pendingLowerMinutes = 0;
+    uint32_t pendingUpperMinutes = 0;
+    uint32_t appliedLowerMinutes = 0;
+    uint32_t appliedUpperMinutes = 0;
 
     explicit HistogramDialogState(const DirEntryStore &store)
         : builder(store) {}
@@ -527,8 +527,8 @@ void connectHistogramDialogSignals(ModifiedTimeHistogramDialog *dialog,
                      &RangeSlider::rangeChanged,
                      dialog,
                      [state, selectedRangeLabel = widgets.selectedRangeLabel, timer = widgets.debounceTimer](int lower, int upper) {
-                         state->pendingLowerMinutes = static_cast<std::uint32_t>(std::max(lower, 0));
-                         state->pendingUpperMinutes = static_cast<std::uint32_t>(std::max(upper, 0));
+                         state->pendingLowerMinutes = static_cast<uint32_t>(std::max(lower, 0));
+                         state->pendingUpperMinutes = static_cast<uint32_t>(std::max(upper, 0));
                          selectedRangeLabel->setText(formatSelectedRange(state->pendingLowerMinutes, state->pendingUpperMinutes));
                          timer->start();
                      });

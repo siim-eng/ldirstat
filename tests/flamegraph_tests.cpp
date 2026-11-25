@@ -11,7 +11,7 @@ namespace {
 ldirstat::EntryRef addTestEntry(ldirstat::DirEntryStore& entries,
                                 ldirstat::DirEntryStore::AppendCursor& entryCursor,
                                 ldirstat::EntryType type,
-                                std::uint64_t size) {
+                                uint64_t size) {
     const ldirstat::EntryRef ref = entries.add(entryCursor);
     auto& entry = entries[ref];
     entry.type = type;
@@ -25,7 +25,7 @@ void linkChildren(ldirstat::DirEntryStore& entries,
                   std::initializer_list<ldirstat::EntryRef> children) {
     auto& parent = entries[parentRef];
     parent.firstChild = ldirstat::kNoEntry;
-    parent.childCount = static_cast<std::uint32_t>(children.size());
+    parent.childCount = static_cast<uint32_t>(children.size());
 
     ldirstat::EntryRef previous = ldirstat::kNoEntry;
     for (const ldirstat::EntryRef childRef : children) {

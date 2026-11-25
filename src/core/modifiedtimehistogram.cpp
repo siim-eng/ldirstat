@@ -7,19 +7,19 @@ namespace ldirstat {
 
 namespace {
 
-std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> makeEmptyHistogram(std::uint32_t startMinutes,
-                                                                                         std::uint32_t endMinutes) {
+std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> makeEmptyHistogram(uint32_t startMinutes,
+                                                                                         uint32_t endMinutes) {
     std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> bins{};
-    const std::uint64_t range = endMinutes > startMinutes ? static_cast<std::uint64_t>(endMinutes - startMinutes) : 0;
+    const uint64_t range = endMinutes > startMinutes ? static_cast<uint64_t>(endMinutes - startMinutes) : 0;
 
-    for (std::size_t i = 0; i < bins.size(); ++i) {
+    for (size_t i = 0; i < bins.size(); ++i) {
         ModifiedTimeHistogramBin &bin = bins[i];
-        bin.startMinutes = startMinutes + static_cast<std::uint32_t>((range * i) / bins.size());
+        bin.startMinutes = startMinutes + static_cast<uint32_t>((range * i) / bins.size());
         bin.endMinutes = i + 1 < bins.size()
-                             ? startMinutes + static_cast<std::uint32_t>((range * (i + 1)) / bins.size())
+                             ? startMinutes + static_cast<uint32_t>((range * (i + 1)) / bins.size())
                              : endMinutes;
 
-        for (std::size_t categoryIndex = 0; categoryIndex < bin.categories.size(); ++categoryIndex) {
+        for (size_t categoryIndex = 0; categoryIndex < bin.categories.size(); ++categoryIndex) {
             bin.categories[categoryIndex].category = static_cast<FileCategory>(categoryIndex);
         }
     }
@@ -27,17 +27,17 @@ std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> makeEmptyHi
     return bins;
 }
 
-std::size_t binIndexFor(std::uint32_t modifiedMinutes, std::uint32_t startMinutes, std::uint32_t endMinutes) {
+size_t binIndexFor(uint32_t modifiedMinutes, uint32_t startMinutes, uint32_t endMinutes) {
     if (endMinutes <= startMinutes) return kModifiedTimeHistogramBinCount - 1;
     if (modifiedMinutes <= startMinutes) return 0;
     if (modifiedMinutes >= endMinutes) return kModifiedTimeHistogramBinCount - 1;
 
-    const std::uint64_t range = static_cast<std::uint64_t>(endMinutes - startMinutes);
+    const uint64_t range = static_cast<uint64_t>(endMinutes - startMinutes);
     if (range == 0) return kModifiedTimeHistogramBinCount - 1;
 
-    const std::uint64_t offset = static_cast<std::uint64_t>(modifiedMinutes - startMinutes);
-    const std::uint64_t index = (offset * kModifiedTimeHistogramBinCount) / range;
-    return std::min<std::size_t>(kModifiedTimeHistogramBinCount - 1, static_cast<std::size_t>(index));
+    const uint64_t offset = static_cast<uint64_t>(modifiedMinutes - startMinutes);
+    const uint64_t index = (offset * kModifiedTimeHistogramBinCount) / range;
+    return std::min<size_t>(kModifiedTimeHistogramBinCount - 1, static_cast<size_t>(index));
 }
 
 } // namespace
@@ -46,7 +46,7 @@ ModifiedTimeHistogramBounds ModifiedTimeHistogramBuilder::bounds(EntryRef root) 
     ModifiedTimeHistogramBounds result;
 
     forEachFile(root, [&result](const DirEntry &entry) {
-        const std::uint32_t modifiedMinutes = entry.modifiedMinutes();
+        const uint32_t modifiedMinutes = entry.modifiedMinutes();
         if (modifiedMinutes == 0) return;
 
         if (!result.hasKnownFiles) {
@@ -64,18 +64,18 @@ ModifiedTimeHistogramBounds ModifiedTimeHistogramBuilder::bounds(EntryRef root) 
 }
 
 std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> ModifiedTimeHistogramBuilder::build(
-    EntryRef root, std::uint32_t startMinutes, std::uint32_t endMinutes) const {
+    EntryRef root, uint32_t startMinutes, uint32_t endMinutes) const {
     if (endMinutes < startMinutes) endMinutes = startMinutes;
 
     auto bins = makeEmptyHistogram(startMinutes, endMinutes);
 
     forEachFile(root, [&bins, startMinutes, endMinutes](const DirEntry &entry) {
-        const std::uint32_t modifiedMinutes = entry.modifiedMinutes();
+        const uint32_t modifiedMinutes = entry.modifiedMinutes();
         if (modifiedMinutes == 0 || modifiedMinutes < startMinutes || modifiedMinutes > endMinutes) return;
 
         ModifiedTimeHistogramBin &bin = bins[binIndexFor(modifiedMinutes, startMinutes, endMinutes)];
-        const std::uint64_t fileSize = layoutSizeOf(entry);
-        const std::size_t categoryIndex = FileCategorizer::categoryIndex(FileCategorizer::categoryForType(entry.fileType));
+        const uint64_t fileSize = layoutSizeOf(entry);
+        const size_t categoryIndex = FileCategorizer::categoryIndex(FileCategorizer::categoryForType(entry.fileType));
 
         ++bin.fileCount;
         bin.totalSize += fileSize;
