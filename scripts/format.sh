@@ -1,10 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+# Directories with first-party C/C++ code (third_party/ is intentionally excluded)
+source_dirs=(src tests bench)
+
 usage() {
     echo "Usage: $0 [--check]"
     echo
-    echo "Formats C/C++ source files under src/ using the repo's .clang-format."
+    echo "Formats C/C++ source files under ${source_dirs[*]} using the repo's .clang-format."
     echo "  --check   Verify formatting without modifying files"
 }
 
@@ -34,23 +37,23 @@ files=()
 if command -v rg >/dev/null 2>&1; then
     while IFS= read -r -d '' file; do
         files+=("$file")
-    done < <(rg --files src -g '*.h' -g '*.hh' -g '*.hpp' -g '*.cpp' -g '*.cc' -g '*.cxx' -0)
+    done < <(rg --files "${source_dirs[@]}" -g '*.h' -g '*.hh' -g '*.hpp' -g '*.cpp' -g '*.cc' -g '*.cxx' -0)
 else
     while IFS= read -r -d '' file; do
         files+=("$file")
-    done < <(find src -type f \( -name '*.h' -o -name '*.hh' -o -name '*.hpp' -o -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0)
+    done < <(find "${source_dirs[@]}" -type f \( -name '*.h' -o -name '*.hh' -o -name '*.hpp' -o -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0)
 fi
 
 if [[ ${#files[@]} -eq 0 ]]; then
-    echo "No source files found under src/"
+    echo "No source files found under ${source_dirs[*]}"
     exit 0
 fi
 
 if [[ "$mode" == "check" ]]; then
     clang-format --dry-run --Werror "${files[@]}"
-    echo "clang-format check passed for ${#files[@]} files in src/"
+    echo "clang-format check passed for ${#files[@]} files in ${source_dirs[*]}"
     exit 0
 fi
 
 clang-format -i "${files[@]}"
-echo "Formatted ${#files[@]} files in src/"
+echo "Formatted ${#files[@]} files in ${source_dirs[*]}"

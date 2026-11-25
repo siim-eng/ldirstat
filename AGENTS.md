@@ -16,7 +16,7 @@ Short repo notes for coding agents. Prefer code over prose when they disagree.
 
 ## Tooling
 
-- Format `src/`: `scripts/format.sh`
+- Format `src/`, `tests/`, `bench/`: `scripts/format.sh` (`--check` to verify)
 - clang-tidy `src/`: `scripts/tidy.sh`
 - cppcheck `src/`: `scripts/cppcheck.sh`
 
