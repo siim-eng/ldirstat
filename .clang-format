@@ -49,6 +49,8 @@ AllowShortLoopsOnASingleLine: false
 # Line breaking
 BreakBeforeBinaryOperators: NonAssignment
 BreakTemplateDeclarations: MultiLine
+# Prefer breaking parameters over putting the return type on its own line
+PenaltyReturnTypeOnItsOwnLine: 1000
 AlwaysBreakBeforeMultilineStrings: true
 
 # Includes

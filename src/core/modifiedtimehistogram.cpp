@@ -7,17 +7,14 @@ namespace ldirstat {
 
 namespace {
 
-std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> makeEmptyHistogram(uint32_t startMinutes,
-                                                                                         uint32_t endMinutes) {
-    std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> bins{};
+ModifiedTimeHistogram makeEmptyHistogram(uint32_t startMinutes, uint32_t endMinutes) {
+    ModifiedTimeHistogram bins{};
     const uint64_t range = endMinutes > startMinutes ? static_cast<uint64_t>(endMinutes - startMinutes) : 0;
 
     for (size_t i = 0; i < bins.size(); ++i) {
         ModifiedTimeHistogramBin &bin = bins[i];
         bin.startMinutes = startMinutes + static_cast<uint32_t>((range * i) / bins.size());
-        bin.endMinutes = i + 1 < bins.size()
-                             ? startMinutes + static_cast<uint32_t>((range * (i + 1)) / bins.size())
-                             : endMinutes;
+        bin.endMinutes = i + 1 < bins.size() ? startMinutes + static_cast<uint32_t>((range * (i + 1)) / bins.size()) : endMinutes;
 
         for (size_t categoryIndex = 0; categoryIndex < bin.categories.size(); ++categoryIndex) {
             bin.categories[categoryIndex].category = static_cast<FileCategory>(categoryIndex);
@@ -63,8 +60,7 @@ ModifiedTimeHistogramBounds ModifiedTimeHistogramBuilder::bounds(EntryRef root) 
     return result;
 }
 
-std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> ModifiedTimeHistogramBuilder::build(
-    EntryRef root, uint32_t startMinutes, uint32_t endMinutes) const {
+ModifiedTimeHistogram ModifiedTimeHistogramBuilder::build(EntryRef root, uint32_t startMinutes, uint32_t endMinutes) const {
     if (endMinutes < startMinutes) endMinutes = startMinutes;
 
     auto bins = makeEmptyHistogram(startMinutes, endMinutes);

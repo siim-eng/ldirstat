@@ -38,8 +38,7 @@ inline QString formatSizePrecise(uint64_t bytes) {
 
 inline QString formatModifiedMinutes(uint32_t packedMinutes) {
     const qint64 seconds = static_cast<qint64>(packedMinutes) * 60;
-    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone())
-        .toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+    return QDateTime::fromSecsSinceEpoch(seconds, QTimeZone::systemTimeZone()).toString(QStringLiteral("yyyy-MM-dd HH:mm"));
 }
 
 inline QString entryTooltip(const DirEntryStore &store, const NameStore &names, EntryRef ref) {

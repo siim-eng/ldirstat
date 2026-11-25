@@ -58,8 +58,8 @@ void collectDescendantSnapshot(const ldirstat::DirEntryStore &entries,
         const ldirstat::DirEntry &entry = entries[child];
         const std::string name(names.get(entry.name));
         const std::string path = prefix.empty() ? name : prefix + "/" + name;
-        snapshot.push_back(path + "|" + std::to_string(static_cast<int>(entry.type)) + "|" +
-                           std::to_string(entry.size) + "|" + std::to_string(entry.childCount));
+        snapshot.push_back(path + "|" + std::to_string(static_cast<int>(entry.type)) + "|" + std::to_string(entry.size) + "|"
+                           + std::to_string(entry.childCount));
         if (entry.isDir()) collectDescendantSnapshot(entries, names, child, path, snapshot);
     }
 }
@@ -230,8 +230,8 @@ TEST_CASE("continueScan matches a fresh scan for subtree results") {
     CHECK(continuedRoot.fileCount == freshRootEntry.fileCount);
     CHECK(continuedRoot.dirCount == freshRootEntry.dirCount);
     CHECK(continuedRoot.childCount == freshRootEntry.childCount);
-    CHECK(descendantSnapshot(fixture.entryStore, fixture.nameStore, fixture.mountRef) ==
-          descendantSnapshot(freshEntryStore, freshNameStore, freshRoot));
+    CHECK(descendantSnapshot(fixture.entryStore, fixture.nameStore, fixture.mountRef)
+          == descendantSnapshot(freshEntryStore, freshNameStore, freshRoot));
 }
 
 TEST_CASE("continueScan leaves ancestor order untouched until commitContinueScan resorts it") {

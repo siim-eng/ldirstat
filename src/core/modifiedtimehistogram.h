@@ -24,6 +24,8 @@ struct ModifiedTimeHistogramBin {
     std::array<ModifiedTimeHistogramCategoryValue, FileCategorizer::kCategoryCount> categories{};
 };
 
+using ModifiedTimeHistogram = std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount>;
+
 struct ModifiedTimeHistogramBounds {
     uint32_t earliestMinutes = 0;
     uint32_t latestMinutes = 0;
@@ -36,9 +38,7 @@ public:
         : entryStore_(entryStore) {}
 
     ModifiedTimeHistogramBounds bounds(EntryRef root) const;
-    std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> build(EntryRef root,
-                                                                               uint32_t startMinutes,
-                                                                               uint32_t endMinutes) const;
+    ModifiedTimeHistogram build(EntryRef root, uint32_t startMinutes, uint32_t endMinutes) const;
 
 private:
     template<typename Visitor> void forEachFile(EntryRef root, Visitor &&visit) const;

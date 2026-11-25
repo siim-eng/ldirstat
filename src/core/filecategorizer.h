@@ -500,8 +500,7 @@ private:
         return packLiteral(s, N - 1);
     }
 
-    template<size_t N>
-    static inline bool equalsLiteralIgnoreCase(const char *s, size_t len, const char (&literal)[N]) {
+    template<size_t N> static inline bool equalsLiteralIgnoreCase(const char *s, size_t len, const char (&literal)[N]) {
         static_assert(N >= 2, "literal must not be empty");
         if (len != N - 1) return false;
 
@@ -1041,8 +1040,8 @@ private:
     TypeItems typeItems_{};
 };
 
-inline constexpr std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeCategories_ =
-    ldirstat::FileCategorizer::buildTypeCategories();
+inline constexpr std::array<ldirstat::FileCategory, ldirstat::FileCategorizer::kTypeCount>
+    ldirstat::FileCategorizer::kTypeCategories_ = ldirstat::FileCategorizer::buildTypeCategories();
 inline constexpr std::array<std::string_view, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeExtensions_ =
     ldirstat::FileCategorizer::buildTypeExtensions();
 inline constexpr std::array<const char *, ldirstat::FileCategorizer::kTypeCount> ldirstat::FileCategorizer::kTypeDisplayNames_ =

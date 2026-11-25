@@ -6,8 +6,8 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFrame>
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QLabel>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -46,8 +46,7 @@ QString formatTypeLabel(FileType type) {
 
     const std::string_view extension = FileCategorizer::extensionForType(type);
     if (extension.empty()) {
-        if (type == FileType::VersionedSharedLibrary)
-            return QObject::tr("%1 (.so.*)").arg(QLatin1String(displayName));
+        if (type == FileType::VersionedSharedLibrary) return QObject::tr("%1 (.so.*)").arg(QLatin1String(displayName));
         return QObject::tr(displayName);
     }
 
@@ -64,17 +63,14 @@ QWidget *createColorSwatchWidget(const QColor &color, const QString &toolTip, QW
     auto *swatch = new QFrame(container);
     swatch->setFixedSize(18, 11);
     swatch->setToolTip(toolTip);
-    swatch->setStyleSheet(QStringLiteral("background-color: %1; border: 1px solid palette(mid); border-radius: 2px;")
-                              .arg(color.name()));
+    swatch->setStyleSheet(
+        QStringLiteral("background-color: %1; border: 1px solid palette(mid); border-radius: 2px;").arg(color.name()));
     layout->addWidget(swatch, 0, Qt::AlignCenter);
 
     return container;
 }
 
-void populateStatsRow(QTreeWidgetItem *item,
-                      const QString &label,
-                      uint64_t count,
-                      uint64_t totalSize) {
+void populateStatsRow(QTreeWidgetItem *item, const QString &label, uint64_t count, uint64_t totalSize) {
     item->setFlags(Qt::ItemIsEnabled);
     item->setToolTip(0, label);
     item->setToolTip(1, label);
@@ -155,10 +151,10 @@ FileCategoryStatsDialog::FileCategoryStatsDialog(const DirEntryStore &store,
         std::sort(childItems.begin(),
                   childItems.end(),
                   [](const FileCategoryCounter::TypeItem &lhs, const FileCategoryCounter::TypeItem &rhs) {
-                      if (lhs.totalSize != rhs.totalSize) return lhs.totalSize > rhs.totalSize;
+            if (lhs.totalSize != rhs.totalSize) return lhs.totalSize > rhs.totalSize;
 
-                      return formatTypeLabel(lhs.type) < formatTypeLabel(rhs.type);
-                  });
+            return formatTypeLabel(lhs.type) < formatTypeLabel(rhs.type);
+        });
 
         for (const FileCategoryCounter::TypeItem &typeItem : childItems) {
             auto *typeRow = new QTreeWidgetItem(categoryItem);

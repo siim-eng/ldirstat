@@ -16,8 +16,8 @@ constexpr uint64_t kFilesPerDirectory = 1000;
 constexpr uint32_t kSubdirsPerDirectory = 4;
 constexpr size_t kMaxFileSize = 8 * 1024;
 
-bool parseFileCount(const char* text, uint64_t& value) {
-    char* end = nullptr;
+bool parseFileCount(const char *text, uint64_t &value) {
+    char *end = nullptr;
     errno = 0;
     unsigned long long parsed = std::strtoull(text, &end, 10);
     if (errno != 0 || end == text || *end != '\0') {
@@ -30,15 +30,13 @@ bool parseFileCount(const char* text, uint64_t& value) {
 
 std::string makeDirectoryName(uint64_t dirIndex) {
     char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "dir%08llu",
-                  static_cast<unsigned long long>(dirIndex));
+    std::snprintf(buffer, sizeof(buffer), "dir%08llu", static_cast<unsigned long long>(dirIndex));
     return buffer;
 }
 
 std::string makeFileName(uint64_t fileIndex) {
     char buffer[32];
-    std::snprintf(buffer, sizeof(buffer), "file%010llu.bin",
-                  static_cast<unsigned long long>(fileIndex));
+    std::snprintf(buffer, sizeof(buffer), "file%010llu.bin", static_cast<unsigned long long>(fileIndex));
     return buffer;
 }
 
@@ -50,9 +48,7 @@ uint64_t directoryCountForFiles(uint64_t remainingFiles) {
     return (remainingFiles + kFilesPerDirectory - 1) / kFilesPerDirectory;
 }
 
-bool createFile(const std::filesystem::path& filePath,
-                size_t fileSize,
-                const std::vector<char>& fileData) {
+bool createFile(const std::filesystem::path &filePath, size_t fileSize, const std::vector<char> &fileData) {
     std::ofstream out(filePath, std::ios::binary | std::ios::trunc);
     if (!out) {
         return false;
@@ -67,7 +63,7 @@ bool createFile(const std::filesystem::path& filePath,
 
 } // namespace
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     if (argc != 2) {
         std::fprintf(stderr, "Usage: %s <file_count>\n", argv[0]);
         return 1;
@@ -79,8 +75,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::filesystem::path rootPath =
-        std::filesystem::current_path() / ("gentree_" + std::to_string(fileLimit));
+    std::filesystem::path rootPath = std::filesystem::current_path() / ("gentree_" + std::to_string(fileLimit));
     std::error_code error;
 
     if (std::filesystem::exists(rootPath, error)) {
@@ -88,14 +83,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     if (error) {
-        std::fprintf(stderr, "failed to inspect output path %s: %s\n",
-                     rootPath.c_str(), error.message().c_str());
+        std::fprintf(stderr, "failed to inspect output path %s: %s\n", rootPath.c_str(), error.message().c_str());
         return 1;
     }
 
     if (!std::filesystem::create_directory(rootPath, error)) {
-        std::fprintf(stderr, "failed to create root directory %s: %s\n",
-                     rootPath.c_str(), error.message().c_str());
+        std::fprintf(stderr, "failed to create root directory %s: %s\n", rootPath.c_str(), error.message().c_str());
         return 1;
     }
 
@@ -117,13 +110,11 @@ int main(int argc, char* argv[]) {
     std::vector<std::filesystem::path> currentLevel;
     currentLevel.reserve(kSubdirsPerDirectory);
 
-    uint64_t initialDirCount = std::min<uint64_t>(
-        kSubdirsPerDirectory, directoryCountForFiles(remainingFiles));
+    uint64_t initialDirCount = std::min<uint64_t>(kSubdirsPerDirectory, directoryCountForFiles(remainingFiles));
     for (uint64_t i = 0; i < initialDirCount; ++i) {
         std::filesystem::path dirPath = rootPath / makeDirectoryName(nextDirId++);
         if (!std::filesystem::create_directory(dirPath, error)) {
-            std::fprintf(stderr, "failed to create directory %s: %s\n",
-                         dirPath.c_str(), error.message().c_str());
+            std::fprintf(stderr, "failed to create directory %s: %s\n", dirPath.c_str(), error.message().c_str());
             return 1;
         }
         currentLevel.push_back(std::move(dirPath));
@@ -133,7 +124,7 @@ int main(int argc, char* argv[]) {
     auto startTime = std::chrono::steady_clock::now();
 
     while (remainingFiles > 0 && !currentLevel.empty()) {
-        for (const std::filesystem::path& dirPath : currentLevel) {
+        for (const std::filesystem::path &dirPath : currentLevel) {
             if (remainingFiles == 0) {
                 break;
             }
@@ -157,9 +148,8 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        uint64_t nextLevelDirCount = std::min<uint64_t>(
-            static_cast<uint64_t>(currentLevel.size()) * kSubdirsPerDirectory,
-            directoryCountForFiles(remainingFiles));
+        uint64_t nextLevelDirCount = std::min<uint64_t>(static_cast<uint64_t>(currentLevel.size()) * kSubdirsPerDirectory,
+                                                        directoryCountForFiles(remainingFiles));
 
         std::vector<std::filesystem::path> nextLevel;
         nextLevel.reserve(nextLevelDirCount);
@@ -174,11 +164,9 @@ int main(int argc, char* argv[]) {
             size_t parentIndex = parentQueue.front();
             parentQueue.pop_front();
 
-            std::filesystem::path dirPath =
-                currentLevel[parentIndex] / makeDirectoryName(nextDirId++);
+            std::filesystem::path dirPath = currentLevel[parentIndex] / makeDirectoryName(nextDirId++);
             if (!std::filesystem::create_directory(dirPath, error)) {
-                std::fprintf(stderr, "failed to create directory %s: %s\n",
-                             dirPath.c_str(), error.message().c_str());
+                std::fprintf(stderr, "failed to create directory %s: %s\n", dirPath.c_str(), error.message().c_str());
                 return 1;
             }
 
@@ -195,13 +183,10 @@ int main(int argc, char* argv[]) {
     }
 
     auto endTime = std::chrono::steady_clock::now();
-    double elapsedMs =
-        std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count()
-        / 1000.0;
+    double elapsedMs = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() / 1000.0;
 
     if (createdFiles != fileLimit) {
-        std::fprintf(stderr, "generation stopped early after %llu files\n",
-                     static_cast<unsigned long long>(createdFiles));
+        std::fprintf(stderr, "generation stopped early after %llu files\n", static_cast<unsigned long long>(createdFiles));
         return 1;
     }
 

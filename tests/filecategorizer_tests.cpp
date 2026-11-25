@@ -33,20 +33,19 @@ struct TempDir {
         std::string templ = (fs::temp_directory_path() / "ldirstat-scanner-XXXXXX").string();
         std::vector<char> buffer(templ.begin(), templ.end());
         buffer.push_back('\0');
-        char* created = ::mkdtemp(buffer.data());
+        char *created = ::mkdtemp(buffer.data());
         REQUIRE(created != nullptr);
         path = created;
     }
 
     ~TempDir() {
-        if (path.empty())
-            return;
+        if (path.empty()) return;
         std::error_code ec;
         fs::remove_all(path, ec);
     }
 };
 
-void writeFileWithMode(const fs::path& path, mode_t mode) {
+void writeFileWithMode(const fs::path &path, mode_t mode) {
     const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, mode);
     REQUIRE(fd >= 0);
     const char payload[] = "x";
@@ -55,21 +54,20 @@ void writeFileWithMode(const fs::path& path, mode_t mode) {
     REQUIRE(::close(fd) == 0);
 }
 
-ldirstat::EntryRef findChildByName(const ldirstat::DirEntryStore& entries,
-                                   const ldirstat::NameStore& names,
+ldirstat::EntryRef findChildByName(const ldirstat::DirEntryStore &entries,
+                                   const ldirstat::NameStore &names,
                                    ldirstat::EntryRef dirRef,
                                    std::string_view name) {
     ldirstat::EntryRef child = entries[dirRef].firstChild;
     while (child.valid()) {
-        if (names.get(entries[child].name) == name)
-            return child;
+        if (names.get(entries[child].name) == name) return child;
         child = entries[child].nextSibling;
     }
     return ldirstat::kNoEntry;
 }
 
-ldirstat::EntryRef findDescendantByPath(const ldirstat::DirEntryStore& entries,
-                                        const ldirstat::NameStore& names,
+ldirstat::EntryRef findDescendantByPath(const ldirstat::DirEntryStore &entries,
+                                        const ldirstat::NameStore &names,
                                         ldirstat::EntryRef rootRef,
                                         std::initializer_list<std::string_view> path) {
     ldirstat::EntryRef current = rootRef;
@@ -333,12 +331,12 @@ TEST_CASE("counts file categories across a direntry tree") {
     const ldirstat::EntryRef sourceRef = entryStore.add(entryCursor);
     const ldirstat::EntryRef unknownRef = entryStore.add(entryCursor);
 
-    auto& root = entryStore[rootRef];
+    auto &root = entryStore[rootRef];
     root.type = ldirstat::EntryType::Directory;
     root.firstChild = docRef;
     root.childCount = 3;
 
-    auto& doc = entryStore[docRef];
+    auto &doc = entryStore[docRef];
     doc.parent = rootRef;
     doc.type = ldirstat::EntryType::File;
     doc.fileType = FileType::ExtPdf;
@@ -346,7 +344,7 @@ TEST_CASE("counts file categories across a direntry tree") {
     doc.size = 100;
     doc.nextSibling = musicRef;
 
-    auto& music = entryStore[musicRef];
+    auto &music = entryStore[musicRef];
     music.parent = rootRef;
     music.type = ldirstat::EntryType::File;
     music.fileType = FileType::ExtMp3;
@@ -354,13 +352,13 @@ TEST_CASE("counts file categories across a direntry tree") {
     music.size = 200;
     music.nextSibling = subdirRef;
 
-    auto& subdir = entryStore[subdirRef];
+    auto &subdir = entryStore[subdirRef];
     subdir.parent = rootRef;
     subdir.type = ldirstat::EntryType::Directory;
     subdir.firstChild = sourceRef;
     subdir.childCount = 2;
 
-    auto& source = entryStore[sourceRef];
+    auto &source = entryStore[sourceRef];
     source.parent = subdirRef;
     source.type = ldirstat::EntryType::File;
     source.fileType = FileType::ExtCpp;
@@ -368,7 +366,7 @@ TEST_CASE("counts file categories across a direntry tree") {
     source.size = 50;
     source.nextSibling = unknownRef;
 
-    auto& unknown = entryStore[unknownRef];
+    auto &unknown = entryStore[unknownRef];
     unknown.parent = subdirRef;
     unknown.type = ldirstat::EntryType::File;
     unknown.fileType = FileType::Unknown;
@@ -378,7 +376,7 @@ TEST_CASE("counts file categories across a direntry tree") {
     ldirstat::FileCategoryCounter counter(entryStore);
     counter.countTree(rootRef);
 
-    const auto& items = counter.items();
+    const auto &items = counter.items();
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Document)].count == 1);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Document)].totalSize == 100);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Music)].count == 1);
@@ -390,7 +388,7 @@ TEST_CASE("counts file categories across a direntry tree") {
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].count == 0);
     CHECK(items[FileCategorizer::categoryIndex(FileCategory::Archive)].totalSize == 0);
 
-    const auto& typeItems = counter.typeItems();
+    const auto &typeItems = counter.typeItems();
     CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtPdf)].count == 1);
     CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtPdf)].totalSize == 100);
     CHECK(typeItems[FileCategorizer::typeIndex(FileType::ExtMp3)].count == 1);

@@ -1,9 +1,9 @@
 #include <cstdlib>
 
+#include <QApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
-#include <QApplication>
 #include <QIcon>
 #include <QMutex>
 #include <QMutexLocker>
@@ -26,16 +26,11 @@ QString debugLogPath() {
 
 QString messageTypeName(QtMsgType type) {
     switch (type) {
-    case QtDebugMsg:
-        return QStringLiteral("DEBUG");
-    case QtInfoMsg:
-        return QStringLiteral("INFO");
-    case QtWarningMsg:
-        return QStringLiteral("WARN");
-    case QtCriticalMsg:
-        return QStringLiteral("CRIT");
-    case QtFatalMsg:
-        return QStringLiteral("FATAL");
+    case QtDebugMsg: return QStringLiteral("DEBUG");
+    case QtInfoMsg: return QStringLiteral("INFO");
+    case QtWarningMsg: return QStringLiteral("WARN");
+    case QtCriticalMsg: return QStringLiteral("CRIT");
+    case QtFatalMsg: return QStringLiteral("FATAL");
     }
 
     return QStringLiteral("LOG");
@@ -48,8 +43,7 @@ void fileMessageHandler(QtMsgType type, const QMessageLogContext &context, const
     QFile file(debugLogPath());
     if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
         QTextStream stream(&file);
-        stream << QDateTime::currentDateTime().toString(Qt::ISODateWithMs) << ' '
-               << messageTypeName(type) << ' ';
+        stream << QDateTime::currentDateTime().toString(Qt::ISODateWithMs) << ' ' << messageTypeName(type) << ' ';
         if (context.category && context.category[0] != '\0') stream << '[' << context.category << "] ";
         stream << message;
         if (context.file && context.line > 0) stream << " (" << context.file << ':' << context.line << ')';

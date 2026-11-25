@@ -8,8 +8,8 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
-#include <linux/stat.h>
 #include <limits>
+#include <linux/stat.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -45,8 +45,7 @@ bool isExecutableByMode(const struct stat &st) {
 }
 
 bool isCachePathComponent(const char *component, size_t len) {
-    return (len == 5 && std::memcmp(component, "cache", 5) == 0) ||
-           (len == 6 && std::memcmp(component, ".cache", 6) == 0);
+    return (len == 5 && std::memcmp(component, "cache", 5) == 0) || (len == 6 && std::memcmp(component, ".cache", 6) == 0);
 }
 
 bool pathContainsCacheComponent(const char *path) {

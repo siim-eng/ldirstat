@@ -182,12 +182,12 @@ std::vector<int> distributeSegmentWidths(const std::vector<HistogramBarSegment> 
 class ModifiedTimeHistogramWidget : public QWidget {
 public:
     explicit ModifiedTimeHistogramWidget(const ThemeColors &themeColors, QWidget *parent = nullptr)
-        : QWidget(parent)
-        , themeColors_(themeColors) {
+        : QWidget(parent),
+          themeColors_(themeColors) {
         setMouseTracking(true);
     }
 
-    void setBins(const std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> &bins) {
+    void setBins(const ModifiedTimeHistogram &bins) {
         bins_ = bins;
         update();
     }
@@ -334,8 +334,9 @@ private:
             categories.push_back(category);
         }
 
-        std::sort(categories.begin(), categories.end(), [this](const ModifiedTimeHistogramCategoryValue &lhs,
-                                                               const ModifiedTimeHistogramCategoryValue &rhs) {
+        std::sort(categories.begin(),
+                  categories.end(),
+                  [this](const ModifiedTimeHistogramCategoryValue &lhs, const ModifiedTimeHistogramCategoryValue &rhs) {
             const uint64_t lhsValue = metricValue(lhs, metricMode_);
             const uint64_t rhsValue = metricValue(rhs, metricMode_);
             if (lhsValue != rhsValue) return lhsValue > rhsValue;
@@ -350,7 +351,7 @@ private:
         return lines.join('\n');
     }
 
-    std::array<ModifiedTimeHistogramBin, kModifiedTimeHistogramBinCount> bins_{};
+    ModifiedTimeHistogram bins_{};
     std::array<QRect, kModifiedTimeHistogramBinCount> barRects_{};
     HistogramMetricMode metricMode_ = HistogramMetricMode::FileCount;
     int hoveredBinIndex_ = -1;
@@ -453,7 +454,8 @@ HistogramDialogWidgets buildHistogramDialogWidgets(ModifiedTimeHistogramDialog *
         new QLabel(state.bounds.hasKnownFiles ? formatSelectedRange(state.pendingLowerMinutes, state.pendingUpperMinutes)
                                               : QObject::tr("No known timestamps"),
                    dialog);
-    widgets.selectedRangeLabel->setMinimumWidth(dialog->fontMetrics().horizontalAdvance(QStringLiteral("0000-00-00 - 0000-00-00")));
+    widgets.selectedRangeLabel->setMinimumWidth(
+        dialog->fontMetrics().horizontalAdvance(QStringLiteral("0000-00-00 - 0000-00-00")));
     widgets.selectedRangeLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     controlsLayout->addWidget(widgets.selectedRangeLabel);
 
@@ -484,12 +486,15 @@ HistogramDialogWidgets buildHistogramDialogWidgets(ModifiedTimeHistogramDialog *
 }
 
 void syncHistogramRangeInputs(const std::shared_ptr<HistogramDialogState> &state, const HistogramDialogWidgets &widgets) {
-    state->pendingUpperMinutes = std::clamp(state->pendingUpperMinutes, state->availableMinimumMinutes, state->availableMaximumMinutes);
-    state->pendingLowerMinutes = std::clamp(state->pendingLowerMinutes, state->availableMinimumMinutes, state->pendingUpperMinutes);
+    state->pendingUpperMinutes =
+        std::clamp(state->pendingUpperMinutes, state->availableMinimumMinutes, state->availableMaximumMinutes);
+    state->pendingLowerMinutes =
+        std::clamp(state->pendingLowerMinutes, state->availableMinimumMinutes, state->pendingUpperMinutes);
 
     {
         const QSignalBlocker sliderBlocker(*widgets.rangeSlider);
-        widgets.rangeSlider->setRange(sliderIntValue(state->availableMinimumMinutes), sliderIntValue(state->availableMaximumMinutes));
+        widgets.rangeSlider->setRange(sliderIntValue(state->availableMinimumMinutes),
+                                      sliderIntValue(state->availableMaximumMinutes));
         widgets.rangeSlider->setLowerValue(sliderIntValue(state->pendingLowerMinutes));
         widgets.rangeSlider->setUpperValue(sliderIntValue(state->pendingUpperMinutes));
     }
@@ -515,33 +520,32 @@ void applyHistogramDialogState(const std::shared_ptr<HistogramDialogState> &stat
         return;
     }
 
-    widgets.summaryLabel->setText(QObject::tr("Showing 24 bins from %1 to %2 for the current directory and all subdirectories.")
-                                      .arg(formatHistogramDate(state->appliedLowerMinutes), formatHistogramDate(state->appliedUpperMinutes)));
+    widgets.summaryLabel->setText(
+        QObject::tr("Showing 24 bins from %1 to %2 for the current directory and all subdirectories.")
+            .arg(formatHistogramDate(state->appliedLowerMinutes), formatHistogramDate(state->appliedUpperMinutes)));
 }
 
 void connectHistogramDialogSignals(ModifiedTimeHistogramDialog *dialog,
                                    const std::shared_ptr<HistogramDialogState> &state,
                                    EntryRef dirRef,
                                    const HistogramDialogWidgets &widgets) {
-    QObject::connect(widgets.rangeSlider,
-                     &RangeSlider::rangeChanged,
-                     dialog,
-                     [state, selectedRangeLabel = widgets.selectedRangeLabel, timer = widgets.debounceTimer](int lower, int upper) {
-                         state->pendingLowerMinutes = static_cast<uint32_t>(std::max(lower, 0));
-                         state->pendingUpperMinutes = static_cast<uint32_t>(std::max(upper, 0));
-                         selectedRangeLabel->setText(formatSelectedRange(state->pendingLowerMinutes, state->pendingUpperMinutes));
-                         timer->start();
-                     });
+    QLabel *rangeLabel = widgets.selectedRangeLabel;
+    QTimer *timer = widgets.debounceTimer;
+    QObject::connect(widgets.rangeSlider, &RangeSlider::rangeChanged, dialog, [state, rangeLabel, timer](int lower, int upper) {
+        state->pendingLowerMinutes = static_cast<uint32_t>(std::max(lower, 0));
+        state->pendingUpperMinutes = static_cast<uint32_t>(std::max(upper, 0));
+        rangeLabel->setText(formatSelectedRange(state->pendingLowerMinutes, state->pendingUpperMinutes));
+        timer->start();
+    });
 
     QObject::connect(widgets.debounceTimer, &QTimer::timeout, dialog, [state, dirRef, widgets]() {
         applyHistogramDialogState(state, dirRef, widgets);
     });
 
-    QObject::connect(widgets.metricCombo,
-                     qOverload<int>(&QComboBox::currentIndexChanged),
-                     dialog,
-                     [histogramWidget = widgets.histogramWidget](int index) { histogramWidget->setMetricMode(metricModeForIndex(index)); });
-
+    ModifiedTimeHistogramWidget *histogramWidget = widgets.histogramWidget;
+    QObject::connect(widgets.metricCombo, qOverload<int>(&QComboBox::currentIndexChanged), dialog, [histogramWidget](int index) {
+        histogramWidget->setMetricMode(metricModeForIndex(index));
+    });
 }
 
 } // namespace

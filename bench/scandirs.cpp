@@ -38,7 +38,7 @@ int main(int argc, const char *argv[]) {
     scanner.sortBySize(workerCount);
     auto t4 = std::chrono::steady_clock::now();
 
-    const ldirstat::DirEntry& root = entryStore[rootRef];
+    const ldirstat::DirEntry &root = entryStore[rootRef];
 
     double scanMs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
     double propagateMs = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
@@ -48,8 +48,7 @@ int main(int argc, const char *argv[]) {
     // Memory usage.
     uint16_t entryPages = entryStore.pageCount();
     uint16_t namePages = nameStore.pageCount();
-    size_t entryBytes = static_cast<size_t>(entryPages)
-        * ldirstat::DirEntryStore::kEntriesPerPage * sizeof(ldirstat::DirEntry);
+    size_t entryBytes = static_cast<size_t>(entryPages) * ldirstat::DirEntryStore::kEntriesPerPage * sizeof(ldirstat::DirEntry);
     size_t nameBytes = static_cast<size_t>(namePages) * 65536;
     size_t totalBytes = entryBytes + nameBytes;
 
@@ -62,8 +61,10 @@ int main(int argc, const char *argv[]) {
     std::printf("sort:      %.3f ms\n", sortMs);
     std::printf("memory:    %.1f MB (entries: %u pages / %.1f MB, names: %u pages / %.1f MB)\n",
                 totalBytes / (1024.0 * 1024.0),
-                entryPages, entryBytes / (1024.0 * 1024.0),
-                namePages, nameBytes / (1024.0 * 1024.0));
+                entryPages,
+                entryBytes / (1024.0 * 1024.0),
+                namePages,
+                nameBytes / (1024.0 * 1024.0));
 
     // Read RSS from /proc/self/status.
     long rssKb = 0;
@@ -77,9 +78,8 @@ int main(int argc, const char *argv[]) {
     }
     std::printf("rss:       %.1f MB\n", rssKb / 1024.0);
 
-    for (const auto& item : categoryCounter.items()) {
-        if (item.count == 0)
-            continue;
+    for (const auto &item : categoryCounter.items()) {
+        if (item.count == 0) continue;
 
         std::printf("category:  %-16s count=%lu size=%lu bytes\n",
                     ldirstat::FileCategorizer::categoryName(item.category),
