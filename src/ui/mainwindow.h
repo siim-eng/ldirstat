@@ -25,9 +25,10 @@ namespace ldirstat {
 class DirListView;
 class FlameGraphWidget;
 class GraphWidget;
+class HeaderTreeMapWidget;
 class MainWindowBuilder;
+class PackedTreeMapWidget;
 class ScanProgressWidget;
-class TreeMapWidget;
 class WelcomeWidget;
 
 class MainWindow : public QMainWindow {
@@ -138,7 +139,8 @@ private:
     QStackedWidget *flameStack_ = nullptr;
     QStackedWidget *graphTypeStack_ = nullptr;
     FlameGraphWidget *flameGraphWidget_ = nullptr;
-    TreeMapWidget *treeMapWidget_ = nullptr;
+    HeaderTreeMapWidget *headerTreeMapWidget_ = nullptr;
+    PackedTreeMapWidget *packedTreeMapWidget_ = nullptr;
     GraphWidget *graphWidget_ = nullptr;
     ScanProgressWidget *scanProgress_ = nullptr;
     QTimer *scanPollTimer_ = nullptr;

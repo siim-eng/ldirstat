@@ -3,9 +3,10 @@
 
 #include "dirlistview.h"
 #include "flamegraphwidget.h"
+#include "headertreemapwidget.h"
 #include "iconutil.h"
+#include "packedtreemapwidget.h"
 #include "scanprogresswidget.h"
-#include "treemapwidget.h"
 #include "welcomewidget.h"
 
 #include <QAction>
@@ -36,7 +37,7 @@ void MainWindowBuilder::build(MainWindow *w) {
     connectCoreSignals(w);
     connectGraphTypeSignals(w, graphTypeActions);
     connectVisibilitySignals(w);
-    activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map no headers"));
+    activateGraphWidget(w, w->packedTreeMapWidget_, MainWindow::tr("Tree Map no headers"));
     updateGraphTypeButtonVisibility(w);
 }
 
@@ -151,16 +152,17 @@ void MainWindowBuilder::buildToolbar(MainWindow *w) {
 void MainWindowBuilder::buildAnalysisWidgets(MainWindow *w) {
     w->dirListView_ = new DirListView(w);
     w->flameGraphWidget_ = new FlameGraphWidget(w);
-    w->treeMapWidget_ = new TreeMapWidget(w);
-    w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::Packed);
-    w->graphWidget_ = w->treeMapWidget_;
+    w->headerTreeMapWidget_ = new HeaderTreeMapWidget(w);
+    w->packedTreeMapWidget_ = new PackedTreeMapWidget(w);
+    w->graphWidget_ = w->packedTreeMapWidget_;
 
     w->scanProgress_ = new ScanProgressWidget(w);
 
     w->graphTypeStack_ = new QStackedWidget(w);
     w->graphTypeStack_->addWidget(w->flameGraphWidget_);
-    w->graphTypeStack_->addWidget(w->treeMapWidget_);
-    w->graphTypeStack_->setCurrentWidget(w->treeMapWidget_);
+    w->graphTypeStack_->addWidget(w->headerTreeMapWidget_);
+    w->graphTypeStack_->addWidget(w->packedTreeMapWidget_);
+    w->graphTypeStack_->setCurrentWidget(w->packedTreeMapWidget_);
 
     w->flameStack_ = new QStackedWidget(w);
     w->flameStack_->addWidget(w->scanProgress_);
@@ -245,10 +247,12 @@ void MainWindowBuilder::connectCoreSignals(MainWindow *w) {
     QObject::connect(w->dirListView_, &DirListView::directorySelected, w, &MainWindow::onDirSelected);
     QObject::connect(w->dirListView_, &DirListView::entrySelected, w, &MainWindow::onEntrySelected);
     QObject::connect(w->flameGraphWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
-    QObject::connect(w->treeMapWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
+    QObject::connect(w->headerTreeMapWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
+    QObject::connect(w->packedTreeMapWidget_, &GraphWidget::entrySelected, w, &MainWindow::onGraphEntrySelected);
     QObject::connect(w->dirListView_, &DirListView::contextMenuRequested, w, &MainWindow::showDirListContextMenu);
     QObject::connect(w->flameGraphWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
-    QObject::connect(w->treeMapWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->headerTreeMapWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
+    QObject::connect(w->packedTreeMapWidget_, &GraphWidget::contextMenuRequested, w, &MainWindow::showEntryContextMenu);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::scanRequested, w, &MainWindow::startScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::mountAndScanRequested, w, &MainWindow::mountAndScan);
     QObject::connect(w->welcomeWidget_, &WelcomeWidget::openDirectoryRequested, w, [w]() {
@@ -263,12 +267,10 @@ void MainWindowBuilder::connectGraphTypeSignals(MainWindow *w, const GraphTypeAc
         activateGraphWidget(w, w->flameGraphWidget_, MainWindow::tr("Flame Graph"));
     });
     QObject::connect(actions.treeMapHeaders, &QAction::triggered, w, [w]() {
-        w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::DirectoryHeaders);
-        activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map - Directory Headers"));
+        activateGraphWidget(w, w->headerTreeMapWidget_, MainWindow::tr("Tree Map - Directory Headers"));
     });
     QObject::connect(actions.treeMapPacked, &QAction::triggered, w, [w]() {
-        w->treeMapWidget_->setRenderMode(TreeMapWidget::RenderMode::Packed);
-        activateGraphWidget(w, w->treeMapWidget_, MainWindow::tr("Tree Map no headers"));
+        activateGraphWidget(w, w->packedTreeMapWidget_, MainWindow::tr("Tree Map no headers"));
     });
 }
 

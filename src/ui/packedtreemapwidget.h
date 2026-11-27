@@ -1,7 +1,7 @@
 #pragma once
 
 #include "graphwidget.h"
-#include "treemap.h"
+#include "packedtreemap.h"
 
 class QMouseEvent;
 class QPaintEvent;
@@ -11,16 +11,12 @@ class QTimer;
 
 namespace ldirstat {
 
-class TreeMapWidget : public GraphWidget {
+// "Tree Map no headers": fully packed squarified treemap.
+class PackedTreeMapWidget : public GraphWidget {
     Q_OBJECT
 
 public:
-    enum class RenderMode : uint8_t {
-        Packed,
-        DirectoryHeaders,
-    };
-
-    explicit TreeMapWidget(QWidget *parent = nullptr);
+    explicit PackedTreeMapWidget(QWidget *parent = nullptr);
 
     void setStores(const DirEntryStore *store, const NameStore *names) override;
     void setDirectory(EntryRef dir) override;
@@ -32,8 +28,6 @@ public:
         themeColors_ = colors;
         update();
     }
-
-    void setRenderMode(RenderMode mode);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -49,19 +43,17 @@ private:
     void ensureLayout();
     void rebuildLayout();
     EntryRef hitTest(const QPoint &pos);
+    void paintTreeMap(QPainter &painter, const QPalette &widgetPalette) const;
 
-    void paintPacked(QPainter &painter, const QPalette &widgetPalette) const;
-    void paintDirectoryHeaders(QPainter &painter, const QPalette &widgetPalette) const;
-
-    RenderMode renderMode_ = RenderMode::DirectoryHeaders;
-    TreeMap treeMap_;
+    PackedTreeMap treeMap_;
     const DirEntryStore *store_ = nullptr;
     const NameStore *names_ = nullptr;
     ThemeColors themeColors_;
     EntryRef currentDir_;
     EntryRef selectedEntry_ = kNoEntry;
     QSize lastLayoutSize_;
-    bool layoutDirty_ = true;
+    // Cached nodes may reference entries the current store no longer has.
+    bool dataChanged_ = true;
     QTimer *resizeDebounceTimer_ = nullptr;
 };
 

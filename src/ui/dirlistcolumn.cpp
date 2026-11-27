@@ -754,7 +754,7 @@ void DirListColumn::paintFooter(QPainter &painter, const QRect &footerRect) {
     painter.drawLine(0, footerRect.y(), footerRect.width(), footerRect.y());
 
     painter.setPen(pal.text().color());
-    const QString footerText = QString("%1 dirs, %2 files, %3").arg(footerDirs_).arg(footerFiles_).arg(formatSize(footerBytes_));
+    const QString footerText = QString("%1, %2 dirs, %3 files").arg(formatSize(footerBytes_)).arg(footerDirs_).arg(footerFiles_);
     painter.drawText(kLeftPadding,
                      footerRect.y(),
                      footerRect.width() - kLeftPadding - kPadding,

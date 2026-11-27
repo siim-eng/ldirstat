@@ -30,7 +30,8 @@ add_library(ldirstat_core STATIC
     src/core/scanner.cpp
     src/core/flamegraph.cpp
     src/core/modifiedtimehistogram.cpp
-    src/core/treemap.cpp
+    src/core/packedtreemap.cpp
+    src/core/headertreemap.cpp
     src/core/filesystem.cpp
 )
 target_include_directories(ldirstat_core PUBLIC src/core)
@@ -45,9 +46,10 @@ add_library(ldirstat_ui STATIC
     src/ui/filecategorystatsdialog.cpp
     src/ui/graphwidget.cpp
     src/ui/flamegraphwidget.cpp
+    src/ui/headertreemapwidget.cpp
     src/ui/modifiedtimehistogramdialog.cpp
+    src/ui/packedtreemapwidget.cpp
     src/ui/rangeslider.cpp
-    src/ui/treemapwidget.cpp
     src/ui/scanprogresswidget.cpp
     src/ui/welcomewidget.cpp
 )
@@ -133,6 +135,16 @@ if(BUILD_TESTING)
     target_include_directories(flamegraph_tests PRIVATE third_party)
     target_link_libraries(flamegraph_tests PRIVATE ldirstat_core)
     add_test(NAME flamegraph_tests COMMAND flamegraph_tests)
+
+    add_executable(packedtreemap_tests tests/packedtreemap_tests.cpp)
+    target_include_directories(packedtreemap_tests PRIVATE third_party)
+    target_link_libraries(packedtreemap_tests PRIVATE ldirstat_core)
+    add_test(NAME packedtreemap_tests COMMAND packedtreemap_tests)
+
+    add_executable(headertreemap_tests tests/headertreemap_tests.cpp)
+    target_include_directories(headertreemap_tests PRIVATE third_party)
+    target_link_libraries(headertreemap_tests PRIVATE ldirstat_core)
+    add_test(NAME headertreemap_tests COMMAND headertreemap_tests)
 
     add_executable(scanner_tests tests/scanner_tests.cpp)
     target_include_directories(scanner_tests PRIVATE third_party)
