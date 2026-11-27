@@ -12,6 +12,7 @@
 #include <linux/stat.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <thread>
 #include <unistd.h>
 
 namespace ldirstat {
@@ -28,7 +29,6 @@ struct linux_dirent64 {
 
 constexpr size_t kGetdentsBufSize = 32768;
 constexpr size_t kInitialPathBufSize = 4096;
-constexpr size_t kDirQueueCompactThreshold = 4096;
 
 bool isDotOrDotdot(const char *name) {
     return name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0'));
@@ -116,11 +116,17 @@ Scanner::Scanner(DirEntryStore &entryStore, NameStore &nameStore)
     : entryStore_(entryStore),
       nameStore_(nameStore) {}
 
-Scanner::~Scanner() {
-    stop();
-    for (auto &t : threads_)
-        if (t.joinable()) t.join();
-}
+// Worker threads never outlive the scan(), continueScan() or sortBySize() call
+// that started them, so there is nothing to join here. Destroying a Scanner
+// while another thread is still inside one of those calls is not supported;
+// MainWindow waits for its scan thread before its members are destroyed.
+Scanner::~Scanner() = default;
+
+Scanner::WorkerCtx::WorkerCtx(DirEntryStore::AppendCursor entries, NameStore::AppendCursor names)
+    : getdentsBuf(kGetdentsBufSize),
+      pathBuf(kInitialPathBufSize),
+      entryCursor(entries),
+      nameCursor(names) {}
 
 EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     assert(workerCount > 0);
@@ -139,10 +145,10 @@ EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     root.type = EntryType::Directory;
     root.name = nameStore_.add(nameCursor, rootPath);
     root.setCacheSubtree(pathContainsCacheComponent(rootPath.c_str()));
-    dirQueue_.push_back(rootRef);
     scanRoot_ = rootRef;
 
-    runScanWorkers(workerCount, {entryCursor}, {nameCursor});
+    // The first worker keeps appending to the pages that hold the root entry.
+    runScanWorkers(rootRef, workerCount, {entryCursor}, {nameCursor});
 
     return rootRef;
 }
@@ -177,10 +183,11 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
     rootEntry.childCount = 0;
     rootEntry.setCacheSubtree(pathContainsCacheComponent(pathBuf.data()));
 
-    dirQueue_.push_back(root);
     scanRoot_ = root;
 
-    runScanWorkers(workerCount,
+    // Fill partly used pages from earlier scans before allocating new ones.
+    runScanWorkers(root,
+                   workerCount,
                    entryStore_.reusableAppendCursors(static_cast<size_t>(workerCount)),
                    nameStore_.reusableAppendCursors(static_cast<size_t>(workerCount)));
     propagate(root, false);
@@ -221,8 +228,10 @@ void Scanner::revertContinueScan(EntryRef root) {
 }
 
 void Scanner::stop() {
+    // Workers poll stop_ between directories (DirWorkQueue::take()), between
+    // getdents batches (scanDir()) and between directories in sortBySize().
     stop_.store(true, std::memory_order_relaxed);
-    cv_.notify_all();
+    queue_.wakeAll();
 }
 
 void Scanner::propagate(EntryRef root, bool includeAncestors) {
@@ -274,28 +283,6 @@ void Scanner::propagate(EntryRef root, bool includeAncestors) {
     }
 }
 
-std::optional<EntryRef> Scanner::takeWork() {
-    std::unique_lock lock(mutex_);
-    while (true) {
-        if (stop_.load(std::memory_order_relaxed)) return std::nullopt;
-        if (dirQueueNext_ < dirQueue_.size()) {
-            EntryRef ref = dirQueue_[dirQueueNext_++];
-            compactDirQueueLocked();
-            ++activeWorkers_;
-            return ref;
-        }
-        if (activeWorkers_ == 0) return std::nullopt; // all done
-        cv_.wait(lock);
-    }
-}
-
-void Scanner::returnWork(const std::vector<EntryRef> &subdirs) {
-    std::lock_guard lock(mutex_);
-    dirQueue_.insert(dirQueue_.end(), subdirs.begin(), subdirs.end());
-    --activeWorkers_;
-    cv_.notify_all();
-}
-
 void Scanner::buildPath(EntryRef ref, std::vector<char> &pathBuf) {
     // avoid memory allocation per directory path creation, use scratch buffer
     // kind of useless optimization, but still worth around 2%-5%
@@ -329,61 +316,43 @@ void Scanner::buildPath(EntryRef ref, std::vector<char> &pathBuf) {
     pathBuf[pos] = '\0';
 }
 
-void Scanner::compactDirQueueLocked() {
-    if (dirQueueNext_ == 0) return;
-    if (dirQueueNext_ == dirQueue_.size()) {
-        dirQueue_.clear();
-        dirQueueNext_ = 0;
-        return;
-    }
-
-    if (dirQueueNext_ < kDirQueueCompactThreshold && dirQueueNext_ * 2 < dirQueue_.size()) return;
-
-    dirQueue_.erase(dirQueue_.begin(), dirQueue_.begin() + static_cast<std::ptrdiff_t>(dirQueueNext_));
-    dirQueueNext_ = 0;
-}
-
 void Scanner::resetRuntimeState() {
     stop_.store(false, std::memory_order_relaxed);
     filesScanned_.store(0, std::memory_order_relaxed);
     dirsScanned_.store(0, std::memory_order_relaxed);
-
-    std::lock_guard lock(mutex_);
-    dirQueue_.clear();
-    dirQueueNext_ = 0;
     scanRoot_ = kNoEntry;
-    activeWorkers_ = 0;
 }
 
-void Scanner::runScanWorkers(int workerCount,
-                             std::vector<DirEntryStore::AppendCursor> entrySeeds,
-                             std::vector<NameStore::AppendCursor> nameSeeds) {
-    threads_.reserve(workerCount);
-    for (int i = 0; i < workerCount; ++i) {
-        const DirEntryStore::AppendCursor entrySeed =
-            i < static_cast<int>(entrySeeds.size()) ? entrySeeds[i] : DirEntryStore::AppendCursor{};
-        const NameStore::AppendCursor nameSeed =
-            i < static_cast<int>(nameSeeds.size()) ? nameSeeds[i] : NameStore::AppendCursor{};
+// Scans the tree below `root` and returns once every directory is done or
+// stop() was called. Worker i appends to entryCursors[i] / nameCursors[i];
+// workers beyond the end of either vector get freshly allocated pages.
+void Scanner::runScanWorkers(EntryRef root,
+                             int workerCount,
+                             std::vector<DirEntryStore::AppendCursor> entryCursors,
+                             std::vector<NameStore::AppendCursor> nameCursors) {
+    const auto count = static_cast<size_t>(workerCount);
+    while (entryCursors.size() < count)
+        entryCursors.push_back(entryStore_.allocateAppendCursor());
+    while (nameCursors.size() < count)
+        nameCursors.push_back(nameStore_.allocateAppendCursor());
 
-        threads_.emplace_back([this, entrySeed, nameSeed] {
-            WorkerCtx ctx;
-            ctx.getdentsBuf.resize(kGetdentsBufSize);
-            ctx.pathBuf.resize(kInitialPathBufSize);
-            ctx.entryCursor = entrySeed.page != nullptr ? entrySeed : entryStore_.allocateAppendCursor();
-            ctx.nameCursor = nameSeed.page != nullptr ? nameSeed : nameStore_.allocateAppendCursor();
+    queue_.reset(root);
+
+    std::vector<std::jthread> workers;
+    workers.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        workers.emplace_back([this, entryCursor = entryCursors[i], nameCursor = nameCursors[i]] {
+            WorkerCtx ctx(entryCursor, nameCursor);
             workerLoop(ctx);
         });
     }
-
-    for (auto &t : threads_)
-        t.join();
-    threads_.clear();
+    // Each std::jthread joins when `workers` goes out of scope.
 }
 
 void Scanner::workerLoop(WorkerCtx &ctx) {
-    while (auto ref = takeWork()) {
-        scanDir(*ref, ctx);
-        returnWork(ctx.subdirBatch);
+    while (const std::optional<EntryRef> dir = queue_.take()) {
+        scanDir(*dir, ctx);
+        queue_.finish(ctx.subdirBatch);
         ctx.subdirBatch.clear();
     }
 }
@@ -533,26 +502,25 @@ void Scanner::sortBySize(int workerCount) {
     traverseDirectoryTree(entryStore_, sortRoot, [&sortTargets](EntryRef dirRef) { sortTargets.push_back(dirRef); });
     if (sortTargets.empty()) return;
 
-    const size_t activeWorkers = std::min(static_cast<size_t>(workerCount), sortTargets.size());
+    // Static slices: thread i sorts sortTargets[n * i / threadCount, n * (i + 1) / threadCount).
+    const size_t threadCount = std::min(static_cast<size_t>(workerCount), sortTargets.size());
 
-    auto sortWorker = [this, &sortTargets](size_t start, size_t end) {
+    auto sortSlice = [this, &sortTargets](size_t begin, size_t end) {
         std::vector<SortEntry> scratch;
-        for (size_t i = start; i < end; ++i) {
+        for (size_t i = begin; i < end; ++i) {
             if (stop_.load(std::memory_order_relaxed)) return;
             sortDirectoryChildren(sortTargets[i], scratch);
         }
     };
 
-    threads_.reserve(activeWorkers);
-    for (size_t i = 0; i < activeWorkers; ++i) {
-        const size_t start = sortTargets.size() * i / activeWorkers;
-        const size_t end = sortTargets.size() * (i + 1) / activeWorkers;
-        threads_.emplace_back(sortWorker, start, end);
+    std::vector<std::jthread> workers;
+    workers.reserve(threadCount);
+    for (size_t i = 0; i < threadCount; ++i) {
+        const size_t begin = sortTargets.size() * i / threadCount;
+        const size_t end = sortTargets.size() * (i + 1) / threadCount;
+        workers.emplace_back(sortSlice, begin, end);
     }
-
-    for (auto &t : threads_)
-        t.join();
-    threads_.clear();
+    // Each std::jthread joins when `workers` goes out of scope.
 }
 
 } // namespace ldirstat

@@ -139,6 +139,11 @@ if(BUILD_TESTING)
     target_link_libraries(scanner_tests PRIVATE ldirstat_core)
     add_test(NAME scanner_tests COMMAND scanner_tests)
 
+    add_executable(dirworkqueue_tests tests/dirworkqueue_tests.cpp)
+    target_include_directories(dirworkqueue_tests PRIVATE third_party)
+    target_link_libraries(dirworkqueue_tests PRIVATE ldirstat_core)
+    add_test(NAME dirworkqueue_tests COMMAND dirworkqueue_tests)
+
     add_executable(modifiedtimehistogram_tests tests/modifiedtimehistogram_tests.cpp)
     target_include_directories(modifiedtimehistogram_tests PRIVATE third_party)
     target_link_libraries(modifiedtimehistogram_tests PRIVATE ldirstat_core)

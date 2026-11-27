@@ -55,7 +55,7 @@ public:
 
     // Returns up to maxCount non-full pages as append cursors. Call this
     // before launching workers, while page allocation is still single-threaded.
-    // Pages with 15% or less free space are skipped so startup seeding only
+    // Pages with 5% or less free space are skipped so startup seeding only
     // reuses pages that still have meaningful headroom.
     std::vector<AppendCursor> reusableAppendCursors(size_t maxCount) {
         std::vector<AppendCursor> cursors;

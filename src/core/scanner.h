@@ -1,21 +1,21 @@
 #pragma once
 
 #include <atomic>
-#include <condition_variable>
-#include <mutex>
-#include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
+#include <sys/types.h>
+
 #include "direntrystore.h"
+#include "dirworkqueue.h"
 #include "namestore.h"
 
 namespace ldirstat {
 
 // Multi-threaded directory scanner using SYS_getdents64.
-// Workers grab directories from a shared queue, enumerate entries,
-// and push discovered subdirs back as a batch.
+// Workers take directories from a shared DirWorkQueue, enumerate entries,
+// and push discovered subdirs back as a batch. Worker threads are started
+// and joined inside each scan(), continueScan() and sortBySize() call.
 class Scanner {
 public:
     Scanner(DirEntryStore &entryStore, NameStore &nameStore);
@@ -49,7 +49,10 @@ private:
         EntryRef ref;
     };
 
+    // Per-worker scratch state, reused for every directory the worker scans.
     struct WorkerCtx {
+        WorkerCtx(DirEntryStore::AppendCursor entries, NameStore::AppendCursor names);
+
         std::vector<char> getdentsBuf;
         std::vector<EntryRef> subdirBatch;
         std::vector<char> pathBuf;
@@ -57,34 +60,27 @@ private:
         NameStore::AppendCursor nameCursor;
     };
 
-    std::optional<EntryRef> takeWork();
-    void returnWork(const std::vector<EntryRef> &subdirs);
+    void runScanWorkers(EntryRef root,
+                        int workerCount,
+                        std::vector<DirEntryStore::AppendCursor> entryCursors,
+                        std::vector<NameStore::AppendCursor> nameCursors);
     void workerLoop(WorkerCtx &ctx);
     void scanDir(EntryRef dirRef, WorkerCtx &ctx);
     void buildPath(EntryRef ref, std::vector<char> &pathBuf);
-    void compactDirQueueLocked();
     void resetRuntimeState();
-    void runScanWorkers(int workerCount,
-                        std::vector<DirEntryStore::AppendCursor> entrySeeds = {},
-                        std::vector<NameStore::AppendCursor> nameSeeds = {});
     void sortDirectoryChildren(EntryRef dirRef, std::vector<SortEntry> &scratch);
 
     DirEntryStore &entryStore_;
     NameStore &nameStore_;
 
     dev_t rootDev_ = 0;
-
-    std::mutex mutex_;
-    std::condition_variable cv_;
-    std::vector<EntryRef> dirQueue_;
-    size_t dirQueueNext_ = 0;
     EntryRef scanRoot_ = kNoEntry;
-    int activeWorkers_ = 0;
+
     std::atomic<bool> stop_{false};
     std::atomic<uint64_t> filesScanned_{0};
     std::atomic<uint64_t> dirsScanned_{0};
 
-    std::vector<std::thread> threads_;
+    DirWorkQueue queue_{stop_};
 };
 
 } // namespace ldirstat

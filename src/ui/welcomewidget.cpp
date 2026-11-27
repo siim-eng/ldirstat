@@ -148,7 +148,7 @@ void WelcomeWidget::populate(const FileSystems &fileSystems) {
         delete item;
     }
 
-    constexpr int columns = 3;
+    constexpr int kColumnCount = 3;
     int idx = 0;
 
     QFont fsFont = font();
@@ -203,7 +203,7 @@ void WelcomeWidget::populate(const FileSystems &fileSystems) {
             connect(btn, &QPushButton::clicked, this, [this, devicePath]() { emit mountAndScanRequested(devicePath); });
         }
 
-        fsLayout_->addWidget(btn, idx / columns, idx % columns);
+        fsLayout_->addWidget(btn, idx / kColumnCount, idx % kColumnCount);
         ++idx;
     }
 
