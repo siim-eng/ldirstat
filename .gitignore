@@ -53,3 +53,6 @@ compile_commands.json
 
 # Local AppImage builds (releases are built by GitHub Actions)
 appimage/
+
+# Local research notes
+docs/research/

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <cstddef>
 #include <cstring>
 #include <dirent.h>
@@ -12,6 +13,7 @@
 #include <linux/stat.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/sysmacros.h>
 #include <thread>
 #include <unistd.h>
 
@@ -40,8 +42,52 @@ uint16_t clampHardLinks(nlink_t links) {
     return static_cast<uint16_t>(links);
 }
 
-bool isExecutableByMode(const struct stat &st) {
-    return S_ISREG(st.st_mode) && (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+bool isExecutableByMode(mode_t mode) {
+    return S_ISREG(mode) && (mode & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0;
+}
+
+// Metadata the scanner needs per entry, filled by a single statx() call where available.
+struct EntryStat {
+    uint64_t size;
+    uint64_t blocks;
+    dev_t dev;
+    mode_t mode;
+    nlink_t nlink;
+    int64_t mtimeSeconds;
+    int64_t btimeSeconds; // 0 when the filesystem doesn't report birth time
+};
+
+bool statEntryFallback(int dirFd, const char *name, EntryStat &out) {
+    struct stat st{};
+    if (fstatat(dirFd, name, &st, AT_SYMLINK_NOFOLLOW) != 0) return false;
+    out.size = static_cast<uint64_t>(st.st_size);
+    out.blocks = static_cast<uint64_t>(st.st_blocks);
+    out.dev = st.st_dev;
+    out.mode = st.st_mode;
+    out.nlink = st.st_nlink;
+    out.mtimeSeconds = static_cast<int64_t>(st.st_mtim.tv_sec);
+    out.btimeSeconds = 0;
+    return true;
+}
+
+bool statEntry(int dirFd, const char *name, EntryStat &out) {
+#ifdef SYS_statx
+    // AT_NO_AUTOMOUNT matches fstatat(), which the kernel always runs without triggering automounts.
+    struct statx stx{};
+    if (syscall(SYS_statx, dirFd, name, AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT, STATX_BASIC_STATS | STATX_BTIME, &stx) == 0) {
+        out.size = stx.stx_size;
+        out.blocks = stx.stx_blocks;
+        out.dev = makedev(stx.stx_dev_major, stx.stx_dev_minor);
+        out.mode = stx.stx_mode;
+        out.nlink = stx.stx_nlink;
+        out.mtimeSeconds = stx.stx_mtime.tv_sec;
+        out.btimeSeconds = (stx.stx_mask & STATX_BTIME) != 0 ? stx.stx_btime.tv_sec : 0;
+        return true;
+    }
+    // statx missing (kernel < 4.11) or blocked by a seccomp filter: use the classic call.
+    if (errno != ENOSYS && errno != EPERM) return false;
+#endif
+    return statEntryFallback(dirFd, name, out);
 }
 
 bool isCachePathComponent(const char *component, size_t len) {
@@ -66,19 +112,9 @@ bool pathContainsCacheComponent(const char *path) {
     return false;
 }
 
-int64_t birthTimeSeconds(int dirFd, const char *name) {
-#ifdef SYS_statx
-    struct statx stx{};
-    if (syscall(SYS_statx, dirFd, name, AT_SYMLINK_NOFOLLOW, STATX_BTIME, &stx) == 0 && (stx.stx_mask & STATX_BTIME) != 0) {
-        return static_cast<int64_t>(stx.stx_btime.tv_sec);
-    }
-#endif
-    return 0;
-}
-
-uint32_t packModifiedMinutes(const struct stat &st, int64_t birthSeconds = 0) {
-    int64_t seconds = static_cast<int64_t>(st.st_mtim.tv_sec);
-    if (birthSeconds > seconds) seconds = birthSeconds;
+uint32_t packModifiedMinutes(const EntryStat &st) {
+    int64_t seconds = st.mtimeSeconds;
+    if (st.btimeSeconds > seconds) seconds = st.btimeSeconds;
 
     if (seconds <= 0) return 0;
 
@@ -391,15 +427,15 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             entry.parent = dirRef;
 
             // Stat for size, and same-filesystem filtering.
-            struct stat st{};
-            bool haveStat = fstatat(fd, d->d_name, &st, AT_SYMLINK_NOFOLLOW) == 0;
+            EntryStat st{};
+            bool haveStat = statEntry(fd, d->d_name, st);
 
             if (haveStat) {
-                entry.size = static_cast<uint64_t>(st.st_size);
+                entry.size = st.size;
 
-                allocatedBytes = static_cast<uint64_t>(st.st_blocks) * 512;
-                if (S_ISREG(st.st_mode)) {
-                    const uint64_t linkCount = static_cast<uint64_t>(st.st_nlink);
+                allocatedBytes = st.blocks * 512;
+                if (S_ISREG(st.mode)) {
+                    const uint64_t linkCount = static_cast<uint64_t>(st.nlink);
                     if (linkCount > 1) allocatedBytes /= linkCount;
                 }
             }
@@ -412,11 +448,11 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             default:
                 if (!haveStat) {
                     entry.type = EntryType::Other;
-                } else if (S_ISDIR(st.st_mode)) {
+                } else if (S_ISDIR(st.mode)) {
                     entry.type = EntryType::Directory;
-                } else if (S_ISREG(st.st_mode)) {
+                } else if (S_ISREG(st.mode)) {
                     entry.type = EntryType::File;
-                } else if (S_ISLNK(st.st_mode)) {
+                } else if (S_ISLNK(st.mode)) {
                     entry.type = EntryType::Symlink;
                 } else {
                     entry.type = EntryType::Other;
@@ -424,7 +460,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
                 break;
             }
 
-            if (entry.type == EntryType::Directory && haveStat && st.st_dev != rootDev_) {
+            if (entry.type == EntryType::Directory && haveStat && st.dev != rootDev_) {
                 entry.type = EntryType::MountPoint;
                 entry.size = 0;
                 allocatedBytes = 0;
@@ -434,11 +470,11 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
 
             if (entry.isFile()) {
                 FileType fileType = FileCategorizer::categorize(nameView);
-                if (fileType == FileType::Unknown && haveStat && isExecutableByMode(st)) fileType = FileType::Executable;
+                if (fileType == FileType::Unknown && haveStat && isExecutableByMode(st.mode)) fileType = FileType::Executable;
                 if (fileType == FileType::Unknown && cacheSubtree) fileType = FileType::Cache;
                 entry.fileType = fileType;
-                entry.hardLinks = haveStat ? clampHardLinks(st.st_nlink) : 0;
-                entry.setModifiedMinutes(haveStat ? packModifiedMinutes(st, birthTimeSeconds(fd, d->d_name)) : 0);
+                entry.hardLinks = haveStat ? clampHardLinks(st.nlink) : 0;
+                entry.setModifiedMinutes(haveStat ? packModifiedMinutes(st) : 0);
             }
 
             // Accumulate counts and totals.
@@ -458,7 +494,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             ++parent.childCount;
 
             // Queue subdirectories (same filesystem only).
-            if (entry.type == EntryType::Directory && haveStat && st.st_dev == rootDev_) {
+            if (entry.type == EntryType::Directory && haveStat && st.dev == rootDev_) {
                 ctx.subdirBatch.push_back(ref);
             }
         }
