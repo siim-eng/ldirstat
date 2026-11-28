@@ -19,6 +19,19 @@ Below that is a list of available filesystems and devices.
 
 ![Welcome screen](images/welcome.png)
 
+## Starting from the Command Line
+
+```
+LDirStat [OPTION]... [directory]
+```
+
+- `LDirStat ~/Downloads` opens the window and starts scanning that directory right away
+- Relative paths and symlinks are resolved to the real absolute path before scanning
+- If the path does not exist or is not a directory, LDirStat prints an error and exits without opening a window
+- `--help` shows usage and `--version` shows the version
+
+File managers can also offer **Open With LDirStat** for folders, which starts a scan of the chosen folder.
+
 ## Scanning
 
 After you choose a location, LDirStat switches to a scan progress view.
@@ -138,6 +151,8 @@ Notes:
 - **Copy to Clipboard** copies the selected item path
 - The breadcrumb copy button copies the current directory path instead
 - **Open Terminal** opens a terminal in the selected directory, or in the parent folder if you selected a file
+- **Open Terminal** uses `$TERMINAL` if set, then `xdg-terminal-exec`, then the first of `konsole`,
+  `gnome-terminal`, `xfce4-terminal` or `xterm` that is installed. If none can be started, a warning is shown
 
 ## Keyboard Shortcuts
 
@@ -151,7 +166,8 @@ Notes:
 | Ctrl+C | Copy the selected item path |
 | Delete | Move selected items to trash |
 | Ctrl+Delete | Permanently delete selected items |
-| Escape | Close any window on the app, including main window |
+| Escape | Close a dialog (does not close the main window) |
+| Ctrl+Q | Quit LDirStat (stops a scan in progress) |
 
 ## Tips
 

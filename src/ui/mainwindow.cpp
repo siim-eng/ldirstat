@@ -82,7 +82,10 @@ MainWindow::~MainWindow() {
     }
 
     if (scanThread_) {
-        scanThread_->wait();
+        // Retry because scan startup can clear an early stop request.
+        do {
+            scanner_.stop();
+        } while (!scanThread_->wait(50));
         delete scanThread_;
     }
 }
@@ -136,6 +139,18 @@ void MainWindow::openEntry(EntryRef ref) {
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
+namespace {
+
+QStringList terminalArguments(const QString &program, const QString &dir) {
+    const QString name = QFileInfo(program).fileName();
+    if (name == QLatin1String("konsole")) return {QStringLiteral("--workdir"), dir};
+    if (name == QLatin1String("gnome-terminal") || name == QLatin1String("xfce4-terminal"))
+        return {QStringLiteral("--working-directory=") + dir};
+    return {};
+}
+
+} // namespace
+
 void MainWindow::openEntryTerminal(EntryRef ref) {
     if (!ref.valid() || !isGraphPageVisible()) return;
 
@@ -144,17 +159,23 @@ void MainWindow::openEntryTerminal(EntryRef ref) {
     if (path.isEmpty()) return;
 
     const QString dir = entry.isDir() ? path : QFileInfo(path).path();
-    QString terminal = QString::fromLocal8Bit(qgetenv("TERMINAL"));
-    if (terminal.isEmpty()) {
-        for (const char *candidate : {"konsole", "gnome-terminal", "xfce4-terminal", "xterm"}) {
-            if (!QStandardPaths::findExecutable(candidate).isEmpty()) {
-                terminal = candidate;
-                break;
-            }
-        }
+    QStringList candidates;
+    const QString envTerminal = QString::fromLocal8Bit(qgetenv("TERMINAL")).trimmed();
+    if (!envTerminal.isEmpty()) candidates.push_back(envTerminal);
+    candidates << QStringLiteral("xdg-terminal-exec") << QStringLiteral("konsole") << QStringLiteral("gnome-terminal")
+               << QStringLiteral("xfce4-terminal") << QStringLiteral("xterm");
+
+    for (const QString &candidate : candidates) {
+        const QString program = QStandardPaths::findExecutable(candidate);
+        if (program.isEmpty()) continue;
+        if (QProcess::startDetached(program, terminalArguments(program, dir), dir)) return;
     }
 
-    if (!terminal.isEmpty()) QProcess::startDetached(terminal, {"--workdir", dir});
+    QMessageBox::warning(this,
+                         tr("Open Terminal"),
+                         tr("Unable to open a terminal in \"%1\".\n\nSet $TERMINAL, or install xdg-terminal-exec, "
+                            "konsole, gnome-terminal, xfce4-terminal or xterm.")
+                             .arg(dir));
 }
 
 void MainWindow::copyEntryPath(EntryRef ref) {
@@ -567,13 +588,18 @@ void MainWindow::startScan(const QString &path) {
 
     scanThread_ = QThread::create([this, scanPath, workers]() {
         EntryRef root = scanner_.scan(scanPath, workers);
-        if (root.valid()) {
+        // A stopped full scan is discarded by onScanFinished(), so skip the tree walks.
+        if (root.valid() && !scanner_.stopped()) {
             scanner_.propagate(root);
             scanner_.sortBySize(workers);
         }
         emit scanComplete(root);
     });
     scanThread_->start();
+}
+
+void MainWindow::scanDirectory(const QString &path) {
+    startScan(path);
 }
 
 void MainWindow::mountAndScan(const QString &devicePath) {

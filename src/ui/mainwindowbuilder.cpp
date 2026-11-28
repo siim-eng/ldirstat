@@ -45,11 +45,11 @@ void MainWindowBuilder::configureWindow(MainWindow *w) {
     w->setWindowTitle("LDirStat");
     w->resize(1200, 800);
 
-    auto *closeAction = new QAction(MainWindow::tr("Close"), w);
-    closeAction->setShortcut(QKeySequence(Qt::Key_Escape));
-    closeAction->setShortcutContext(Qt::WindowShortcut);
-    w->addAction(closeAction);
-    QObject::connect(closeAction, &QAction::triggered, w, &QWidget::close);
+    auto *quitAction = new QAction(MainWindow::tr("Quit"), w);
+    quitAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
+    quitAction->setShortcutContext(Qt::WindowShortcut);
+    w->addAction(quitAction);
+    QObject::connect(quitAction, &QAction::triggered, w, &QWidget::close);
 }
 
 void MainWindowBuilder::buildToolbar(MainWindow *w) {

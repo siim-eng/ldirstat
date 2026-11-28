@@ -8,6 +8,15 @@ LDirStat helps you see what is taking up space on your disk.
 
 [Download](https://github.com/siim-eng/ldirstat/releases)
 
+## Usage
+
+```bash
+LDirStat [directory]
+```
+
+Start without arguments to pick a location from the welcome screen, or pass a
+directory to scan it right away. See [App Help](docs/HELP.md) for details.
+
 ## Performance
 
 - LDirStat is built to be fast, low-latency analysis with low memory usage for exploring large directory trees.
@@ -66,5 +75,5 @@ workflow, which builds an AppImage and publishes a GitHub release.
 
 - The AppImage bundles the Qt runtime for `LDirStat` only. Benchmark tools are not included.
 - Mounting removable devices still depends on the host providing `udisksctl` from `udisks2`.
-- Opening a terminal still depends on a host terminal emulator such as `konsole`,
-  `gnome-terminal`, `xfce4-terminal`, or `xterm`.
+- Opening a terminal still depends on a host terminal emulator. LDirStat tries `$TERMINAL`,
+  then `xdg-terminal-exec`, then `konsole`, `gnome-terminal`, `xfce4-terminal`, or `xterm`.

@@ -179,6 +179,7 @@ EntryRef Scanner::scan(const std::string &rootPath, int workerCount) {
     EntryRef rootRef = entryStore_.add(entryCursor);
     DirEntry &root = entryStore_[rootRef];
     root.type = EntryType::Directory;
+    root.size = static_cast<uint64_t>(rootSt.st_blocks) * 512;
     root.name = nameStore_.add(nameCursor, rootPath);
     root.setCacheSubtree(pathContainsCacheComponent(rootPath.c_str()));
     scanRoot_ = rootRef;
@@ -212,7 +213,7 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
 
     DirEntry &rootEntry = entryStore_[root];
     rootEntry.type = EntryType::Directory;
-    rootEntry.size = 0;
+    rootEntry.size = static_cast<uint64_t>(rootSt.st_blocks) * 512;
     rootEntry.fileCount = 0;
     rootEntry.dirCount = 0;
     rootEntry.firstChild = kNoEntry;
@@ -226,6 +227,8 @@ bool Scanner::continueScan(EntryRef root, int workerCount) {
                    workerCount,
                    entryStore_.reusableAppendCursors(static_cast<size_t>(workerCount)),
                    nameStore_.reusableAppendCursors(static_cast<size_t>(workerCount)));
+    // A stopped continuation is reverted by the caller, so skip the tree walks.
+    if (stopped()) return false;
     propagate(root, false);
     sortBySize(workerCount);
     return !stopped();
@@ -404,7 +407,6 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
     uint32_t files = 0;
     uint32_t dirs = 0;
     uint64_t totalAllocatedBytes = 0;
-    uint64_t allocatedBytes = 0;
 
     for (;;) {
         if (stop_.load(std::memory_order_relaxed)) break;
@@ -430,6 +432,7 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             EntryStat st{};
             bool haveStat = statEntry(fd, d->d_name, st);
 
+            uint64_t allocatedBytes = 0;
             if (haveStat) {
                 entry.size = st.size;
 
@@ -483,7 +486,12 @@ void Scanner::scanDir(EntryRef dirRef, WorkerCtx &ctx) {
             } else if (entry.isDir()) {
                 ++dirs;
             }
-            totalAllocatedBytes += allocatedBytes;
+            if (entry.type == EntryType::Directory) {
+                // propagate() adds these blocks to the parent with the subtree total.
+                entry.size = allocatedBytes;
+            } else {
+                totalAllocatedBytes += allocatedBytes;
+            }
 
             // Chain child into parent's child list.
             if (prevChild.valid())

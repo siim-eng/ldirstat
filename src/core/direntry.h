@@ -45,8 +45,8 @@ struct DirEntry {
     EntryType type = EntryType::File;
     uint8_t flags = 0;
 
-    // Size in bytes. For files: st_size. For directories: sum of subtree.
-    // Mount points are treated as empty directories and keep size 0.
+    // Files store apparent bytes. Directories include their own and descendants' allocated bytes,
+    // splitting regular-file allocation across hard links. Unscanned mount points store zero.
     uint64_t size = 0;
 
     // Directory/file specific payload at the same offset:
